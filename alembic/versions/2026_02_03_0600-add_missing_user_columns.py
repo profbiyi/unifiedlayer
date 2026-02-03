@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_missing_user_columns'
-down_revision: Union[str, None] = 'add_notifications_table'
+down_revision: Union[str, None] = 'add_notifications_001'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

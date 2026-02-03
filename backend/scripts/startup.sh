@@ -4,6 +4,28 @@ echo "=========================================="
 echo "Starting UnifiedLayer Backend"
 echo "=========================================="
 
+# Check if we should reset the database
+if [ "$RESET_DATABASE" = "true" ]; then
+    echo ""
+    echo "WARNING: RESET_DATABASE=true - Dropping all tables..."
+    python3 << 'EOF'
+from sqlalchemy import create_engine, text
+import os
+
+db_url = os.environ.get("DATABASE_URL")
+if db_url:
+    engine = create_engine(db_url)
+    with engine.connect() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+        conn.commit()
+    print("Database reset complete!")
+else:
+    print("ERROR: DATABASE_URL not set")
+EOF
+    echo "Tables dropped. Running fresh migrations..."
+fi
+
 echo ""
 echo "Step 1: Running database migrations..."
 cd /app
