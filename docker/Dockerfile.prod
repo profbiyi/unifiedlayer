@@ -38,6 +38,10 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Copy alembic for migrations
+COPY --chown=appuser:appuser alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser alembic /app/alembic
+
 # Copy application code
 COPY --chown=appuser:appuser backend /app/backend
 
@@ -51,5 +55,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Production command - use PORT env var if set, otherwise 8000
-CMD uvicorn backend.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Production command - run startup script
+CMD ["bash", "/app/backend/scripts/startup.sh"]
