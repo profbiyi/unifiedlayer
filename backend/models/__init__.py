@@ -52,5 +52,4 @@ __all__ = [
     "UsageRecord",
     "WebhookEvent",
     "Notification",
-    "AuditLogEntry",
 ]
