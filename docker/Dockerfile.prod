@@ -46,6 +46,10 @@ COPY --chown=appuser:appuser alembic /app/alembic
 # Copy application code
 COPY --chown=appuser:appuser backend /app/backend
 
+# Copy and make startup script executable
+COPY --chown=appuser:appuser backend/scripts/startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
+
 # Switch to non-root user
 USER appuser
 
@@ -56,5 +60,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-# Production command - use PORT env var if set, otherwise 8000
-CMD uvicorn backend.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Run startup script (migrations + seeding + uvicorn)
+CMD ["/app/startup.sh"]
