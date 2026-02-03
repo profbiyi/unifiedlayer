@@ -7,7 +7,7 @@ echo "=========================================="
 # Check if we should reset the database
 if [ "$RESET_DATABASE" = "true" ]; then
     echo ""
-    echo "WARNING: RESET_DATABASE=true - Dropping all tables..."
+    echo "WARNING: RESET_DATABASE=true - Resetting database..."
     python3 << 'EOF'
 from sqlalchemy import create_engine, text
 import os
@@ -18,32 +18,46 @@ if db_url:
     with engine.connect() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))
+        conn.execute(text("GRANT ALL ON SCHEMA public TO PUBLIC"))
         conn.commit()
-    print("Database reset complete!")
+    print("Database schema reset complete!")
 else:
     print("ERROR: DATABASE_URL not set")
 EOF
-    echo "Tables dropped. Running fresh migrations..."
 fi
 
 echo ""
-echo "Step 1: Running database migrations..."
-cd /app
-python3 -m alembic upgrade head || {
-    echo "WARNING: Migrations failed, continuing anyway..."
-}
+echo "Step 1: Creating database tables..."
+python3 << 'EOF'
+import os
+import sys
+sys.path.insert(0, '/app')
+
+from backend.database import engine, Base
+# Import all models to register them
+from backend.models import *
+
+print("Creating all tables from SQLAlchemy models...")
+Base.metadata.create_all(bind=engine)
+print("Tables created successfully!")
+EOF
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to create tables!"
+    exit 1
+fi
 
 echo ""
 echo "Step 2: Seeding RBAC roles..."
 python3 -m backend.scripts.seed_rbac || {
-    echo "WARNING: RBAC seeding skipped (may already exist)"
+    echo "WARNING: RBAC seeding had issues"
 }
 
 echo ""
 echo "Step 3: Creating/updating super admin..."
 export SUPER_ADMIN_PASSWORD="${SUPER_ADMIN_PASSWORD:-Admin123!}"
 python3 -m backend.scripts.create_super_admin --env || {
-    echo "WARNING: Super admin creation skipped"
+    echo "WARNING: Super admin creation had issues"
 }
 
 echo ""
