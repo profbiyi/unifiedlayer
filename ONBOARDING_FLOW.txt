@@ -1,0 +1,296 @@
+================================================================================
+                    DATA PLATFORM ONBOARDING FLOW
+================================================================================
+
+STEP 1: BOOTSTRAP THE PLATFORM (One-Time Setup)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  1. Run Bootstrap Script                                        │
+    │     $ ./scripts/bootstrap.sh                                    │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  2. Script Actions:                                             │
+    │     ✓ Seeds RBAC Roles (SUPER_ADMIN, ORG_ADMIN, ORG_USER)     │
+    │     ✓ Creates Super Admin User                                 │
+    │     ✓ Creates "Platform Administration" Organization          │
+    │     ✓ Assigns SUPER_ADMIN role                                 │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  3. Super Admin Created!                                        │
+    │     Email: admin@dataplatform.com (or your choice)             │
+    │     Username: superadmin (or your choice)                      │
+    │     Password: (as entered)                                     │
+    └─────────────────────────────────────────────────────────────────┘
+
+
+STEP 2: SUPER ADMIN CREATES ORGANIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  1. Super Admin Logs In                                         │
+    │     URL: http://localhost:3000/login                           │
+    │     Credentials: (super admin email/password)                  │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  2. Access Admin Dashboard                                      │
+    │     URL: http://localhost:3000/admin                           │
+    │     View: Platform stats, all organizations                    │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  3. Click "Create Organization"                                 │
+    │                                                                 │
+    │     Organization Details:                                       │
+    │     ├─ Name: "Acme Corporation"                                │
+    │     ├─ Slug: "acme-corp"                                       │
+    │     ├─ Description: "Our client"                               │
+    │     ├─ Billing Email: "billing@acme.com"                       │
+    │     └─ Subscription Plan: "professional" (5 users)             │
+    │                                                                 │
+    │     Admin User Details:                                         │
+    │     ├─ Email: "john@acme.com"                                  │
+    │     ├─ Username: "john"                                        │
+    │     ├─ Full Name: "John Doe"                                   │
+    │     └─ Password: "TempPassword123"                             │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  4. System Automatically:                                       │
+    │     ✓ Creates organization "Acme Corporation"                  │
+    │     ✓ Creates admin user "john@acme.com"                       │
+    │     ✓ Assigns ORG_ADMIN role to John                           │
+    │     ✓ Sets max_users = 5 (professional plan)                   │
+    │     ✓ Sends welcome email (if SMTP configured)                 │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  5. Share Credentials with John                                 │
+    │     Send to john@acme.com:                                     │
+    │     ├─ Login URL: http://localhost:3000/login                  │
+    │     ├─ Username: john                                          │
+    │     ├─ Password: TempPassword123                               │
+    │     └─ Note: "Please change password on first login"           │
+    └─────────────────────────────────────────────────────────────────┘
+
+
+STEP 3: ORG ADMIN INVITES TEAM MEMBERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  1. John (Org Admin) Logs In                                    │
+    │     URL: http://localhost:3000/login                           │
+    │     Email: john@acme.com                                       │
+    │     Password: TempPassword123                                  │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  2. Change Password (Required)                                  │
+    │     Settings → Profile → Change Password                       │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  3. Access Team Management                                      │
+    │     URL: http://localhost:3000/team                            │
+    │     View: Current members, pending invitations                 │
+    │     Available slots: 4/5 users (1 used, 4 remaining)           │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  4. Click "Invite User"                                         │
+    │                                                                 │
+    │     User Details:                                               │
+    │     ├─ Email: "jane@acme.com"                                  │
+    │     ├─ Username: "jane"                                        │
+    │     ├─ Full Name: "Jane Smith"                                 │
+    │     └─ Role: "ORG_USER"                                        │
+    │                                                                 │
+    │     Role Options:                                               │
+    │     • ORG_ADMIN - Full management access                       │
+    │     • ORG_USER  - View and run pipelines only                  │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  5. System Automatically:                                       │
+    │     ✓ Creates user account (inactive)                          │
+    │     ✓ Generates invitation token                               │
+    │     ✓ Sends invitation email to jane@acme.com                  │
+    │     ✓ Email contains: http://localhost:3000/accept-invitation? │
+    │                       token=abc123...                          │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  6. Jane Receives Email & Accepts                               │
+    │     ├─ Clicks invitation link                                  │
+    │     ├─ Sets her password                                       │
+    │     ├─ Account activated                                       │
+    │     └─ Can now login                                           │
+    └─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ↓
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  7. Repeat for More Users                                       │
+    │     John can invite up to 5 users total (professional plan)    │
+    │     Current: 2/5 users (John + Jane)                           │
+    │     Remaining: 3 slots                                         │
+    └─────────────────────────────────────────────────────────────────┘
+
+
+STEP 4: TEAM MEMBERS USE THE PLATFORM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    ┌─────────────────────────────────────────────────────────────────┐
+    │  Jane (ORG_USER) Workflow:                                      │
+    │                                                                 │
+    │  1. Login → http://localhost:3000/login                        │
+    │                                                                 │
+    │  2. Create Data Source                                          │
+    │     /sources → Add Source → PostgreSQL/MySQL/API/etc          │
+    │                                                                 │
+    │  3. Create Destination                                          │
+    │     /destinations → Add Destination → DuckDB/BigQuery/etc     │
+    │                                                                 │
+    │  4. Create Pipeline                                             │
+    │     /pipelines → Create Pipeline → Link Source to Destination  │
+    │                                                                 │
+    │  5. Run Pipeline                                                │
+    │     Click "Run Now" → Monitor progress → View results          │
+    │                                                                 │
+    │  6. View Metrics                                                │
+    │     /overview → Success rate, duration, records processed      │
+    │                                                                 │
+    │  7. View Lineage                                                │
+    │     /lineage → Visual graph of data flows                      │
+    └─────────────────────────────────────────────────────────────────┘
+
+
+SUBSCRIPTION PLAN LIMITS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    ┌───────────────┬──────────┬────────────────┬──────────────┐
+    │ Plan          │ Max Users│ Pipelines      │ Features     │
+    ├───────────────┼──────────┼────────────────┼──────────────┤
+    │ Starter       │ 3        │ Unlimited      │ Basic        │
+    │ Professional  │ 5        │ Unlimited      │ + Metrics    │
+    │ Enterprise    │ Unlimited│ Unlimited      │ + Everything │
+    └───────────────┴──────────┴────────────────┴──────────────┘
+
+    Note: Only SUPER_ADMIN can upgrade/downgrade plans
+
+
+USER ROLES & PERMISSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    SUPER_ADMIN (Platform Owner)
+    ├─ Create/manage ALL organizations
+    ├─ Upgrade/downgrade subscription plans
+    ├─ View platform-wide statistics
+    ├─ Disable/enable organizations
+    └─ Access EVERYTHING
+
+    ORG_ADMIN (Organization Administrator)
+    ├─ Invite/remove team members
+    ├─ Manage team roles
+    ├─ Create/edit/delete pipelines
+    ├─ Create/edit/delete sources & destinations
+    ├─ Run pipelines
+    ├─ View all metrics & logs
+    └─ Manage organization settings
+
+    ORG_USER (Team Member)
+    ├─ View pipelines, sources, destinations
+    ├─ Run pipelines
+    ├─ View metrics & dashboards
+    └─ Cannot invite users or manage settings
+
+
+KEY URLS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    Authentication
+    ├─ Login:              http://localhost:3000/login
+    ├─ Forgot Password:    http://localhost:3000/forgot-password
+    └─ Reset Password:     http://localhost:3000/reset-password
+
+    Super Admin
+    ├─ Admin Dashboard:    http://localhost:3000/admin
+    └─ Platform Stats:     http://localhost:8000/admin/stats
+
+    Organization Admin
+    ├─ Team Management:    http://localhost:3000/team
+    ├─ Invitations:        http://localhost:3000/team/invitations
+    └─ Activity Logs:      http://localhost:3000/team/activity
+
+    General Users
+    ├─ Overview:           http://localhost:3000/overview
+    ├─ Pipelines:          http://localhost:3000/pipelines
+    ├─ Sources:            http://localhost:3000/sources
+    ├─ Destinations:       http://localhost:3000/destinations
+    ├─ Runs:               http://localhost:3000/runs
+    ├─ Lineage:            http://localhost:3000/lineage
+    └─ Settings:           http://localhost:3000/settings
+
+    API Documentation
+    ├─ Swagger UI:         http://localhost:8000/docs
+    └─ ReDoc:              http://localhost:8000/redoc
+
+
+COMMON COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    Bootstrap Platform:
+    $ ./scripts/bootstrap.sh
+
+    Create Super Admin (Manual):
+    $ python -m backend.scripts.create_super_admin
+
+    Seed RBAC Roles:
+    $ python -m backend.scripts.seed_rbac
+
+    Start Services:
+    $ cd docker && docker-compose up -d
+
+    View Logs:
+    $ docker logs data-platform-backend -f
+    $ docker logs data-platform-frontend -f
+    $ docker logs data-platform-db -f
+
+    Database Access:
+    $ docker exec -it data-platform-db psql -U dataplatform -d dataplatform
+
+
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    Problem: "Super admin role not found in database"
+    Solution: Run seed_rbac.py first
+    $ python -m backend.scripts.seed_rbac
+
+    Problem: "User with email already exists"
+    Solution: Use different email or reset password
+
+    Problem: "Cannot invite more users - plan limit reached"
+    Solution: Contact Super Admin to upgrade plan
+
+    Problem: "Database connection failed"
+    Solution: Check if database is running
+    $ docker ps | grep data-platform-db
+
+
+================================================================================
+For detailed documentation, see: ONBOARDING.md and QUICKSTART.md
+================================================================================

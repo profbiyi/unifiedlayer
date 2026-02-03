@@ -1,0 +1,45 @@
+{
+  "dashboard": {
+    "title": "Data Platform Overview",
+    "tags": ["data-platform"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "title": "HTTP Request Rate",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "title": "Request Duration",
+        "targets": [
+          {
+            "expr": "http_request_duration_seconds"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "title": "Pipeline Runs",
+        "targets": [
+          {
+            "expr": "pipeline_runs_total"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "title": "Data Rows Processed",
+        "targets": [
+          {
+            "expr": "data_rows_processed_total"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      }
+    ]
+  }
+}

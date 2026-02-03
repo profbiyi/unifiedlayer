@@ -1,0 +1,378 @@
+"use client";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Database, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCreateSource } from "@/hooks/queries/useSources";
+import { useCurrentUser } from "@/hooks/queries/useAuth";
+import toast from "react-hot-toast";
+
+const SOURCE_TYPES = [
+  { value: "postgres", label: "PostgreSQL", icon: "🐘" },
+  { value: "mysql", label: "MySQL", icon: "🐬" },
+  { value: "mongodb", label: "MongoDB", icon: "🍃" },
+  { value: "mpesa", label: "M-Pesa API", icon: "💰" },
+  { value: "rest_api", label: "REST API", icon: "🌐" },
+  { value: "s3", label: "Amazon S3", icon: "☁️" },
+  { value: "gcs", label: "Google Cloud Storage", icon: "☁️" },
+  { value: "shopify", label: "Shopify", icon: "🛍️" },
+  { value: "stripe", label: "Stripe", icon: "💳" },
+];
+
+export default function NewSourcePage() {
+  const router = useRouter();
+  const [selectedType, setSelectedType] = useState("");
+  const createSource = useCreateSource();
+  const { data: currentUser } = useCurrentUser();
+  const { register, handleSubmit, formState: { errors } } = useForm();
+
+  const onSubmit = async (data: any) => {
+    if (!selectedType) {
+      toast.error("Please select a source type");
+      return;
+    }
+
+    if (!currentUser) {
+      toast.error("User not authenticated");
+      return;
+    }
+
+    // Build config object based on source type
+    const config: any = {};
+
+    if (selectedType === "postgres" || selectedType === "mysql") {
+      config.host = data.host;
+      config.port = parseInt(data.port);
+      config.database = data.database;
+      config.username = data.username;
+      config.password = data.password;
+    } else if (selectedType === "mongodb") {
+      config.connection_string = data.connection_string;
+    } else if (selectedType === "mpesa") {
+      config.consumer_key = data.consumer_key;
+      config.consumer_secret = data.consumer_secret;
+      config.environment = data.environment;
+    } else if (selectedType === "rest_api") {
+      config.base_url = data.base_url;
+      config.api_key = data.api_key;
+    } else if (selectedType === "s3") {
+      config.bucket = data.bucket;
+      config.access_key = data.access_key;
+      config.secret_key = data.secret_key;
+      config.region = data.region;
+    }
+
+    createSource.mutate({
+      name: data.name,
+      description: data.description || "",
+      source_type: selectedType,
+      config: config,
+      organization_id: currentUser.organization_id,
+    } as any, {
+      onSuccess: () => {
+        router.push("/sources");
+      },
+    });
+  };
+
+  const renderConfigFields = () => {
+    if (!selectedType) return null;
+
+    if (selectedType === "postgres" || selectedType === "mysql") {
+      return (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="host">Host *</Label>
+              <Input
+                id="host"
+                placeholder="localhost"
+                {...register("host", { required: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="port">Port *</Label>
+              <Input
+                id="port"
+                type="number"
+                placeholder={selectedType === "postgres" ? "5432" : "3306"}
+                {...register("port", { required: true })}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="database">Database *</Label>
+            <Input
+              id="database"
+              placeholder="my_database"
+              {...register("database", { required: true })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username *</Label>
+              <Input
+                id="username"
+                placeholder="postgres"
+                {...register("username", { required: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password *</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                {...register("password", { required: true })}
+              />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (selectedType === "mongodb") {
+      return (
+        <div className="space-y-2">
+          <Label htmlFor="connection_string">Connection String *</Label>
+          <Input
+            id="connection_string"
+            placeholder="mongodb://username:password@host:port/database"
+            {...register("connection_string", { required: true })}
+          />
+        </div>
+      );
+    }
+
+    if (selectedType === "mpesa") {
+      return (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="consumer_key">Consumer Key *</Label>
+            <Input
+              id="consumer_key"
+              placeholder="Your M-Pesa consumer key"
+              {...register("consumer_key", { required: true })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="consumer_secret">Consumer Secret *</Label>
+            <Input
+              id="consumer_secret"
+              type="password"
+              placeholder="Your M-Pesa consumer secret"
+              {...register("consumer_secret", { required: true })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="environment">Environment *</Label>
+            <Select onValueChange={(value) => register("environment").onChange({ target: { value } })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select environment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sandbox">Sandbox</SelectItem>
+                <SelectItem value="production">Production</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      );
+    }
+
+    if (selectedType === "rest_api") {
+      return (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="base_url">Base URL *</Label>
+            <Input
+              id="base_url"
+              placeholder="https://api.example.com"
+              {...register("base_url", { required: true })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="api_key">API Key</Label>
+            <Input
+              id="api_key"
+              type="password"
+              placeholder="Your API key (optional)"
+              {...register("api_key")}
+            />
+          </div>
+        </>
+      );
+    }
+
+    if (selectedType === "s3") {
+      return (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="bucket">Bucket Name *</Label>
+            <Input
+              id="bucket"
+              placeholder="my-bucket"
+              {...register("bucket", { required: true })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="region">Region *</Label>
+            <Input
+              id="region"
+              placeholder="us-east-1"
+              {...register("region", { required: true })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="access_key">Access Key *</Label>
+              <Input
+                id="access_key"
+                placeholder="AKIA..."
+                {...register("access_key", { required: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="secret_key">Secret Key *</Label>
+              <Input
+                id="secret_key"
+                type="password"
+                placeholder="••••••••"
+                {...register("secret_key", { required: true })}
+              />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <div className="text-sm text-muted-foreground">
+        Configuration for {SOURCE_TYPES.find(t => t.value === selectedType)?.label} coming soon!
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Add Data Source</h1>
+          <p className="text-muted-foreground">
+            Connect a new data source to your platform
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Source Details</CardTitle>
+            <CardDescription>
+              Enter the details for your new data source
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Source Name *</Label>
+                <Input
+                  id="name"
+                  placeholder="My PostgreSQL Database"
+                  {...register("name", { required: true })}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">Name is required</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Optional description of this source"
+                  {...register("description")}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source_type">Source Type *</Label>
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select source type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOURCE_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.icon} {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Connection Config */}
+            {selectedType && (
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-semibold">Connection Configuration</h3>
+                {renderConfigFields()}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="submit"
+                disabled={createSource.isPending || !selectedType}
+              >
+                {createSource.isPending ? (
+                  "Creating..."
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Create Source
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </form>
+    </div>
+  );
+}

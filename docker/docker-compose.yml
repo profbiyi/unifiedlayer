@@ -1,0 +1,339 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: data-platform-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - data-platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: data-platform-backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      ENVIRONMENT: production
+      DEBUG: "false"
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      PREFECT_API_URL: http://prefect-server:4200/api
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-100}
+      # Optional integrations
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+    volumes:
+      - ../backend:/app/backend
+      - dlt_data:/app/dlt_data
+      - dlt_pipelines:/app/dlt_pipelines
+    networks:
+      - data-platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+  # Prefect Server (Version 3)
+  prefect-server:
+    image: prefecthq/prefect:3-python3.11
+    container_name: data-platform-prefect-server
+    ports:
+      - "4200:4200"
+    environment:
+      PREFECT_UI_URL: http://${DOMAIN:-localhost}:4200
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/prefect
+    volumes:
+      - prefect_data:/root/.prefect
+    networks:
+      - data-platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    command: prefect server start --host 0.0.0.0
+
+  # Prefect Worker (Auto-scaling: 1-10 workers based on queue depth)
+  prefect-worker:
+    image: prefecthq/prefect:3-python3.11
+    # No container_name - allows Docker to create multiple instances
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      # Worker configuration for concurrent task execution
+      PREFECT_WORKER_PREFETCH_SECONDS: 10
+      PREFECT_WORKER_QUERY_SECONDS: 5
+      # Each worker handles up to 5 concurrent flows
+      PREFECT_WORKER_LIMIT: 5
+    volumes:
+      - ../backend:/app/backend
+      - dlt_data:/app/dlt_data
+      - dlt_pipelines:/app/dlt_pipelines
+    networks:
+      - data-platform
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      # Resources per worker instance
+      resources:
+        limits:
+          cpus: '4'      # 4 CPU per worker
+          memory: 8G     # 8GB per worker
+        reservations:
+          cpus: '2'
+          memory: 4G
+    command: prefect worker start --pool default --limit 5
+
+  # Worker Auto-Scaler (monitors queue and scales workers dynamically)
+  worker-autoscaler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.autoscaler
+    container_name: data-platform-worker-autoscaler
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      COMPOSE_FILE: /app/docker/docker-compose.yml
+      # Scaling configuration
+      AUTOSCALER_MIN_WORKERS: 1
+      AUTOSCALER_MAX_WORKERS: 10
+      AUTOSCALER_SCALE_UP_THRESHOLD: 5      # Scale up when queue > 5
+      AUTOSCALER_SCALE_DOWN_THRESHOLD: 2    # Scale down when queue < 2
+      AUTOSCALER_CHECK_INTERVAL: 30         # Check every 30 seconds
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket for scaling
+      - ../docker:/app/docker:ro                     # Read docker-compose.yml
+      - ../backend:/app/backend:ro                   # Read autoscaler code
+    networks:
+      - data-platform
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    command: python -m backend.services.worker_autoscaler
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: data-platform-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - data-platform
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Grafana Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: data-platform-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+      GF_SERVER_ROOT_URL: http://${DOMAIN:-localhost}/grafana
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - data-platform
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Next.js Frontend (Production Build)
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: http://${DOMAIN:-localhost}/api
+    container_name: data-platform-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://${DOMAIN:-localhost}/api
+    networks:
+      - data-platform
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://0.0.0.0:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: data-platform-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - data-platform
+    depends_on:
+      - frontend
+      - backend
+      - prefect-server
+      - grafana
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+networks:
+  data-platform:
+    driver: bridge
+    name: data-platform-network
+
+volumes:
+  postgres_data:
+    name: data-platform-postgres-data
+  prefect_data:
+    name: data-platform-prefect-data
+  prometheus_data:
+    name: data-platform-prometheus-data
+  grafana_data:
+    name: data-platform-grafana-data
+  dlt_data:
+    name: data-platform-dlt-data
+  dlt_pipelines:
+    name: data-platform-dlt-pipelines
+  nginx_logs:
+    name: data-platform-nginx-logs
