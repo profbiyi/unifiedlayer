@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import api from "@/lib/api-client";
+import api, { setToken, removeToken } from "@/lib/api-client";
 import { LoginRequest, RegisterRequest, AuthResponse, User } from "@/types/auth";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -33,8 +33,11 @@ export const useLogin = (options?: UseLoginOptions) => {
         return;
       }
 
-      // Cookie is set by backend (HTTPOnly, secure)
-      // No need to store in localStorage
+      // Store token in localStorage
+      if (data.access_token) {
+        setToken(data.access_token);
+      }
+
       queryClient.setQueryData(["currentUser"], data.user);
       toast.success("Login successful!");
       router.push("/overview");
@@ -55,6 +58,11 @@ export const useVerify2FA = () => {
       return data;
     },
     onSuccess: (data: any) => {
+      // Store token in localStorage
+      if (data.access_token) {
+        setToken(data.access_token);
+      }
+
       queryClient.setQueryData(["currentUser"], data.user);
       toast.success("Login successful!");
       router.push("/overview");
@@ -118,16 +126,22 @@ export const useLogout = () => {
 
   return useMutation({
     mutationFn: async () => {
-      // Call backend logout endpoint to clear HTTPOnly cookie
-      await api.post("/auth/logout");
+      // Try to call backend logout (optional, mainly for cookie cleanup)
+      try {
+        await api.post("/auth/logout");
+      } catch (e) {
+        // Ignore errors - we'll clear local state anyway
+      }
     },
     onSuccess: () => {
+      removeToken();
       queryClient.clear();
       toast.success("Logged out successfully");
       router.push("/login");
     },
     onError: () => {
       // Even if backend call fails, clear client state
+      removeToken();
       queryClient.clear();
       router.push("/login");
     },
