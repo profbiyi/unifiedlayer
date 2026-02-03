@@ -32,6 +32,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python packages from builder
