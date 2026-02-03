@@ -53,10 +53,14 @@ def create_super_admin(
     ).first()
 
     if existing_user:
-        print(f"\n❌ User with email '{email}' or username '{username}' already exists!")
-        print(f"   Email: {existing_user.email}")
-        print(f"   Username: {existing_user.username}")
-        return None
+        print(f"\n📋 User '{email}' already exists. Updating password...")
+        existing_user.hashed_password = get_password_hash(password)
+        existing_user.is_active = True
+        existing_user.is_superuser = True
+        existing_user.email_verified = True
+        db.commit()
+        print(f"   ✅ Password updated for: {existing_user.email}")
+        return existing_user
 
     # Check if super admin organization exists
     super_admin_org = db.query(Organization).filter(
