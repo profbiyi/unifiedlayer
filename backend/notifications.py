@@ -5,6 +5,9 @@ Provides utilities for sending alerts and notifications
 via email and Slack webhooks.
 """
 import smtplib
+import json
+import urllib.request
+import urllib.error
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Optional, Dict, Any
@@ -179,6 +182,9 @@ class EmailNotifier:
         """
         Send an email notification.
 
+        Uses SendGrid API if SENDGRID_API_KEY is configured (recommended for cloud),
+        otherwise falls back to SMTP.
+
         Args:
             to_emails: List of recipient email addresses
             subject: Email subject
@@ -191,23 +197,73 @@ class EmailNotifier:
         Raises:
             EmailNotificationError: If email sending fails
         """
+        # Try SendGrid API first (works on cloud platforms that block SMTP)
+        if settings.SENDGRID_API_KEY:
+            return self._send_via_sendgrid(to_emails, subject, body, html)
+
+        # Fall back to SMTP
         if not self.smtp_host:
-            logger.warning("SMTP not configured, skipping email notification")
+            logger.warning("No email provider configured (SENDGRID_API_KEY or SMTP_HOST)")
             return False
 
+        return self._send_via_smtp(to_emails, subject, body, html)
+
+    def _send_via_sendgrid(
+        self,
+        to_emails: List[str],
+        subject: str,
+        body: str,
+        html: bool = False,
+    ) -> bool:
+        """Send email via SendGrid API."""
         try:
-            # Create message
+            content_type = "text/html" if html else "text/plain"
+            data = json.dumps({
+                "personalizations": [{"to": [{"email": email} for email in to_emails]}],
+                "from": {"email": self.from_email, "name": "UnifiedLayer"},
+                "subject": subject,
+                "content": [{"type": content_type, "value": body}]
+            }).encode()
+
+            req = urllib.request.Request(
+                "https://api.sendgrid.com/v3/mail/send",
+                data=data,
+                headers={
+                    "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+            )
+
+            response = urllib.request.urlopen(req, timeout=30)
+            logger.info(f"Email sent via SendGrid to {to_emails}: {subject}")
+            return True
+
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode() if e.fp else str(e)
+            logger.error(f"SendGrid API error: {e.code} - {error_body}")
+            raise EmailNotificationError(f"SendGrid error: {error_body}")
+        except Exception as e:
+            logger.error(f"Failed to send email via SendGrid: {str(e)}")
+            raise EmailNotificationError(f"Failed to send email: {str(e)}")
+
+    def _send_via_smtp(
+        self,
+        to_emails: List[str],
+        subject: str,
+        body: str,
+        html: bool = False,
+    ) -> bool:
+        """Send email via SMTP."""
+        try:
             msg = MIMEMultipart("alternative")
             msg["From"] = self.from_email
             msg["To"] = ", ".join(to_emails)
             msg["Subject"] = subject
             msg["Date"] = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")
 
-            # Attach body
             mime_type = "html" if html else "plain"
             msg.attach(MIMEText(body, mime_type))
 
-            # Connect to SMTP server with 30 second timeout
             # Use SMTP_SSL for port 465, regular SMTP with STARTTLS for port 587
             if self.smtp_port == 465:
                 with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=30) as server:
@@ -222,11 +278,11 @@ class EmailNotifier:
                         server.login(self.smtp_user, self.smtp_password)
                     server.send_message(msg)
 
-            logger.info(f"Email sent to {to_emails}: {subject}")
+            logger.info(f"Email sent via SMTP to {to_emails}: {subject}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to send email: {str(e)}")
+            logger.error(f"Failed to send email via SMTP: {str(e)}")
             raise EmailNotificationError(f"Failed to send email: {str(e)}")
 
     def send_pipeline_success(

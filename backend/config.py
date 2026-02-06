@@ -131,6 +131,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM_EMAIL: Optional[str] = None
     SMTP_USE_TLS: bool = True
+    SENDGRID_API_KEY: Optional[str] = None  # If set, uses SendGrid API instead of SMTP
 
     # Frontend URL (for invitation links, etc.)
     FRONTEND_URL: str = "http://localhost"
