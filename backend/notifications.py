@@ -626,6 +626,108 @@ Tip: Check the error logs for more details and verify your source/destination co
 
         return self.send([to_email], subject, html_body, html=True)
 
+    def send_welcome_email(
+        self,
+        to_email: str,
+        user_name: str,
+        organization_name: str,
+        login_url: str,
+        temporary_password: str,
+        logo_url: Optional[str] = None,
+        brand_primary_color: Optional[str] = None,
+        brand_secondary_color: Optional[str] = None,
+    ) -> bool:
+        """
+        Send welcome email to new organization admin with login credentials.
+
+        Args:
+            to_email: Recipient email address
+            user_name: User's name
+            organization_name: Name of the organization
+            login_url: URL to login page
+            temporary_password: Temporary password for first login
+            logo_url: Organization logo URL (optional)
+            brand_primary_color: Organization primary color (optional)
+            brand_secondary_color: Organization secondary color (optional)
+
+        Returns:
+            True if sent successfully
+        """
+        subject = f"Welcome to {organization_name} on UnifiedLayer!"
+
+        primary = brand_primary_color or "#667eea"
+
+        content = f"""
+        <p>Hi {user_name},</p>
+
+        <p>Your organization <strong>{organization_name}</strong> has been set up on UnifiedLayer, and you've been assigned as the administrator.</p>
+
+        <div class="details">
+            <p><strong>Organization:</strong> {organization_name}</p>
+            <p><strong>Role:</strong> Organization Admin</p>
+            <p><strong>Email:</strong> {to_email}</p>
+            <p><strong>Temporary Password:</strong> <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px;">{temporary_password}</code></p>
+        </div>
+
+        <center>
+            <a href="{login_url}" class="button">Login to UnifiedLayer</a>
+        </center>
+
+        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>⚠️ Important:</strong> Please change your password after your first login.</p>
+        </div>
+
+        <p>As the organization admin, you can:</p>
+        <ul>
+            <li>Connect data sources and destinations</li>
+            <li>Create and manage data pipelines</li>
+            <li>Invite team members to your organization</li>
+            <li>View analytics and data quality reports</li>
+        </ul>
+
+        <p style="color: #6b7280; font-size: 14px;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="{login_url}" style="color: {primary};">{login_url}</a>
+        </p>
+"""
+
+        html_body = self.get_branded_template(
+            content=content,
+            header_title="🎉 Welcome to UnifiedLayer!",
+            brand_primary_color=brand_primary_color,
+            brand_secondary_color=brand_secondary_color,
+            logo_url=logo_url,
+            organization_name=organization_name,
+        )
+
+        plain_body = f"""
+Welcome to {organization_name} on UnifiedLayer!
+
+Hi {user_name},
+
+Your organization has been set up and you've been assigned as the administrator.
+
+Organization: {organization_name}
+Role: Organization Admin
+Email: {to_email}
+Temporary Password: {temporary_password}
+
+Login here: {login_url}
+
+⚠️ IMPORTANT: Please change your password after your first login.
+
+As the organization admin, you can:
+- Connect data sources and destinations
+- Create and manage data pipelines
+- Invite team members to your organization
+- View analytics and data quality reports
+
+---
+{organization_name} - Modern Data Integration
+"""
+
+        return self.send([to_email], subject, html_body, html=True)
+
     def send_password_reset_email(
         self,
         to_email: str,

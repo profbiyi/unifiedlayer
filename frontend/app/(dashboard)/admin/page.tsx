@@ -131,11 +131,8 @@ export default function AdminDashboard() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [onboardDialogOpen, setOnboardDialogOpen] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
   const [onboardLoading, setOnboardLoading] = useState(false);
-  const [formData, setFormData] = useState<CreateOrgForm>(initialFormState);
   const [onboardFormData, setOnboardFormData] = useState<CreateOrgForm>(initialFormState);
   const [onboardResult, setOnboardResult] = useState<{ organization: any; admin_user: any; message: string } | null>(null);
   const { toast } = useToast();
@@ -180,40 +177,6 @@ export default function AdminDashboard() {
       .replace(/\s+/g, "-")
       .replace(/-+/g, "-")
       .trim();
-  };
-
-  const handleCreateOrganization = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateLoading(true);
-
-    try {
-      // Convert empty strings to null for optional email fields
-      const cleanedData = {
-        ...formData,
-        billing_email: formData.billing_email || null,
-        description: formData.description || null,
-        admin_full_name: formData.admin_full_name || null,
-      };
-      await api.post("/admin/organizations", cleanedData);
-
-      toast({
-        title: "Success",
-        description: `Organization "${formData.name}" created successfully`,
-      });
-
-      setCreateDialogOpen(false);
-      setFormData(initialFormState);
-      fetchOrganizations();
-      fetchStats();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to create organization",
-        variant: "destructive",
-      });
-    } finally {
-      setCreateLoading(false);
-    }
   };
 
   const handleOnboardOrganization = async (e: React.FormEvent) => {
@@ -554,173 +517,6 @@ export default function AdminDashboard() {
                 </DialogFooter>
               </form>
             )}
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Organization
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Organization</DialogTitle>
-              <DialogDescription>
-                Create a new organization and set up their admin account. The admin will receive login credentials.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateOrganization}>
-              <div className="grid gap-4 py-4">
-                {/* Organization Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Organization Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Acme Corporation"
-                      value={formData.name}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setFormData({
-                          ...formData,
-                          name,
-                          slug: generateSlug(name),
-                        });
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="slug">Slug *</Label>
-                    <Input
-                      id="slug"
-                      placeholder="acme-corporation"
-                      value={formData.slug}
-                      onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Brief description of the organization"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="plan">Subscription Plan *</Label>
-                    <Select
-                      value={formData.subscription_plan}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          subscription_plan: value,
-                          max_users: planLimits[value] || 5,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select plan" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="starter">Starter (5 users)</SelectItem>
-                        <SelectItem value="professional">Professional (25 users)</SelectItem>
-                        <SelectItem value="enterprise">Enterprise (100 users)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="max_users">Max Users</Label>
-                    <Input
-                      id="max_users"
-                      type="number"
-                      min={1}
-                      value={formData.max_users}
-                      onChange={(e) => setFormData({ ...formData, max_users: parseInt(e.target.value) || 5 })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="billing_email">Billing Email</Label>
-                  <Input
-                    id="billing_email"
-                    type="email"
-                    placeholder="billing@acme.com"
-                    value={formData.billing_email}
-                    onChange={(e) => setFormData({ ...formData, billing_email: e.target.value })}
-                  />
-                </div>
-
-                {/* Admin User Details */}
-                <div className="border-t pt-4 mt-2">
-                  <h4 className="font-medium mb-3">Organization Admin Account</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="admin_full_name">Full Name *</Label>
-                      <Input
-                        id="admin_full_name"
-                        placeholder="John Doe"
-                        value={formData.admin_full_name}
-                        onChange={(e) => setFormData({ ...formData, admin_full_name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin_username">Username *</Label>
-                      <Input
-                        id="admin_username"
-                        placeholder="johndoe"
-                        value={formData.admin_username}
-                        onChange={(e) => setFormData({ ...formData, admin_username: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="admin_email">Email *</Label>
-                      <Input
-                        id="admin_email"
-                        type="email"
-                        placeholder="john@acme.com"
-                        value={formData.admin_email}
-                        onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin_password">Password *</Label>
-                      <Input
-                        id="admin_password"
-                        type="password"
-                        placeholder="Min 8 characters"
-                        value={formData.admin_password}
-                        onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
-                        required
-                        minLength={8}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createLoading}>
-                  {createLoading ? "Creating..." : "Create Organization"}
-                </Button>
-              </DialogFooter>
-            </form>
           </DialogContent>
         </Dialog>
         </div>
