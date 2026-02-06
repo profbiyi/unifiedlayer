@@ -165,6 +165,10 @@ class Settings(BaseSettings):
     HMRC_CLIENT_ID: Optional[str] = None
     HMRC_CLIENT_SECRET: Optional[str] = None
 
+    # Google OAuth (User Authentication)
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+
     # Slack Notifications
     SLACK_WEBHOOK_URL: Optional[str] = None
     SLACK_CHANNEL: Optional[str] = None

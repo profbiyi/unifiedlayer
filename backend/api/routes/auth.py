@@ -2,11 +2,14 @@
 Authentication API routes.
 """
 import logging
-from datetime import timedelta
+import secrets
+from datetime import timedelta, datetime, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status, Form, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+import httpx
 
 from backend.database import get_db
 from backend.schemas import Token, UserLogin, UserCreate, UserResponse
@@ -97,7 +100,7 @@ async def login(
         secure=settings.ENVIRONMENT == "production",  # HTTPS only in production
     )
 
-    return {"access_token": access_token, "token_type": "bearer", "user": user}
+    return {"access_token": access_token, "token_type": "bearer", "user": UserResponse.from_orm_with_roles(user)}
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -176,9 +179,9 @@ async def get_current_user_info(
         current_user: Current authenticated user
 
     Returns:
-        User information
+        User information with roles
     """
-    return current_user
+    return UserResponse.from_orm_with_roles(current_user)
 
 
 @router.post("/logout")

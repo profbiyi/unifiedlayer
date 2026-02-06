@@ -76,9 +76,29 @@ class UserResponse(UserBase):
     last_login: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    roles: list[str] = []
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def from_orm_with_roles(cls, user):
+        """Create response with roles from ORM user object."""
+        data = {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "full_name": user.full_name,
+            "organization_id": user.organization_id,
+            "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
+            "two_factor_enabled": user.two_factor_enabled,
+            "last_login": user.last_login,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+            "roles": [ur.role.slug for ur in user.user_roles] if user.user_roles else [],
+        }
+        return cls(**data)
 
 
 class Token(BaseModel):
