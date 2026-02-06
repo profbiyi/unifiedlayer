@@ -293,22 +293,29 @@ async def onboard_organization(
     db.commit()
     db.refresh(organization)
     db.refresh(admin_user)
-    logger.info(f"Organization {organization.name} created successfully, sending welcome email...")
+    logger.info(f"Organization {organization.name} created successfully")
 
-    # Send welcome/invitation email with login credentials (non-blocking)
-    try:
-        from backend.config import settings
-        logger.info(f"Sending welcome email to {admin_user.email}...")
-        email_notifier.send_welcome_email(
-            to_email=admin_user.email,
-            user_name=admin_user.full_name or admin_user.username,
-            organization_name=organization.name,
-            login_url=f"{settings.FRONTEND_URL}/login",
-            temporary_password=temp_password,
-        )
-        logger.info(f"Welcome email sent to {admin_user.email}")
-    except Exception as e:
-        logger.warning("Failed to send welcome email to %s: %s", admin_user.email, str(e))
+    # Send welcome email in background thread (non-blocking)
+    import threading
+    from backend.config import settings
+
+    def send_email_async():
+        try:
+            logger.info(f"Sending welcome email to {admin_user.email}...")
+            email_notifier.send_welcome_email(
+                to_email=admin_user.email,
+                user_name=admin_user.full_name or admin_user.username,
+                organization_name=organization.name,
+                login_url=f"{settings.FRONTEND_URL}/login",
+                temporary_password=temp_password,
+            )
+            logger.info(f"Welcome email sent to {admin_user.email}")
+        except Exception as e:
+            logger.warning("Failed to send welcome email to %s: %s", admin_user.email, str(e))
+
+    # Start email in background - don't wait for it
+    email_thread = threading.Thread(target=send_email_async)
+    email_thread.start()
 
     # Log action
     log_organization_action(
