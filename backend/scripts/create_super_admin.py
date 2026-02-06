@@ -88,7 +88,6 @@ def create_super_admin(
         if not super_admin_org.admin_onboarded:
             super_admin_org.admin_onboarded = True
             db.flush()
-    else:
         print(f"\n📋 Using existing Super Admin organization: {super_admin_org.name}")
 
     # Create super admin user
