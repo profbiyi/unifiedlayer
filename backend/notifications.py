@@ -208,14 +208,19 @@ class EmailNotifier:
             msg.attach(MIMEText(body, mime_type))
 
             # Connect to SMTP server with 30 second timeout
-            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
-                if self.use_tls:
-                    server.starttls()
-
-                if self.smtp_user and self.smtp_password:
-                    server.login(self.smtp_user, self.smtp_password)
-
-                server.send_message(msg)
+            # Use SMTP_SSL for port 465, regular SMTP with STARTTLS for port 587
+            if self.smtp_port == 465:
+                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, timeout=30) as server:
+                    if self.smtp_user and self.smtp_password:
+                        server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
+                    if self.use_tls:
+                        server.starttls()
+                    if self.smtp_user and self.smtp_password:
+                        server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
 
             logger.info(f"Email sent to {to_emails}: {subject}")
             return True
