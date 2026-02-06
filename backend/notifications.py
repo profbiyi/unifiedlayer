@@ -50,6 +50,7 @@ class EmailNotifier:
         self,
         content: str,
         header_title: str,
+        header_subtitle: Optional[str] = None,
         header_color_start: Optional[str] = None,
         header_color_end: Optional[str] = None,
         brand_primary_color: Optional[str] = None,
@@ -58,116 +59,85 @@ class EmailNotifier:
         organization_name: Optional[str] = None,
     ) -> str:
         """
-        Generate a branded email HTML wrapper.
-
-        Args:
-            content: The main email content (HTML)
-            header_title: Title for the header section
-            header_color_start: Header gradient start color (defaults to brand_primary_color or #667eea)
-            header_color_end: Header gradient end color (defaults to brand_secondary_color or #764ba2)
-            brand_primary_color: Organization's primary brand color
-            brand_secondary_color: Organization's secondary brand color
-            logo_url: URL to organization's logo
-            organization_name: Name of the organization
-
-        Returns:
-            Complete branded HTML email
+        Generate a modern, clean branded email HTML wrapper.
         """
-        # Use brand colors or defaults
-        primary = brand_primary_color or "#667eea"
-        secondary = brand_secondary_color or "#764ba2"
-
-        # Header gradient: use specific colors if provided, otherwise use brand colors
+        primary = brand_primary_color or "#6366f1"
+        secondary = brand_secondary_color or "#8b5cf6"
         gradient_start = header_color_start or primary
         gradient_end = header_color_end or secondary
+        org_name = organization_name or "UnifiedLayer"
 
-        # Logo section
-        logo_html = ""
-        if logo_url:
-            logo_html = f'<img src="{logo_url}" alt="{organization_name or "Logo"}" style="max-height: 50px; margin-bottom: 15px;" />'
+        subtitle_html = f'<p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">{header_subtitle}</p>' if header_subtitle else ''
 
         return f"""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #1f2937;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }}
-        .header {{
-            background: linear-gradient(135deg, {gradient_start} 0%, {gradient_end} 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px 10px 0 0;
-            text-align: center;
-        }}
-        .content {{
-            background: #f9fafb;
-            padding: 30px;
-            border-radius: 0 0 10px 10px;
-        }}
-        .button {{
-            display: inline-block;
-            padding: 14px 32px;
-            background: {primary};
-            color: white !important;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 20px 0;
-        }}
-        .details {{
-            background: white;
-            padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border-left: 4px solid {primary};
-        }}
-        .stats {{
-            background: white;
-            padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border-left: 4px solid {primary};
-        }}
-        .stat-item {{
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #e5e7eb;
-        }}
-        .stat-item:last-child {{
-            border-bottom: none;
-        }}
-        .footer {{
-            text-align: center;
-            color: #6b7280;
-            font-size: 14px;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-        }}
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{header_title}</title>
 </head>
-<body>
-    <div class="header">
-        {logo_html}
-        <h1 style="margin: 0;">{header_title}</h1>
-    </div>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f3f4f6;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
 
-    <div class="content">
-        {content}
-    </div>
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, {gradient_start} 0%, {gradient_end} 100%); padding: 48px 40px; text-align: center;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td align="center">
+                                        <img src="https://img.icons8.com/fluency/96/data-configuration.png" alt="UnifiedLayer" width="56" height="56" style="margin-bottom: 16px;">
+                                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">{header_title}</h1>
+                                        {subtitle_html}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
 
-    <div class="footer">
-        <p>{organization_name or "UnifiedLayer"} - Modern Data Integration</p>
-        <p style="font-size: 12px;">© 2026 {organization_name or "UnifiedLayer"}. All rights reserved.</p>
-    </div>
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            {content}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f9fafb; padding: 32px 40px; border-top: 1px solid #e5e7eb;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">
+                                            Powered by <strong style="color: #374151;">UnifiedLayer</strong>
+                                        </p>
+                                        <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                                            The data platform for modern businesses
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+
+                <!-- Bottom Links -->
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; margin-top: 24px;">
+                    <tr>
+                        <td align="center">
+                            <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                                © 2026 UnifiedLayer. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
 """
@@ -700,61 +670,113 @@ Tip: Check the error logs for more details and verify your source/destination co
     ) -> bool:
         """
         Send welcome email to new organization admin with login credentials.
-
-        Args:
-            to_email: Recipient email address
-            user_name: User's name
-            organization_name: Name of the organization
-            login_url: URL to login page
-            temporary_password: Temporary password for first login
-            logo_url: Organization logo URL (optional)
-            brand_primary_color: Organization primary color (optional)
-            brand_secondary_color: Organization secondary color (optional)
-
-        Returns:
-            True if sent successfully
         """
-        subject = f"Welcome to {organization_name} on UnifiedLayer!"
+        subject = f"Welcome to UnifiedLayer - Your account is ready"
 
-        primary = brand_primary_color or "#667eea"
+        primary = brand_primary_color or "#6366f1"
 
         content = f"""
-        <p>Hi {user_name},</p>
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 24px 0;">
+                Hi {user_name},
+            </p>
 
-        <p>Your organization <strong>{organization_name}</strong> has been set up on UnifiedLayer, and you've been assigned as the administrator.</p>
+            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0;">
+                Great news! Your organization <strong>{organization_name}</strong> is now live on UnifiedLayer.
+                You've been set up as the administrator with full access to manage your data platform.
+            </p>
 
-        <div class="details">
-            <p><strong>Organization:</strong> {organization_name}</p>
-            <p><strong>Role:</strong> Organization Admin</p>
-            <p><strong>Email:</strong> {to_email}</p>
-            <p><strong>Temporary Password:</strong> <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px;">{temporary_password}</code></p>
-        </div>
+            <!-- Credentials Card -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; margin-bottom: 32px;">
+                <tr>
+                    <td style="padding: 24px;">
+                        <p style="margin: 0 0 16px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                            Your Login Credentials
+                        </p>
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td style="padding: 8px 0;">
+                                    <span style="color: #64748b; font-size: 14px;">Email</span><br>
+                                    <strong style="color: #1e293b; font-size: 16px;">{to_email}</strong>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; border-top: 1px solid #e2e8f0;">
+                                    <span style="color: #64748b; font-size: 14px;">Temporary Password</span><br>
+                                    <code style="background: #ffffff; color: #1e293b; font-size: 18px; font-weight: 600; padding: 8px 16px; border-radius: 6px; display: inline-block; margin-top: 4px; border: 1px solid #e2e8f0; letter-spacing: 1px;">{temporary_password}</code>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
 
-        <center>
-            <a href="{login_url}" class="button">Login to UnifiedLayer</a>
-        </center>
+            <!-- CTA Button -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 32px;">
+                <tr>
+                    <td align="center">
+                        <a href="{login_url}" style="display: inline-block; background: linear-gradient(135deg, {primary} 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
+                            Get Started →
+                        </a>
+                    </td>
+                </tr>
+            </table>
 
-        <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; border-radius: 4px; margin: 20px 0;">
-            <p style="margin: 0;"><strong>⚠️ Important:</strong> Please change your password after your first login.</p>
-        </div>
+            <!-- Warning -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #fffbeb; border-radius: 8px; margin-bottom: 32px;">
+                <tr>
+                    <td style="padding: 16px 20px;">
+                        <table role="presentation" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td style="vertical-align: top; padding-right: 12px;">
+                                    <span style="font-size: 20px;">🔐</span>
+                                </td>
+                                <td>
+                                    <p style="margin: 0; color: #92400e; font-size: 14px; font-weight: 500;">
+                                        Please change your password after your first login for security.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
 
-        <p>As the organization admin, you can:</p>
-        <ul>
-            <li>Connect data sources and destinations</li>
-            <li>Create and manage data pipelines</li>
-            <li>Invite team members to your organization</li>
-            <li>View analytics and data quality reports</li>
-        </ul>
+            <!-- Features -->
+            <p style="color: #374151; font-size: 14px; font-weight: 600; margin: 0 0 16px 0;">
+                What you can do as an admin:
+            </p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                    <td style="padding: 8px 0; color: #4b5563; font-size: 14px;">
+                        <span style="color: {primary}; margin-right: 8px;">✓</span> Connect data sources (Postgres, APIs, SaaS tools)
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #4b5563; font-size: 14px;">
+                        <span style="color: {primary}; margin-right: 8px;">✓</span> Build automated data pipelines
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #4b5563; font-size: 14px;">
+                        <span style="color: {primary}; margin-right: 8px;">✓</span> Invite team members to collaborate
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #4b5563; font-size: 14px;">
+                        <span style="color: {primary}; margin-right: 8px;">✓</span> Monitor data quality and lineage
+                    </td>
+                </tr>
+            </table>
 
-        <p style="color: #6b7280; font-size: 14px;">
-            If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="{login_url}" style="color: {primary};">{login_url}</a>
-        </p>
+            <p style="color: #9ca3af; font-size: 13px; margin: 32px 0 0 0;">
+                Button not working? Copy this link: <a href="{login_url}" style="color: {primary};">{login_url}</a>
+            </p>
 """
 
         html_body = self.get_branded_template(
             content=content,
-            header_title="🎉 Welcome to UnifiedLayer!",
+            header_title="Welcome Aboard!",
+            header_subtitle=f"Your {organization_name} account is ready",
             brand_primary_color=brand_primary_color,
             brand_secondary_color=brand_secondary_color,
             logo_url=logo_url,
@@ -762,20 +784,19 @@ Tip: Check the error logs for more details and verify your source/destination co
         )
 
         plain_body = f"""
-Welcome to {organization_name} on UnifiedLayer!
+Welcome to UnifiedLayer!
 
 Hi {user_name},
 
-Your organization has been set up and you've been assigned as the administrator.
+Your organization {organization_name} is now live on UnifiedLayer.
 
-Organization: {organization_name}
-Role: Organization Admin
-Email: {to_email}
-Temporary Password: {temporary_password}
+Your Login Credentials:
+- Email: {to_email}
+- Temporary Password: {temporary_password}
 
 Login here: {login_url}
 
-⚠️ IMPORTANT: Please change your password after your first login.
+IMPORTANT: Please change your password after your first login.
 
 As the organization admin, you can:
 - Connect data sources and destinations
