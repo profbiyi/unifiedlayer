@@ -78,10 +78,16 @@ def create_super_admin(
             is_active=True,
             can_sync_data=True,
             subscription_status="active",
+            admin_onboarded=True,  # Platform admin is always onboarded
         )
         db.add(super_admin_org)
         db.flush()
         print(f"   ✅ Created organization: {super_admin_org.name}")
+    else:
+        # Ensure platform-admin org is marked as onboarded
+        if not super_admin_org.admin_onboarded:
+            super_admin_org.admin_onboarded = True
+            db.flush()
     else:
         print(f"\n📋 Using existing Super Admin organization: {super_admin_org.name}")
 
