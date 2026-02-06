@@ -89,34 +89,26 @@ const solutionFeatures = [
   },
 ];
 
-const competitors = [
+const whyUnifiedLayer = [
   {
-    name: "Fivetran",
-    summary:
-      "Enterprise pricing with 300+ connectors, but starts at $1/mo per credit. Costs escalate quickly.",
-    unifiedLayer:
-      "Flat, predictable pricing purpose-built for SMEs. No per-credit billing.",
+    title: "Built for SMEs, not enterprises",
+    description:
+      "Flat, predictable pricing with no per-credit billing or hidden fees. Start free and scale as you grow.",
   },
   {
-    name: "Airbyte",
-    summary:
-      "Open source but requires DevOps expertise to self-host and maintain infrastructure.",
-    unifiedLayer:
-      "Fully managed platform. Zero ops, zero infrastructure to maintain.",
+    title: "Zero infrastructure to manage",
+    description:
+      "Fully managed platform. No DevOps expertise required. We handle the complexity so you can focus on insights.",
   },
   {
-    name: "Stitch (by Talend)",
-    summary:
-      "Acquired by Qlik with a limited free tier and uncertain product direction.",
-    unifiedLayer:
-      "Transparent pricing with no surprises. Independent and focused on SMEs.",
+    title: "Unconventional data sources included",
+    description:
+      "Native connectors for M-Pesa, Paystack, Flutterwave, WhatsApp, and other sources that enterprise tools ignore.",
   },
   {
-    name: "Hevo Data",
-    summary:
-      "Good for mid-market companies but limited African payment and mobile money connectors.",
-    unifiedLayer:
-      "Built-in M-Pesa, Paystack, and Flutterwave connectors from day one.",
+    title: "Up and running in minutes",
+    description:
+      "Connect your first data source in under 5 minutes. No consultants, no lengthy onboarding, no training required.",
   },
 ];
 
@@ -326,34 +318,34 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Comparison Section */}
+      {/* Why UnifiedLayer Section */}
       <section className="border-t py-20 md:py-28">
         <div className="container">
-          <div className="mx-auto mb-4 max-w-2xl text-center">
+          <div className="mx-auto mb-16 max-w-2xl text-center">
             <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-              The affordable alternative to enterprise tools
+              Why choose UnifiedLayer?
             </h2>
             <p className="text-lg text-muted-foreground">
-              We respect what these platforms have built. UnifiedLayer is simply
-              built for a different audience.
+              Purpose-built for small and mid-sized businesses who need
+              enterprise-grade data capabilities without enterprise complexity.
             </p>
           </div>
-          <div className="mx-auto mt-12 grid max-w-5xl gap-6 md:grid-cols-2">
-            {competitors.map((c) => (
-              <Card key={c.name} className="border-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{c.name}</CardTitle>
-                  <CardDescription>{c.summary}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-start gap-2 rounded-lg bg-primary/5 p-3">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <p className="text-sm font-medium">
-                      UnifiedLayer: {c.unifiedLayer}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
+            {whyUnifiedLayer.map((item) => (
+              <div
+                key={item.title}
+                className="flex items-start gap-4 rounded-lg border-2 p-6 transition-colors hover:border-primary/50"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Check className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
             ))}
           </div>
         </div>
