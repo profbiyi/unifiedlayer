@@ -187,7 +187,14 @@ export default function AdminDashboard() {
     setCreateLoading(true);
 
     try {
-      await api.post("/admin/organizations", formData);
+      // Convert empty strings to null for optional email fields
+      const cleanedData = {
+        ...formData,
+        billing_email: formData.billing_email || null,
+        description: formData.description || null,
+        admin_full_name: formData.admin_full_name || null,
+      };
+      await api.post("/admin/organizations", cleanedData);
 
       toast({
         title: "Success",
@@ -215,7 +222,14 @@ export default function AdminDashboard() {
     setOnboardResult(null);
 
     try {
-      const response = await api.post("/admin/onboard-organization", onboardFormData);
+      // Convert empty strings to null for optional email fields
+      const cleanedData = {
+        ...onboardFormData,
+        billing_email: onboardFormData.billing_email || null,
+        description: onboardFormData.description || null,
+        admin_full_name: onboardFormData.admin_full_name || null,
+      };
+      const response = await api.post("/admin/onboard-organization", cleanedData);
 
       setOnboardResult(response.data);
 
