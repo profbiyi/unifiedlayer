@@ -822,3 +822,52 @@ async def delete_pending_organization(
         "message": f"Pending organization '{org_name}' deleted successfully",
         "organization_id": org_id_val,
     }
+
+
+@router.delete("/organizations/by-slug/{slug}")
+async def force_delete_organization_by_slug(
+    request: Request,
+    slug: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Force delete an organization by slug (for cleanup purposes).
+
+    **Super Admin Only**
+
+    Use this to clean up stuck/orphaned organizations.
+    """
+    request_info = get_request_info(request)
+
+    org = db.query(Organization).filter(Organization.slug == slug).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Organization with slug '{slug}' not found"
+        )
+
+    # Protect the platform organization
+    if org.slug in ["platform", "platform-admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete system organizations"
+        )
+
+    org_name = org.name
+    org_id = org.id
+
+    # Log before deletion
+    log_organization_action(
+        db=db,
+        user=current_user,
+        action="organization.force_deleted",
+        organization_id=org.id,
+        details={"organization_name": org.name, "slug": slug},
+        ip_address=request_info["ip_address"],
+    )
+
+    db.delete(org)
+    db.commit()
+
+    return {"message": f"Organization '{org_name}' (slug: {slug}) deleted", "id": org_id}
