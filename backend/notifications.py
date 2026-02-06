@@ -207,8 +207,8 @@ class EmailNotifier:
             mime_type = "html" if html else "plain"
             msg.attach(MIMEText(body, mime_type))
 
-            # Connect to SMTP server
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+            # Connect to SMTP server with 30 second timeout
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as server:
                 if self.use_tls:
                     server.starttls()
 

@@ -210,7 +210,11 @@ async def onboard_organization(
     Returns the created org and user details.
     """
     import secrets
+    import logging
     from backend.notifications import email_notifier
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"Onboarding organization: {org_request.name}")
 
     request_info = get_request_info(request)
 
@@ -289,10 +293,12 @@ async def onboard_organization(
     db.commit()
     db.refresh(organization)
     db.refresh(admin_user)
+    logger.info(f"Organization {organization.name} created successfully, sending welcome email...")
 
-    # Send welcome/invitation email with login credentials
+    # Send welcome/invitation email with login credentials (non-blocking)
     try:
         from backend.config import settings
+        logger.info(f"Sending welcome email to {admin_user.email}...")
         email_notifier.send_welcome_email(
             to_email=admin_user.email,
             user_name=admin_user.full_name or admin_user.username,
@@ -300,9 +306,8 @@ async def onboard_organization(
             login_url=f"{settings.FRONTEND_URL}/login",
             temporary_password=temp_password,
         )
+        logger.info(f"Welcome email sent to {admin_user.email}")
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
         logger.warning("Failed to send welcome email to %s: %s", admin_user.email, str(e))
 
     # Log action
