@@ -204,9 +204,14 @@ export default function AdminDashboard() {
       fetchOrganizations();
       fetchStats();
     } catch (error: any) {
+      console.error("Onboard error:", error);
+      const errorMessage = error.response?.data?.detail
+        || error.response?.data?.message
+        || error.message
+        || "Failed to onboard organization";
       toast({
         title: "Error",
-        description: error.response?.data?.detail || "Failed to onboard organization",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -358,7 +363,11 @@ export default function AdminDashboard() {
               Onboard Organization
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent
+            className="max-w-2xl max-h-[90vh] overflow-y-auto"
+            onInteractOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle>Onboard New Organization</DialogTitle>
               <DialogDescription>
