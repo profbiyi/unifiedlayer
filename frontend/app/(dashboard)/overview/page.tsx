@@ -10,6 +10,8 @@ import { usePipelineRuns } from "@/hooks/queries/usePipelines";
 import { useOverviewMetrics } from "@/hooks/queries/useMetrics";
 import { useTemplates } from "@/hooks/queries/useTemplates";
 import { Badge } from "@/components/ui/badge";
+import { StatsCardSkeleton } from "@/components/skeletons/StatsCardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import TemplateCard from "@/components/templates/TemplateCard";
 import Link from "next/link";
@@ -67,28 +69,30 @@ export default function OverviewPage() {
   // Get recent runs
   const recentRuns = runs?.slice(0, 5) || [];
 
+  const resourceCountsLoading = pipelinesLoading || sourcesLoading || destinationsLoading || runsLoading;
+
   const stats = [
     {
       title: "Total Pipelines",
-      value: pipelinesLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (pipelines?.length || 0),
+      value: pipelines?.length || 0,
       icon: Workflow,
       description: pipelines?.length === 1 ? "Active data pipeline" : "Active data pipelines",
     },
     {
       title: "Data Sources",
-      value: sourcesLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (sources?.length || 0),
+      value: sources?.length || 0,
       icon: Database,
       description: sources?.length === 1 ? "Connected source" : "Connected sources",
     },
     {
       title: "Destinations",
-      value: destinationsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (destinations?.length || 0),
+      value: destinations?.length || 0,
       icon: HardDrive,
       description: destinations?.length === 1 ? "Active destination" : "Active destinations",
     },
     {
       title: "Active Runs",
-      value: runsLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : activeRuns.length,
+      value: activeRuns.length,
       icon: Activity,
       description: "Currently running",
     },
@@ -206,106 +210,98 @@ export default function OverviewPage() {
       )}
 
       {/* Performance Metrics (Last 24h) */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {metricsLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                `${metrics?.success_rate || 0}%`
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Last 24 hours
-            </p>
-          </CardContent>
-        </Card>
+      {metricsLoading ? (
+        <StatsCardSkeleton count={4} />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {`${metrics?.success_rate || 0}%`}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Last 24 hours
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Duration</CardTitle>
-            <Clock className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {metricsLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                `${metrics?.avg_duration_seconds?.toFixed(1) || 0}s`
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Per pipeline run
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Duration</CardTitle>
+              <Clock className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {`${metrics?.avg_duration_seconds?.toFixed(1) || 0}s`}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Per pipeline run
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
-            <Activity className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {metricsLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                metrics?.total_runs || 0
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {metrics?.failed_runs || 0} failed
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
+              <Activity className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {metrics?.total_runs || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {metrics?.failed_runs || 0} failed
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Records Processed</CardTitle>
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {metricsLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                (metrics?.total_rows_processed || 0).toLocaleString()
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Last 24 hours
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Records Processed</CardTitle>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {(metrics?.total_rows_processed || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Last 24 hours
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Resource Counts */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stat.description}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {resourceCountsLoading ? (
+        <StatsCardSkeleton count={4} />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={stat.title}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {stat.title}
+                  </CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Pipeline Runs Over Time */}
@@ -316,8 +312,12 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="flex items-center justify-center h-[300px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="h-[300px] space-y-4">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-[260px] w-full" />
               </div>
             ) : runsOverTime.every((d) => d.runs === 0) ? (
               <div className="flex items-center justify-center h-[300px]">
@@ -348,7 +348,7 @@ export default function OverviewPage() {
           <CardContent>
             {runsLoading ? (
               <div className="flex items-center justify-center h-[250px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <Skeleton className="h-40 w-40 rounded-full" />
               </div>
             ) : statusData.length === 0 ? (
               <div className="flex items-center justify-center h-[250px]">
@@ -386,8 +386,19 @@ export default function OverviewPage() {
           </CardHeader>
           <CardContent>
             {runsLoading ? (
-              <div className="flex items-center justify-center h-[250px]">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center justify-between border-b pb-3 last:border-0">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-4 w-4 rounded-full" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-3 w-28" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                ))}
               </div>
             ) : recentRuns.length === 0 ? (
               <div className="flex items-center justify-center h-[250px]">

@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { TableRowSkeleton } from "@/components/skeletons/TableRowSkeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { Activity, Clock, CheckCircle, XCircle, Loader2, Database, AlertCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,8 +75,14 @@ export default function RunsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading runs...</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Pipeline Runs</h1>
+          <p className="text-muted-foreground">
+            Monitor all pipeline execution history
+          </p>
+        </div>
+        <TableRowSkeleton count={6} />
       </div>
     );
   }

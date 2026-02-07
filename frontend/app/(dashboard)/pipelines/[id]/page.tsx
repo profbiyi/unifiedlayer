@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import PipelineStatusBadge from "@/components/pipeline/pipeline-status-badge";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { ArrowLeft, Play, Settings, Loader2, Activity, Clock, CheckCircle, XCircle, Database, AlertCircle } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { PipelineRun } from "@/types/pipeline";
@@ -99,6 +100,14 @@ export default function PipelineDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Pipelines", href: "/pipelines" },
+          { label: pipeline.name },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

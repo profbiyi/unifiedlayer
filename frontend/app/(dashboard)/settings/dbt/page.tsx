@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import DbtProjectCard from "@/components/dbt/DbtProjectCard";
 import DbtProjectForm from "@/components/dbt/DbtProjectForm";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Plus, GitBranch, Loader2 } from "lucide-react";
 
 export default function DbtSettingsPage() {
@@ -39,6 +40,14 @@ export default function DbtSettingsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Settings", href: "/settings" },
+          { label: "dbt Projects" },
+        ]}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">dbt Projects</h1>

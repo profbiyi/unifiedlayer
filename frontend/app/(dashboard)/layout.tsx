@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import AuthGuard from "@/components/auth-guard";
 import ImpersonationBanner from "@/components/layout/ImpersonationBanner";
+import { AnimatedPage } from "@/components/animations/PageTransition";
 import { useCurrentUser } from "@/hooks/queries/useAuth";
 import api from "@/lib/api-client";
 
@@ -22,6 +24,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const { data: user } = useCurrentUser();
   const [impersonationSession, setImpersonationSession] = useState<ImpersonationSession | null>(null);
 
@@ -67,7 +70,9 @@ export default function DashboardLayout({
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header />
           <main className="flex-1 overflow-y-auto bg-background p-6">
-            {children}
+            <AnimatedPage pageKey={pathname}>
+              {children}
+            </AnimatedPage>
           </main>
         </div>
       </div>

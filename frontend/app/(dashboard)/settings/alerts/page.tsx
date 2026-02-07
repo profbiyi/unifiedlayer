@@ -4,11 +4,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotificationChannels } from "@/components/alerts/NotificationChannels";
 import { AlertRules } from "@/components/alerts/AlertRules";
 import { AlertHistory } from "@/components/alerts/AlertHistory";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Bell, Settings, History } from "lucide-react";
 
 export default function AlertsSettingsPage() {
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Settings", href: "/settings" },
+          { label: "Alerts" },
+        ]}
+      />
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Alerts & Notifications</h1>
         <p className="text-muted-foreground">

@@ -23,6 +23,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
@@ -69,6 +70,14 @@ export default function SourceDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Sources", href: "/sources" },
+          { label: source.name },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

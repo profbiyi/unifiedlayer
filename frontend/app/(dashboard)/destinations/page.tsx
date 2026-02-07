@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DestinationCardSkeleton } from "@/components/skeletons/DestinationCardSkeleton";
 import { Plus, Trash2, HardDrive, Zap, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -37,8 +38,20 @@ export default function DestinationsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading destinations...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Destinations</h1>
+            <p className="text-muted-foreground">
+              Manage your data destination connections
+            </p>
+          </div>
+          <Button onClick={() => router.push("/destinations/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Destination
+          </Button>
+        </div>
+        <DestinationCardSkeleton count={4} />
       </div>
     );
   }

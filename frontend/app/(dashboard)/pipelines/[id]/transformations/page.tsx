@@ -34,6 +34,7 @@ import {
   CreateTransformationRequest,
   UpdateTransformationRequest,
 } from "@/types/transformation";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export default function TransformationsPage() {
   const params = useParams();
@@ -146,6 +147,15 @@ export default function TransformationsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb
+        items={[
+          { label: "Pipelines", href: "/pipelines" },
+          { label: pipeline.name, href: `/pipelines/${pipelineId}` },
+          { label: "Transformations" },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

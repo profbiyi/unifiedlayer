@@ -4,6 +4,7 @@ import { usePipelines, useDeletePipeline, useTriggerPipeline, useClonePipeline }
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import PipelineStatusBadge from "@/components/pipeline/pipeline-status-badge";
+import { PipelineCardSkeleton } from "@/components/skeletons/PipelineCardSkeleton";
 import { Plus, Play, Trash2, Eye, Copy } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -39,8 +40,22 @@ export default function PipelinesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading pipelines...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Pipelines</h1>
+            <p className="text-muted-foreground">
+              Manage your data integration pipelines
+            </p>
+          </div>
+          <Link href="/pipelines/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Pipeline
+            </Button>
+          </Link>
+        </div>
+        <PipelineCardSkeleton count={4} />
       </div>
     );
   }

@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SourceCardSkeleton } from "@/components/skeletons/SourceCardSkeleton";
 import { Plus, Trash2, Database, Eye } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -27,8 +28,20 @@ export default function SourcesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading sources...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Data Sources</h1>
+            <p className="text-muted-foreground">
+              Manage your data source connections
+            </p>
+          </div>
+          <Button onClick={() => router.push("/sources/new")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Source
+          </Button>
+        </div>
+        <SourceCardSkeleton count={4} />
       </div>
     );
   }
