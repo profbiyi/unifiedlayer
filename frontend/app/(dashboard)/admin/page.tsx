@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +60,14 @@ import {
   Clock,
   Trash2,
   Plus,
+  Eye,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Database,
+  HardDrive,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api-client";
 
 interface Organization {
@@ -127,6 +134,20 @@ const planLimits: Record<string, number> = {
   enterprise: 100,
 };
 
+interface OrgDetails {
+  pipelines_count: number;
+  sources_count: number;
+  destinations_count: number;
+  recent_runs_count: number;
+}
+
+interface RecentPipeline {
+  id: number;
+  name: string;
+  is_active: boolean;
+  last_run_status: string | null;
+}
+
 export default function AdminDashboard() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [stats, setStats] = useState<PlatformStats | null>(null);
@@ -135,7 +156,11 @@ export default function AdminDashboard() {
   const [onboardLoading, setOnboardLoading] = useState(false);
   const [onboardFormData, setOnboardFormData] = useState<CreateOrgForm>(initialFormState);
   const [onboardResult, setOnboardResult] = useState<{ organization: any; admin_user: any; message: string } | null>(null);
+  const [expandedOrgs, setExpandedOrgs] = useState<Set<number>>(new Set());
+  const [orgDetails, setOrgDetails] = useState<Record<number, OrgDetails>>({});
+  const [orgPipelines, setOrgPipelines] = useState<Record<number, RecentPipeline[]>>({});
   const { toast } = useToast();
+  const router = useRouter();
 
   const fetchOrganizations = async () => {
     try {
@@ -344,6 +369,73 @@ export default function AdminDashboard() {
         {config.label}
       </Badge>
     );
+  };
+
+  const toggleOrgExpansion = async (orgId: number) => {
+    const newExpanded = new Set(expandedOrgs);
+    if (newExpanded.has(orgId)) {
+      newExpanded.delete(orgId);
+    } else {
+      newExpanded.add(orgId);
+      // Fetch details if not already loaded
+      if (!orgDetails[orgId]) {
+        try {
+          const [detailsRes, pipelinesRes] = await Promise.all([
+            api.get(`/admin/organizations/${orgId}/details`),
+            api.get(`/admin/organizations/${orgId}/pipelines?limit=5`),
+          ]);
+          setOrgDetails((prev) => ({
+            ...prev,
+            [orgId]: {
+              pipelines_count: detailsRes.data.pipelines_count,
+              sources_count: detailsRes.data.sources_count,
+              destinations_count: detailsRes.data.destinations_count,
+              recent_runs_count: detailsRes.data.recent_runs_count,
+            },
+          }));
+          setOrgPipelines((prev) => ({
+            ...prev,
+            [orgId]: pipelinesRes.data.pipelines || [],
+          }));
+        } catch (error) {
+          console.error("Failed to fetch org details", error);
+        }
+      }
+    }
+    setExpandedOrgs(newExpanded);
+  };
+
+  const handleViewDetails = (slug: string) => {
+    router.push(`/admin/organizations/${slug}`);
+  };
+
+  const handleStartImpersonation = async (orgId: number, orgName: string) => {
+    try {
+      const response = await api.post(`/admin/impersonate/${orgId}`);
+      toast({
+        title: "Impersonation Started",
+        description: response.data.message,
+      });
+      // Refresh page to show impersonation banner
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to start impersonation",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getRunStatusColor = (status: string | null) => {
+    const colors: Record<string, string> = {
+      completed: "bg-green-500",
+      running: "bg-blue-500",
+      pending: "bg-yellow-500",
+      failed: "bg-red-500",
+      cancelled: "bg-gray-500",
+    };
+    return colors[status || ""] || "bg-gray-300";
   };
 
   return (
@@ -619,128 +711,239 @@ export default function AdminDashboard() {
               </TableHeader>
               <TableBody>
                 {organizations.map((org) => (
-                  <TableRow key={org.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{org.name}</div>
-                        <div className="text-sm text-muted-foreground">{org.slug}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {org.admin_onboarded ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Onboarded
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1">
-                          <Clock className="h-3 w-3" />
-                          Pending
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{getPlanBadge(org.subscription_plan)}</TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <span className="font-medium">{org.current_user_count}</span>
-                        {" / "}
-                        <span className="text-muted-foreground">{org.max_users}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {org.is_active ? (
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
-                          <PlayCircle className="h-3 w-3" />
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1">
-                          <Power className="h-3 w-3" />
-                          Deactivated
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {org.can_sync_data ? (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          Enabled
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Disabled
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(org.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Organization Controls</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-
-                          {/* Sync Controls */}
-                          {org.can_sync_data ? (
-                            <DropdownMenuItem
-                              onClick={() => handleDisableSync(org.id, org.name)}
-                              className="text-orange-600"
-                            >
-                              <PauseCircle className="mr-2 h-4 w-4" />
-                              Disable Data Sync (Warning)
-                            </DropdownMenuItem>
+                  <React.Fragment key={org.id}>
+                    <TableRow key={`row-${org.id}`} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleOrgExpansion(org.id)}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {expandedOrgs.has(org.id) ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
                           ) : (
-                            <DropdownMenuItem
-                              onClick={() => handleEnableSync(org.id, org.name)}
-                            >
-                              <PlayCircle className="mr-2 h-4 w-4" />
-                              Enable Data Sync
-                            </DropdownMenuItem>
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           )}
+                          <div>
+                            <div className="font-medium">{org.name}</div>
+                            <div className="text-sm text-muted-foreground">{org.slug}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {org.admin_onboarded ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Onboarded
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1">
+                            <Clock className="h-3 w-3" />
+                            Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>{getPlanBadge(org.subscription_plan)}</TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <span className="font-medium">{org.current_user_count}</span>
+                          {" / "}
+                          <span className="text-muted-foreground">{org.max_users}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {org.is_active ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                            <PlayCircle className="h-3 w-3" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1">
+                            <Power className="h-3 w-3" />
+                            Deactivated
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {org.can_sync_data ? (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            Enabled
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Disabled
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(org.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Organization Controls</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
 
-                          <DropdownMenuSeparator />
-
-                          {/* Activation Controls */}
-                          {org.is_active ? (
-                            <DropdownMenuItem
-                              onClick={() => handleDeactivate(org.id, org.name)}
-                              className="text-destructive"
-                            >
-                              <Power className="mr-2 h-4 w-4" />
-                              Deactivate (Hard Shutdown)
+                            {/* View Details */}
+                            <DropdownMenuItem onClick={() => handleViewDetails(org.slug)}>
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              View Details
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() => handleActivate(org.id, org.name)}
-                            >
-                              <PlayCircle className="mr-2 h-4 w-4" />
-                              Reactivate Organization
-                            </DropdownMenuItem>
-                          )}
 
-                          {/* Delete Pending Organization */}
-                          {!org.admin_onboarded && (
-                            <>
-                              <DropdownMenuSeparator />
+                            {/* Impersonate */}
+                            <DropdownMenuItem onClick={() => handleStartImpersonation(org.id, org.name)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Impersonate
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            {/* Sync Controls */}
+                            {org.can_sync_data ? (
                               <DropdownMenuItem
-                                onClick={() => handleDeletePendingOrg(org.id, org.name)}
+                                onClick={() => handleDisableSync(org.id, org.name)}
+                                className="text-orange-600"
+                              >
+                                <PauseCircle className="mr-2 h-4 w-4" />
+                                Disable Data Sync (Warning)
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => handleEnableSync(org.id, org.name)}
+                              >
+                                <PlayCircle className="mr-2 h-4 w-4" />
+                                Enable Data Sync
+                              </DropdownMenuItem>
+                            )}
+
+                            <DropdownMenuSeparator />
+
+                            {/* Activation Controls */}
+                            {org.is_active ? (
+                              <DropdownMenuItem
+                                onClick={() => handleDeactivate(org.id, org.name)}
                                 className="text-destructive"
                               >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Pending Organization
+                                <Power className="mr-2 h-4 w-4" />
+                                Deactivate (Hard Shutdown)
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => handleActivate(org.id, org.name)}
+                              >
+                                <PlayCircle className="mr-2 h-4 w-4" />
+                                Reactivate Organization
+                              </DropdownMenuItem>
+                            )}
+
+                            {/* Delete Pending Organization */}
+                            {!org.admin_onboarded && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeletePendingOrg(org.id, org.name)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete Pending Organization
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Expanded Details Row */}
+                    {expandedOrgs.has(org.id) && (
+                      <TableRow className="bg-muted/30">
+                        <TableCell colSpan={8} className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Resource Stats */}
+                            <div className="space-y-3">
+                              <h4 className="font-medium text-sm">Resources</h4>
+                              {orgDetails[org.id] ? (
+                                <div className="grid grid-cols-4 gap-2">
+                                  <div className="flex items-center gap-2 p-2 rounded-lg bg-background">
+                                    <Workflow className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <p className="text-lg font-bold">{orgDetails[org.id].pipelines_count}</p>
+                                      <p className="text-xs text-muted-foreground">Pipelines</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 p-2 rounded-lg bg-background">
+                                    <Database className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <p className="text-lg font-bold">{orgDetails[org.id].sources_count}</p>
+                                      <p className="text-xs text-muted-foreground">Sources</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 p-2 rounded-lg bg-background">
+                                    <HardDrive className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <p className="text-lg font-bold">{orgDetails[org.id].destinations_count}</p>
+                                      <p className="text-xs text-muted-foreground">Destinations</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 p-2 rounded-lg bg-background">
+                                    <Activity className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                      <p className="text-lg font-bold">{orgDetails[org.id].recent_runs_count}</p>
+                                      <p className="text-xs text-muted-foreground">Runs (7d)</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-muted-foreground">Loading...</p>
+                              )}
+                            </div>
+
+                            {/* Recent Pipelines */}
+                            <div className="space-y-3">
+                              <h4 className="font-medium text-sm">Recent Pipelines</h4>
+                              {orgPipelines[org.id] ? (
+                                orgPipelines[org.id].length > 0 ? (
+                                  <div className="space-y-2">
+                                    {orgPipelines[org.id].map((pipeline) => (
+                                      <div key={pipeline.id} className="flex items-center justify-between p-2 rounded-lg bg-background">
+                                        <div className="flex items-center gap-2">
+                                          <div className={`h-2 w-2 rounded-full ${getRunStatusColor(pipeline.last_run_status)}`} />
+                                          <span className="text-sm">{pipeline.name}</span>
+                                        </div>
+                                        {pipeline.is_active ? (
+                                          <Badge variant="outline" className="text-xs">Active</Badge>
+                                        ) : (
+                                          <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">No pipelines</p>
+                                )
+                              ) : (
+                                <p className="text-sm text-muted-foreground">Loading...</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Actions */}
+                          <div className="flex gap-2 mt-4 pt-4 border-t">
+                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(org.slug)}>
+                              <ExternalLink className="h-4 w-4 mr-1" />
+                              View Full Details
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleStartImpersonation(org.id, org.name)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Impersonate
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>

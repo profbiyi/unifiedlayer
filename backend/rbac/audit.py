@@ -278,3 +278,92 @@ def get_failed_permission_attempts(
         query = query.filter(AuditLog.organization_id == organization_id)
 
     return query.order_by(AuditLog.created_at.desc()).limit(limit).all()
+
+
+def log_super_admin_access(
+    db: Session,
+    super_admin: User,
+    target_org_id: int,
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+):
+    """
+    Log super admin cross-organization access.
+
+    This is critical for security auditing - every time a super admin
+    views another organization's data, it must be logged.
+
+    Args:
+        db: Database session
+        super_admin: The super admin user accessing the data
+        target_org_id: ID of the organization being accessed
+        action: Type of access (view_pipelines, view_runs, impersonate, etc.)
+        resource_type: Type of resource (pipeline, run, source, etc.)
+        resource_id: Optional specific resource ID
+        details: Additional context
+        ip_address: IP address of the request
+        user_agent: User agent string
+
+    Returns:
+        Created SuperAdminAccessLog
+    """
+    from backend.models.audit import SuperAdminAccessLog
+
+    access_log = SuperAdminAccessLog(
+        super_admin_id=super_admin.id,
+        target_org_id=target_org_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details=details or {},
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+    db.add(access_log)
+    db.commit()
+    db.refresh(access_log)
+
+    return access_log
+
+
+def get_super_admin_access_logs(
+    db: Session,
+    super_admin_id: Optional[int] = None,
+    target_org_id: Optional[int] = None,
+    hours: int = 168,  # 1 week
+    limit: int = 100
+) -> List:
+    """
+    Get super admin access logs.
+
+    Args:
+        db: Database session
+        super_admin_id: Filter by specific admin
+        target_org_id: Filter by target organization
+        hours: Look back this many hours
+        limit: Maximum records
+
+    Returns:
+        List of SuperAdminAccessLog entries
+    """
+    from datetime import timedelta
+    from backend.models.audit import SuperAdminAccessLog
+
+    cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    query = db.query(SuperAdminAccessLog).filter(
+        SuperAdminAccessLog.created_at >= cutoff_time
+    )
+
+    if super_admin_id:
+        query = query.filter(SuperAdminAccessLog.super_admin_id == super_admin_id)
+
+    if target_org_id:
+        query = query.filter(SuperAdminAccessLog.target_org_id == target_org_id)
+
+    return query.order_by(SuperAdminAccessLog.created_at.desc()).limit(limit).all()

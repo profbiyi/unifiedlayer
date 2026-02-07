@@ -1,8 +1,8 @@
 """
 Pipeline Run API routes.
 """
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -18,15 +18,38 @@ router = APIRouter(prefix="/runs", tags=["Pipeline Runs"])
 
 @router.get("", response_model=List[PipelineRunResponse])
 async def list_runs(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     status_filter: str = Query(None, alias="status"),
+    org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all pipeline runs for the current user's organization."""
+    """
+    List all pipeline runs for the current user's organization.
+    Super admins can optionally specify org_id to view another organization's runs.
+    """
+    from backend.rbac.audit import log_super_admin_access
+
+    # Determine target organization
+    if org_id and current_user.is_super_admin():
+        target_org_id = org_id
+        # Log super admin cross-org access
+        log_super_admin_access(
+            db=db,
+            super_admin=current_user,
+            target_org_id=org_id,
+            action="view_runs",
+            resource_type="run",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    else:
+        target_org_id = current_user.organization_id
+
     query = db.query(PipelineRun).join(Pipeline).filter(
-        Pipeline.organization_id == current_user.organization_id
+        Pipeline.organization_id == target_org_id
     )
 
     if status_filter:
@@ -38,20 +61,46 @@ async def list_runs(
 
 @router.get("/{run_id}", response_model=PipelineRunResponse)
 async def get_run(
+    request: Request,
     run_id: int,
+    org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get a specific pipeline run by ID."""
+    """
+    Get a specific pipeline run by ID.
+    Super admins can optionally specify org_id to view another organization's run.
+    """
+    from backend.rbac.audit import log_super_admin_access
+
+    # Determine target organization
+    if org_id and current_user.is_super_admin():
+        target_org_id = org_id
+    else:
+        target_org_id = current_user.organization_id
+
     run = db.query(PipelineRun).join(Pipeline).filter(
         PipelineRun.id == run_id,
-        Pipeline.organization_id == current_user.organization_id,
+        Pipeline.organization_id == target_org_id,
     ).first()
 
     if not run:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pipeline run not found",
+        )
+
+    # Log super admin access if viewing another org
+    if org_id and current_user.is_super_admin():
+        log_super_admin_access(
+            db=db,
+            super_admin=current_user,
+            target_org_id=org_id,
+            action="view_run",
+            resource_type="run",
+            resource_id=str(run.id),
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
         )
 
     return run
@@ -161,20 +210,46 @@ async def cancel_run(
 
 @router.get("/{run_id}/logs")
 async def get_run_logs(
+    request: Request,
     run_id: int,
+    org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get logs for a specific pipeline run."""
+    """
+    Get logs for a specific pipeline run.
+    Super admins can optionally specify org_id to view another organization's run logs.
+    """
+    from backend.rbac.audit import log_super_admin_access
+
+    # Determine target organization
+    if org_id and current_user.is_super_admin():
+        target_org_id = org_id
+    else:
+        target_org_id = current_user.organization_id
+
     run = db.query(PipelineRun).join(Pipeline).filter(
         PipelineRun.id == run_id,
-        Pipeline.organization_id == current_user.organization_id,
+        Pipeline.organization_id == target_org_id,
     ).first()
 
     if not run:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pipeline run not found",
+        )
+
+    # Log super admin access if viewing another org
+    if org_id and current_user.is_super_admin():
+        log_super_admin_access(
+            db=db,
+            super_admin=current_user,
+            target_org_id=org_id,
+            action="view_run_logs",
+            resource_type="run",
+            resource_id=str(run.id),
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
         )
 
     # Retrieve logs from Prefect

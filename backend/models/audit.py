@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     Index,
+    Boolean,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -59,3 +60,96 @@ class AuditLog(Base):
 
     def __repr__(self):
         return f"<AuditLog(id={self.id}, action='{self.action}', resource_type='{self.resource_type}')>"
+
+
+class SuperAdminAccessLog(Base):
+    """
+    Super Admin Access Log model.
+
+    Tracks when super admins access another organization's data.
+    This is critical for security auditing and compliance.
+    """
+    __tablename__ = "super_admin_access_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
+
+    # Who accessed
+    super_admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # What was accessed
+    target_org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    action = Column(String(50), nullable=False)  # view_pipelines, view_runs, view_sources, impersonate, etc.
+    resource_type = Column(String(50), nullable=False)  # pipeline, run, source, destination, user
+    resource_id = Column(String(255), nullable=True)  # Optional specific resource ID
+
+    # Details and context
+    details = Column(JSON, nullable=True)  # Additional context about the access
+
+    # Request metadata
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    super_admin = relationship("User", foreign_keys=[super_admin_id])
+    target_organization = relationship("Organization", foreign_keys=[target_org_id])
+
+    # Composite indexes for common queries
+    __table_args__ = (
+        Index("ix_super_admin_access_admin_created", "super_admin_id", "created_at"),
+        Index("ix_super_admin_access_target_created", "target_org_id", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<SuperAdminAccessLog(id={self.id}, admin={self.super_admin_id}, target_org={self.target_org_id}, action='{self.action}')>"
+
+
+class ImpersonationSession(Base):
+    """
+    Impersonation Session model.
+
+    Tracks active impersonation sessions for super admins.
+    """
+    __tablename__ = "impersonation_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
+
+    # Session details
+    super_admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    target_org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    token_hash = Column(String(255), nullable=False, unique=True)  # Hashed impersonation token
+
+    # Session timing
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    expires_at = Column(DateTime, nullable=False)  # Short expiry (15 mins)
+    ended_at = Column(DateTime, nullable=True)  # When session was explicitly ended
+
+    # Status
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    # Request metadata
+    ip_address = Column(String(45), nullable=True)
+
+    # Relationships
+    super_admin = relationship("User", foreign_keys=[super_admin_id])
+    target_organization = relationship("Organization", foreign_keys=[target_org_id])
+
+    __table_args__ = (
+        Index("ix_impersonation_session_admin", "super_admin_id", "is_active"),
+    )
+
+    def __repr__(self):
+        return f"<ImpersonationSession(id={self.id}, admin={self.super_admin_id}, target_org={self.target_org_id})>"
+
+    @property
+    def is_expired(self):
+        """Check if session has expired"""
+        return datetime.now(timezone.utc) > self.expires_at
+
+    @property
+    def is_valid(self):
+        """Check if session is still valid"""
+        return self.is_active and not self.is_expired and self.ended_at is None

@@ -22,12 +22,22 @@ export interface User {
   organization_id: number;
   organization?: Organization;
   roles?: string[];
+  is_superuser?: boolean;
   invitation_status?: string | null;
   invitation_expires_at?: string | null;
   invitation_accepted_at?: string | null;
   two_factor_enabled?: boolean;
   created_at: string;
   last_login?: string;
+}
+
+export interface ImpersonationSession {
+  target_org_id: number;
+  target_org_name: string;
+  target_org_slug: string;
+  target_org_logo: string | null;
+  started_at: string;
+  expires_at: string;
 }
 
 export interface LoginRequest {

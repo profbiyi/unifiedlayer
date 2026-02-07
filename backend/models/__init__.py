@@ -19,6 +19,7 @@ from backend.models.rbac import (
     UserInvitation,
     AuditLog,
 )
+from backend.models.audit import SuperAdminAccessLog, ImpersonationSession
 from backend.models.quality import (
     QualityCheck,
     PipelineQualityCheck,
@@ -48,6 +49,8 @@ __all__ = [
     "UserRole",
     "UserInvitation",
     "AuditLog",
+    "SuperAdminAccessLog",
+    "ImpersonationSession",
     "APIKey",
     "QualityCheck",
     "PipelineQualityCheck",

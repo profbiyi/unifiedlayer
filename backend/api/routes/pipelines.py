@@ -2,7 +2,7 @@
 Pipeline API routes.
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -25,29 +25,52 @@ router = APIRouter(prefix="/pipelines", tags=["Pipelines"])
 @router.get("", response_model=List[PipelineResponse])
 @require_permission("pipeline", "read")
 async def list_pipelines(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     is_active: bool = Query(None),
+    org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     List all pipelines for the current user's organization.
+    Super admins can optionally specify org_id to view another organization's pipelines.
 
     **Requires:** pipeline.read permission
 
     Args:
+        request: FastAPI request
         skip: Number of records to skip
         limit: Maximum number of records to return
         is_active: Filter by active status
+        org_id: Organization ID (super admin only)
         current_user: Current authenticated user
         db: Database session
 
     Returns:
         List of pipelines
     """
+    from backend.rbac.audit import log_super_admin_access
+
+    # Determine target organization
+    if org_id and current_user.is_super_admin():
+        target_org_id = org_id
+        # Log super admin cross-org access
+        log_super_admin_access(
+            db=db,
+            super_admin=current_user,
+            target_org_id=org_id,
+            action="view_pipelines",
+            resource_type="pipeline",
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    else:
+        target_org_id = current_user.organization_id
+
     query = db.query(Pipeline).filter(
-        Pipeline.organization_id == current_user.organization_id
+        Pipeline.organization_id == target_org_id
     )
 
     if is_active is not None:
@@ -60,17 +83,22 @@ async def list_pipelines(
 @router.get("/{pipeline_id}", response_model=PipelineResponse)
 @require_permission("pipeline", "read")
 async def get_pipeline(
+    request: Request,
     pipeline_id: str,
+    org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Get a specific pipeline by ID.
+    Super admins can optionally specify org_id to view another organization's pipeline.
 
     **Requires:** pipeline.read permission
 
     Args:
+        request: FastAPI request
         pipeline_id: Pipeline ID (UUID string)
+        org_id: Organization ID (super admin only)
         current_user: Current authenticated user
         db: Database session
 
@@ -78,6 +106,7 @@ async def get_pipeline(
         Pipeline details
     """
     from uuid import UUID
+    from backend.rbac.audit import log_super_admin_access
 
     try:
         pipeline_uuid = UUID(pipeline_id)
@@ -87,15 +116,34 @@ async def get_pipeline(
             detail="Invalid pipeline ID format",
         )
 
+    # Determine target organization
+    if org_id and current_user.is_super_admin():
+        target_org_id = org_id
+    else:
+        target_org_id = current_user.organization_id
+
     pipeline = db.query(Pipeline).filter(
         Pipeline.public_id == pipeline_uuid,
-        Pipeline.organization_id == current_user.organization_id,
+        Pipeline.organization_id == target_org_id,
     ).first()
 
     if not pipeline:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pipeline not found",
+        )
+
+    # Log super admin access if viewing another org
+    if org_id and current_user.is_super_admin():
+        log_super_admin_access(
+            db=db,
+            super_admin=current_user,
+            target_org_id=org_id,
+            action="view_pipeline",
+            resource_type="pipeline",
+            resource_id=str(pipeline.public_id),
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
         )
 
     return pipeline

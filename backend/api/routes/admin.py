@@ -871,3 +871,743 @@ async def force_delete_organization_by_slug(
     db.commit()
 
     return {"message": f"Organization '{org_name}' (slug: {slug}) deleted", "id": org_id}
+
+
+# ==================== CROSS-ORG ACCESS ENDPOINTS ====================
+
+from typing import Optional
+from datetime import timedelta
+from pydantic import BaseModel
+from backend.models import Pipeline, PipelineRun, DataSource, Destination
+from backend.rbac.audit import log_super_admin_access
+from backend.models.audit import ImpersonationSession
+import secrets
+import hashlib
+
+
+class OrganizationDetailResponse(BaseModel):
+    """Detailed organization information with resources."""
+    id: int
+    public_id: str
+    name: str
+    slug: str
+    description: Optional[str]
+    is_active: bool
+    can_sync_data: bool
+    subscription_plan: str
+    max_users: int
+    current_user_count: int
+    logo_url: Optional[str]
+    created_at: str
+    pipelines_count: int
+    sources_count: int
+    destinations_count: int
+    recent_runs_count: int
+
+
+class PipelineSummary(BaseModel):
+    """Pipeline summary for admin view."""
+    id: int
+    public_id: str
+    name: str
+    description: Optional[str]
+    is_active: bool
+    schedule: Optional[str]
+    last_run_status: Optional[str]
+    last_run_at: Optional[str]
+    created_at: str
+
+
+class RunSummary(BaseModel):
+    """Run summary for admin view."""
+    id: int
+    public_id: str
+    pipeline_id: int
+    pipeline_name: str
+    status: str
+    started_at: Optional[str]
+    completed_at: Optional[str]
+    duration_seconds: Optional[float]
+    rows_written: Optional[int]
+    error_message: Optional[str]
+    created_at: str
+
+
+class ImpersonationResponse(BaseModel):
+    """Impersonation session response."""
+    impersonation_token: str
+    target_org_id: int
+    target_org_name: str
+    expires_at: str
+    message: str
+
+
+@router.get("/organizations/{org_id}/details", response_model=OrganizationDetailResponse)
+async def get_organization_details(
+    request: Request,
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Get detailed information about an organization.
+
+    **Super Admin Only**
+
+    Returns organization details with resource counts.
+    """
+    from datetime import datetime, timedelta, timezone as tz
+
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_organization_details",
+        resource_type="organization",
+        resource_id=str(org.id),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    # Count resources
+    pipelines_count = db.query(Pipeline).filter(Pipeline.organization_id == org_id).count()
+    sources_count = db.query(DataSource).filter(DataSource.organization_id == org_id).count()
+    destinations_count = db.query(Destination).filter(Destination.organization_id == org_id).count()
+
+    # Count recent runs (last 7 days)
+    week_ago = datetime.now(tz.utc) - timedelta(days=7)
+    recent_runs_count = db.query(PipelineRun).join(Pipeline).filter(
+        Pipeline.organization_id == org_id,
+        PipelineRun.created_at >= week_ago
+    ).count()
+
+    return OrganizationDetailResponse(
+        id=org.id,
+        public_id=str(org.public_id),
+        name=org.name,
+        slug=org.slug,
+        description=org.description,
+        is_active=org.is_active,
+        can_sync_data=org.can_sync_data,
+        subscription_plan=org.subscription_plan,
+        max_users=org.max_users,
+        current_user_count=org.current_user_count,
+        logo_url=org.logo_url,
+        created_at=org.created_at.isoformat(),
+        pipelines_count=pipelines_count,
+        sources_count=sources_count,
+        destinations_count=destinations_count,
+        recent_runs_count=recent_runs_count,
+    )
+
+
+@router.get("/organizations/{org_id}/pipelines")
+async def list_organization_pipelines(
+    request: Request,
+    org_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    List all pipelines for a specific organization.
+
+    **Super Admin Only** - READ ONLY
+
+    Returns pipelines with their status and last run info.
+    """
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_org_pipelines",
+        resource_type="pipeline",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    pipelines = db.query(Pipeline).filter(
+        Pipeline.organization_id == org_id
+    ).offset(skip).limit(limit).all()
+
+    result = []
+    for pipeline in pipelines:
+        # Get last run
+        last_run = db.query(PipelineRun).filter(
+            PipelineRun.pipeline_id == pipeline.id
+        ).order_by(PipelineRun.created_at.desc()).first()
+
+        result.append({
+            "id": pipeline.id,
+            "public_id": str(pipeline.public_id),
+            "name": pipeline.name,
+            "description": pipeline.description,
+            "is_active": pipeline.is_active,
+            "schedule": pipeline.schedule,
+            "last_run_status": last_run.status.value if last_run else None,
+            "last_run_at": last_run.created_at.isoformat() if last_run else None,
+            "created_at": pipeline.created_at.isoformat(),
+        })
+
+    return {
+        "organization_id": org_id,
+        "organization_name": org.name,
+        "pipelines": result,
+        "total": len(result),
+    }
+
+
+@router.get("/organizations/{org_id}/runs")
+async def list_organization_runs(
+    request: Request,
+    org_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    status_filter: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    List all pipeline runs for a specific organization.
+
+    **Super Admin Only** - READ ONLY
+
+    Returns recent runs with status and details.
+    """
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_org_runs",
+        resource_type="run",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    query = db.query(PipelineRun).join(Pipeline).filter(
+        Pipeline.organization_id == org_id
+    )
+
+    if status_filter:
+        query = query.filter(PipelineRun.status == status_filter)
+
+    runs = query.order_by(PipelineRun.created_at.desc()).offset(skip).limit(limit).all()
+
+    result = []
+    for run in runs:
+        result.append({
+            "id": run.id,
+            "public_id": str(run.public_id),
+            "pipeline_id": run.pipeline_id,
+            "pipeline_name": run.pipeline.name if run.pipeline else None,
+            "status": run.status.value,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+            "duration_seconds": run.duration_seconds,
+            "rows_written": run.rows_written,
+            "error_message": run.error_message,
+            "created_at": run.created_at.isoformat(),
+        })
+
+    return {
+        "organization_id": org_id,
+        "organization_name": org.name,
+        "runs": result,
+        "total": len(result),
+    }
+
+
+@router.get("/organizations/{org_id}/runs/{run_id}")
+async def get_organization_run_details(
+    request: Request,
+    org_id: int,
+    run_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Get detailed information about a specific pipeline run including logs.
+
+    **Super Admin Only** - READ ONLY
+    """
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    run = db.query(PipelineRun).join(Pipeline).filter(
+        PipelineRun.id == run_id,
+        Pipeline.organization_id == org_id,
+    ).first()
+
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_run_details",
+        resource_type="run",
+        resource_id=str(run_id),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return {
+        "id": run.id,
+        "public_id": str(run.public_id),
+        "pipeline_id": run.pipeline_id,
+        "pipeline_name": run.pipeline.name if run.pipeline else None,
+        "status": run.status.value,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+        "duration_seconds": run.duration_seconds,
+        "rows_written": run.rows_written,
+        "bytes_written": run.bytes_written,
+        "error_message": run.error_message,
+        "error_traceback": run.error_traceback,
+        "run_metadata": run.run_metadata,
+        "created_at": run.created_at.isoformat(),
+        "organization_id": org_id,
+        "organization_name": org.name,
+    }
+
+
+@router.get("/organizations/{org_id}/sources")
+async def list_organization_sources(
+    request: Request,
+    org_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    List all data sources for a specific organization.
+
+    **Super Admin Only** - READ ONLY
+
+    Note: Connection credentials are NOT exposed for security.
+    """
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_org_sources",
+        resource_type="source",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    sources = db.query(DataSource).filter(
+        DataSource.organization_id == org_id
+    ).offset(skip).limit(limit).all()
+
+    result = []
+    for source in sources:
+        result.append({
+            "id": source.id,
+            "public_id": str(source.public_id),
+            "name": source.name,
+            "description": source.description,
+            "source_type": source.source_type.value,
+            "is_active": source.is_active,
+            "created_at": source.created_at.isoformat(),
+            # NOTE: config is NOT exposed for security
+        })
+
+    return {
+        "organization_id": org_id,
+        "organization_name": org.name,
+        "sources": result,
+        "total": len(result),
+    }
+
+
+@router.get("/organizations/{org_id}/destinations")
+async def list_organization_destinations(
+    request: Request,
+    org_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    List all destinations for a specific organization.
+
+    **Super Admin Only** - READ ONLY
+
+    Note: Connection credentials are NOT exposed for security.
+    """
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_org_destinations",
+        resource_type="destination",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    destinations = db.query(Destination).filter(
+        Destination.organization_id == org_id
+    ).offset(skip).limit(limit).all()
+
+    result = []
+    for dest in destinations:
+        result.append({
+            "id": dest.id,
+            "public_id": str(dest.public_id),
+            "name": dest.name,
+            "description": dest.description,
+            "destination_type": dest.destination_type.value,
+            "is_active": dest.is_active,
+            "created_at": dest.created_at.isoformat(),
+            # NOTE: config is NOT exposed for security
+        })
+
+    return {
+        "organization_id": org_id,
+        "organization_name": org.name,
+        "destinations": result,
+        "total": len(result),
+    }
+
+
+@router.get("/organizations/{org_id}/team")
+async def list_organization_team(
+    request: Request,
+    org_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    List all team members for a specific organization.
+
+    **Super Admin Only** - READ ONLY
+    """
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Log access
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="view_org_team",
+        resource_type="user",
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    users = db.query(User).filter(
+        User.organization_id == org_id
+    ).offset(skip).limit(limit).all()
+
+    result = []
+    for user in users:
+        result.append({
+            "id": user.id,
+            "public_id": str(user.public_id),
+            "email": user.email,
+            "username": user.username,
+            "full_name": user.full_name,
+            "is_active": user.is_active,
+            "email_verified": user.email_verified,
+            "roles": user.role_names,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
+            "created_at": user.created_at.isoformat(),
+        })
+
+    return {
+        "organization_id": org_id,
+        "organization_name": org.name,
+        "team": result,
+        "total": len(result),
+    }
+
+
+# ==================== IMPERSONATION ENDPOINTS ====================
+
+IMPERSONATION_TOKEN_EXPIRY_MINUTES = 15
+
+
+@router.post("/impersonate/{org_id}", response_model=ImpersonationResponse)
+async def start_impersonation(
+    request: Request,
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Start an impersonation session for a specific organization.
+
+    **Super Admin Only**
+
+    Creates a temporary token that allows viewing the dashboard as if
+    logged in as that organization. Token expires in 15 minutes.
+
+    IMPORTANT: Impersonation is READ-ONLY. No modifications can be made.
+    All impersonation access is fully logged.
+    """
+    from datetime import datetime, timezone as tz
+
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    # Cannot impersonate the platform organization
+    if org.slug == "platform":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot impersonate the platform organization"
+        )
+
+    # End any existing active sessions for this admin
+    db.query(ImpersonationSession).filter(
+        ImpersonationSession.super_admin_id == current_user.id,
+        ImpersonationSession.is_active == True,
+    ).update({"is_active": False, "ended_at": datetime.now(tz.utc)})
+
+    # Generate impersonation token
+    raw_token = secrets.token_urlsafe(32)
+    impersonation_token = f"imp_{raw_token}"
+    token_hash = hashlib.sha256(impersonation_token.encode()).hexdigest()
+
+    # Create session
+    expires_at = datetime.now(tz.utc) + timedelta(minutes=IMPERSONATION_TOKEN_EXPIRY_MINUTES)
+
+    session = ImpersonationSession(
+        super_admin_id=current_user.id,
+        target_org_id=org_id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+        is_active=True,
+        ip_address=request.client.host if request.client else None,
+    )
+    db.add(session)
+    db.commit()
+
+    # Log impersonation start
+    log_super_admin_access(
+        db=db,
+        super_admin=current_user,
+        target_org_id=org_id,
+        action="impersonation_started",
+        resource_type="organization",
+        resource_id=str(org_id),
+        details={"session_id": session.id, "expires_at": expires_at.isoformat()},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    # Log organization action
+    log_organization_action(
+        db=db,
+        user=current_user,
+        action="impersonation.started",
+        organization_id=org_id,
+        details={
+            "admin_email": current_user.email,
+            "expires_at": expires_at.isoformat(),
+        },
+        ip_address=request.client.host if request.client else None,
+    )
+
+    return ImpersonationResponse(
+        impersonation_token=impersonation_token,
+        target_org_id=org_id,
+        target_org_name=org.name,
+        expires_at=expires_at.isoformat(),
+        message=f"Impersonation session started for '{org.name}'. Token expires in {IMPERSONATION_TOKEN_EXPIRY_MINUTES} minutes.",
+    )
+
+
+@router.post("/stop-impersonate")
+async def stop_impersonation(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    End the current impersonation session.
+
+    **Super Admin Only**
+
+    Ends all active impersonation sessions for the current admin.
+    """
+    from datetime import datetime, timezone as tz
+
+    # Find and end active sessions
+    active_sessions = db.query(ImpersonationSession).filter(
+        ImpersonationSession.super_admin_id == current_user.id,
+        ImpersonationSession.is_active == True,
+    ).all()
+
+    ended_count = 0
+    for session in active_sessions:
+        session.is_active = False
+        session.ended_at = datetime.now(tz.utc)
+        ended_count += 1
+
+        # Log impersonation end
+        log_super_admin_access(
+            db=db,
+            super_admin=current_user,
+            target_org_id=session.target_org_id,
+            action="impersonation_ended",
+            resource_type="organization",
+            resource_id=str(session.target_org_id),
+            details={"session_id": session.id},
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+
+    db.commit()
+
+    return {
+        "message": f"Ended {ended_count} impersonation session(s)",
+        "sessions_ended": ended_count,
+    }
+
+
+@router.get("/impersonation/current")
+async def get_current_impersonation(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Get the current active impersonation session if any.
+
+    **Super Admin Only**
+    """
+    from datetime import datetime, timezone as tz
+
+    session = db.query(ImpersonationSession).filter(
+        ImpersonationSession.super_admin_id == current_user.id,
+        ImpersonationSession.is_active == True,
+        ImpersonationSession.expires_at > datetime.now(tz.utc),
+    ).first()
+
+    if not session:
+        return {"active": False, "session": None}
+
+    org = db.query(Organization).filter(Organization.id == session.target_org_id).first()
+
+    return {
+        "active": True,
+        "session": {
+            "target_org_id": session.target_org_id,
+            "target_org_name": org.name if org else None,
+            "target_org_slug": org.slug if org else None,
+            "target_org_logo": org.logo_url if org else None,
+            "started_at": session.started_at.isoformat(),
+            "expires_at": session.expires_at.isoformat(),
+        },
+    }
+
+
+@router.get("/access-logs")
+async def get_super_admin_access_logs(
+    request: Request,
+    skip: int = 0,
+    limit: int = 100,
+    target_org_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Get super admin cross-org access logs.
+
+    **Super Admin Only**
+
+    View audit trail of all cross-organization access by super admins.
+    """
+    from backend.models.audit import SuperAdminAccessLog
+
+    query = db.query(SuperAdminAccessLog)
+
+    if target_org_id:
+        query = query.filter(SuperAdminAccessLog.target_org_id == target_org_id)
+
+    logs = query.order_by(SuperAdminAccessLog.created_at.desc()).offset(skip).limit(limit).all()
+
+    result = []
+    for log in logs:
+        result.append({
+            "id": log.id,
+            "super_admin_id": log.super_admin_id,
+            "super_admin_email": log.super_admin.email if log.super_admin else None,
+            "target_org_id": log.target_org_id,
+            "target_org_name": log.target_organization.name if log.target_organization else None,
+            "action": log.action,
+            "resource_type": log.resource_type,
+            "resource_id": log.resource_id,
+            "details": log.details,
+            "ip_address": log.ip_address,
+            "created_at": log.created_at.isoformat(),
+        })
+
+    return {
+        "logs": result,
+        "total": len(result),
+    }
