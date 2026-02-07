@@ -82,7 +82,7 @@ export default function ConnectorsPage() {
     fetchConnectors();
   }, []);
 
-  const categories = [...new Set(connectors.map((c) => c.category))];
+  const categories = Array.from(new Set(connectors.map((c) => c.category)));
 
   const filteredConnectors = connectors.filter((connector) => {
     const matchesSearch =

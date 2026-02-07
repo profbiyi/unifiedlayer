@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api-client";
+import { useCurrentUser } from "@/hooks/queries/useAuth";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,13 +26,7 @@ import {
 
 export default function SecuritySettingsPage() {
   const queryClient = useQueryClient();
-  const { data: currentUser } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: async () => {
-      const { data } = await api.get("/auth/me");
-      return data;
-    },
-  });
+  const { data: currentUser } = useCurrentUser();
 
   // Setup flow state
   const [setupDialogOpen, setSetupDialogOpen] = useState(false);
