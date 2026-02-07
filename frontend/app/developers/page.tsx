@@ -176,7 +176,7 @@ export default function DevelopersPage() {
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || ""}/docs`}
+                href={`${process.env.NEXT_PUBLIC_API_URL}/docs`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -186,7 +186,7 @@ export default function DevelopersPage() {
                 </Button>
               </a>
               <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || ""}/redoc`}
+                href={`${process.env.NEXT_PUBLIC_API_URL}/redoc`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -196,6 +196,11 @@ export default function DevelopersPage() {
                 </Button>
               </a>
             </div>
+            {!process.env.NEXT_PUBLIC_API_URL && (
+              <p className="mt-4 text-sm text-amber-600">
+                API URL not configured. Set NEXT_PUBLIC_API_URL environment variable.
+              </p>
+            )}
           </div>
         </div>
       </section>
