@@ -79,6 +79,9 @@ from backend.api.routes import (
     notifications,
     exports,
     gdpr,
+    transformations,
+    alerts,
+    dbt,
 )
 
 # Configure logging
@@ -170,6 +173,8 @@ Authorization: Bearer <your_token>
         {"name": "Runs", "description": "Pipeline execution tracking"},
         {"name": "Lineage", "description": "Data lineage graphs"},
         {"name": "Quality", "description": "Data quality checks"},
+        {"name": "dbt Orchestration", "description": "dbt project management and run execution"},
+        {"name": "Pipeline dbt Config", "description": "Pipeline dbt transformation configuration"},
         {"name": "Billing", "description": "Subscriptions, usage, and payments"},
         {"name": "Connector SDK", "description": "Available connectors and their schemas"},
         {"name": "Organizations", "description": "Multi-tenant organization management"},
@@ -225,6 +230,9 @@ app.include_router(api_preview.router)
 app.include_router(destinations.router)
 app.include_router(destination_discovery.router)
 app.include_router(pipelines.router)
+app.include_router(transformations.router)
+app.include_router(dbt.router)
+app.include_router(dbt.pipeline_dbt_router)
 app.include_router(runs.router)
 app.include_router(lineage.router)
 app.include_router(metrics.router)
@@ -242,6 +250,7 @@ app.include_router(webhooks.router)
 app.include_router(notifications.router)
 app.include_router(exports.router)
 app.include_router(gdpr.router)
+app.include_router(alerts.router)
 
 # RBAC routers
 app.include_router(admin.router)

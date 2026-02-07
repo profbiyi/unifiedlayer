@@ -372,6 +372,7 @@ class PipelineRun(Base):
     # Relationships
     pipeline = relationship("Pipeline", back_populates="runs")
     original_run = relationship("PipelineRun", remote_side=[id], foreign_keys=[original_run_id])
+    transformation_results = relationship("TransformationResult", back_populates="pipeline_run", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<PipelineRun(id={self.id}, pipeline_id={self.pipeline_id}, status='{self.status}')>"

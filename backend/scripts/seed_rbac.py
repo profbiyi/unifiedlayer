@@ -114,6 +114,13 @@ def seed_permissions(db: Session):
 
         # Audit permissions
         {"resource": "audit", "action": "read", "description": "View audit logs"},
+
+        # dbt Project permissions
+        {"resource": "dbt_project", "action": "create", "description": "Create dbt projects"},
+        {"resource": "dbt_project", "action": "read", "description": "View dbt projects"},
+        {"resource": "dbt_project", "action": "update", "description": "Edit dbt project configuration"},
+        {"resource": "dbt_project", "action": "delete", "description": "Delete dbt projects"},
+        {"resource": "dbt_project", "action": "execute", "description": "Trigger dbt runs"},
     ]
 
     permissions = {}
@@ -179,6 +186,11 @@ def assign_permissions_to_roles(db: Session, roles: dict, permissions: dict):
         permissions["settings:read"],
         permissions["settings:update"],
         permissions["audit:read"],
+        permissions["dbt_project:create"],
+        permissions["dbt_project:read"],
+        permissions["dbt_project:update"],
+        permissions["dbt_project:delete"],
+        permissions["dbt_project:execute"],
     ]
 
     # ORG_USER permissions (limited)
@@ -193,6 +205,8 @@ def assign_permissions_to_roles(db: Session, roles: dict, permissions: dict):
         permissions["quality_checks:read"],
         permissions["metrics:read"],
         permissions["settings:read"],
+        permissions["dbt_project:read"],
+        permissions["dbt_project:execute"],
     ]
 
     role_permission_map = {
