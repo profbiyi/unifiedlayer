@@ -131,15 +131,15 @@ const plans = [
   },
   {
     name: "Professional",
-    price: "\u00a335",
+    price: "From \u00a335",
     period: "/month",
     description:
       "Unlimited connectors, quality checks, lineage, and analytics",
     badge: "Most Popular",
     features: [
+      "Up to 3 team members",
       "Unlimited connectors",
       "500,000 rows/month",
-      "5 users",
       "Unlimited pipelines",
       "Data quality checks",
       "Data lineage tracking",

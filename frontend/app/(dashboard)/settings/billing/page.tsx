@@ -119,9 +119,10 @@ const planDetails = [
   {
     id: "professional",
     name: "Professional",
-    price: "\u00a335/mo",
+    price: "From \u00a335/mo",
     description: "For growing businesses",
     features: [
+      "Up to 3 team members",
       "100,000 rows synced / month",
       "10,000 API calls / month",
       "Unlimited pipeline runs",
