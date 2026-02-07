@@ -1,34 +1,39 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const PRODUCTION_DOMAIN = 'unifiedlayer.io';
+
 /**
- * Next.js middleware (currently disabled).
+ * Next.js middleware for domain redirect and route protection.
  *
- * NOTE: With cross-origin setup (frontend on :3001, backend on :8000),
- * middleware cannot access HTTPOnly cookies set by the backend.
- *
- * Route protection is handled by:
- * 1. AuthGuard component (client-side redirect)
- * 2. Backend API validation (all endpoints require valid JWT)
- *
- * This provides defense-in-depth:
- * - AuthGuard = UX (prevents unnecessary API calls)
- * - Backend = Security (cannot be bypassed)
+ * 1. Redirects Railway URLs to production domain
+ * 2. Route protection handled by AuthGuard component (client-side)
  */
 export function middleware(request: NextRequest) {
-  // Pass through all requests
-  // Protection is handled by AuthGuard component
+  const host = request.headers.get('host') || '';
+  const { pathname, search } = request.nextUrl;
+
+  // Redirect Railway URLs to production domain
+  if (host.includes('railway.app') || host.includes('up.railway.app')) {
+    const redirectUrl = `https://${PRODUCTION_DOMAIN}${pathname}${search}`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  // Pass through all other requests
+  // Route protection is handled by AuthGuard component
   return NextResponse.next();
 }
 
 export const config = {
+  // Match all paths for domain redirect
   matcher: [
-    '/overview/:path*',
-    '/pipelines/:path*',
-    '/sources/:path*',
-    '/destinations/:path*',
-    '/runs/:path*',
-    '/lineage/:path*',
-    '/settings/:path*',
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
