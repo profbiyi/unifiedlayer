@@ -294,16 +294,12 @@ class MyConnector(BaseConnector):
         yield {"id": 1, "name": "Alice"}
         yield {"id": 2, "name": "Bob"}`}</code>
             </pre>
-            <a
-              href={`${process.env.NEXT_PUBLIC_API_URL || ""}/connectors/`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <Link href="/developers/connectors">
               <Button>
                 View Available Connectors
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            </a>
+            </Link>
           </div>
         </div>
       </section>
