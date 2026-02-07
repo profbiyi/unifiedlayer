@@ -27,6 +27,11 @@ from backend.models.quality import (
 from backend.models.billing import Subscription, Invoice, UsageRecord
 from backend.models.webhook import WebhookEvent
 from backend.models.notification import Notification
+from backend.models.transformation import (
+    SQLTransformation,
+    TransformationResult,
+    TransformationStatus,
+)
 
 __all__ = [
     "Organization",
@@ -52,4 +57,7 @@ __all__ = [
     "UsageRecord",
     "WebhookEvent",
     "Notification",
+    "SQLTransformation",
+    "TransformationResult",
+    "TransformationStatus",
 ]

@@ -5,7 +5,8 @@ import logging
 import secrets
 from datetime import timedelta, datetime, timezone
 from uuid import uuid4
-from fastapi import APIRouter, Depends, HTTPException, status, Form, Response
+from urllib.parse import urlencode
+from fastapi import APIRouter, Depends, HTTPException, status, Form, Response, Query
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -27,6 +28,9 @@ from backend.utils.email import send_verification_email
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+# In-memory store for OAuth state tokens (in production, use Redis)
+_oauth_states: dict[str, dict] = {}
 
 
 @router.post("/login")
@@ -404,3 +408,425 @@ async def resend_verification(
 
     # Always return success to prevent email enumeration
     return {"message": "If an account exists with that email, a verification link has been sent."}
+
+
+# =============================================================================
+# Google OAuth Endpoints
+# =============================================================================
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+
+class GoogleLinkRequest(BaseModel):
+    """Request to link Google account to existing user."""
+    code: str
+    state: str
+
+
+@router.get("/google/login")
+async def google_login(
+    redirect_uri: str = Query(None, description="Optional custom redirect URI after OAuth"),
+):
+    """
+    Initiate Google OAuth login flow.
+
+    Redirects user to Google's OAuth consent screen.
+
+    Args:
+        redirect_uri: Optional frontend URL to redirect to after successful auth
+
+    Returns:
+        Redirect to Google OAuth consent screen
+    """
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth is not configured"
+        )
+
+    # Generate state token for CSRF protection
+    state = secrets.token_urlsafe(32)
+
+    # Store state with metadata (expires in 10 minutes)
+    _oauth_states[state] = {
+        "created_at": datetime.now(timezone.utc),
+        "redirect_uri": redirect_uri or settings.FRONTEND_URL,
+        "action": "login"
+    }
+
+    # Clean up old states (older than 10 minutes)
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    expired_states = [s for s, data in _oauth_states.items() if data["created_at"] < cutoff]
+    for s in expired_states:
+        del _oauth_states[s]
+
+    # Build Google OAuth URL
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI or f"{settings.FRONTEND_URL}/api/auth/google/callback",
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+
+    auth_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+    return RedirectResponse(url=auth_url)
+
+
+@router.get("/google/callback")
+async def google_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    error: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Handle Google OAuth callback.
+
+    Exchanges authorization code for tokens, retrieves user info,
+    and either logs in existing user or creates new account.
+
+    Args:
+        code: Authorization code from Google
+        state: State parameter for CSRF validation
+        error: Error message if OAuth was denied
+        db: Database session
+
+    Returns:
+        Redirect to frontend with access token or error
+    """
+    from backend.models.pipeline import Organization
+
+    # Handle OAuth errors
+    if error:
+        logger.warning("Google OAuth error: %s", error)
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=oauth_denied"
+        )
+
+    # Validate state token
+    state_data = _oauth_states.pop(state, None)
+    if not state_data:
+        logger.warning("Invalid or expired OAuth state token")
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=invalid_state"
+        )
+
+    redirect_uri = state_data.get("redirect_uri", settings.FRONTEND_URL)
+    action = state_data.get("action", "login")
+
+    try:
+        # Exchange code for tokens
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                GOOGLE_TOKEN_URL,
+                data={
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": settings.GOOGLE_REDIRECT_URI or f"{settings.FRONTEND_URL}/api/auth/google/callback",
+                },
+            )
+
+            if token_response.status_code != 200:
+                logger.error("Failed to exchange code for token: %s", token_response.text)
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/login?error=token_exchange_failed"
+                )
+
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+
+            # Get user info from Google
+            userinfo_response = await client.get(
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+
+            if userinfo_response.status_code != 200:
+                logger.error("Failed to get user info: %s", userinfo_response.text)
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/login?error=userinfo_failed"
+                )
+
+            google_user = userinfo_response.json()
+
+    except Exception as e:
+        logger.exception("Google OAuth error: %s", str(e))
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=oauth_error"
+        )
+
+    google_id = google_user.get("id")
+    email = google_user.get("email")
+    name = google_user.get("name", "")
+
+    if not email:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=email_required"
+        )
+
+    # Check if user exists by Google ID
+    user = db.query(User).filter(User.google_id == google_id).first()
+
+    if not user:
+        # Check if user exists by email (link accounts)
+        user = db.query(User).filter(User.email == email).first()
+
+        if user:
+            # Link Google account to existing user
+            user.google_id = google_id
+            user.oauth_provider = "google"
+            user.email_verified = True  # Google emails are verified
+            db.commit()
+            logger.info("Linked Google account to existing user: %s", email)
+        else:
+            # Create new user - but we need an organization
+            # For OAuth signups, we'll create a personal org or require invitation
+            # For now, return error - self-registration is disabled
+            return RedirectResponse(
+                url=f"{settings.FRONTEND_URL}/login?error=registration_disabled&email={email}"
+            )
+
+    # Check if user is active and organization is active
+    if not user.is_active:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=account_disabled"
+        )
+
+    if user.organization and not user.organization.is_active:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/login?error=organization_disabled"
+        )
+
+    # Update last login
+    user.last_login = datetime.now(timezone.utc)
+
+    # Check if this is first login of an org admin (onboarding)
+    if user.is_org_admin() and user.organization:
+        org = db.query(Organization).filter(Organization.id == user.organization_id).first()
+        if org and not org.admin_onboarded:
+            org.admin_onboarded = True
+            org.admin_onboarded_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    # Generate access token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    jwt_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email},
+        expires_delta=access_token_expires,
+    )
+
+    # Redirect to frontend with token
+    return RedirectResponse(
+        url=f"{redirect_uri}/login?token={jwt_token}"
+    )
+
+
+@router.post("/google/link")
+async def google_link_account(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get URL to link Google account to current user.
+
+    Args:
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        Google OAuth URL for account linking
+    """
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth is not configured"
+        )
+
+    if current_user.google_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google account is already linked"
+        )
+
+    # Generate state token for CSRF protection
+    state = secrets.token_urlsafe(32)
+
+    # Store state with user ID for linking
+    _oauth_states[state] = {
+        "created_at": datetime.now(timezone.utc),
+        "redirect_uri": f"{settings.FRONTEND_URL}/settings",
+        "action": "link",
+        "user_id": current_user.id
+    }
+
+    # Build Google OAuth URL
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI or f"{settings.FRONTEND_URL}/api/auth/google/callback",
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+
+    auth_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+    return {"auth_url": auth_url}
+
+
+@router.get("/google/link/callback")
+async def google_link_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    error: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Handle Google OAuth callback for account linking.
+
+    Args:
+        code: Authorization code from Google
+        state: State parameter with user ID
+        error: Error message if OAuth was denied
+        db: Database session
+
+    Returns:
+        Redirect to settings page with success/error message
+    """
+    if error:
+        logger.warning("Google OAuth link error: %s", error)
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/settings?error=oauth_denied"
+        )
+
+    # Validate state token
+    state_data = _oauth_states.pop(state, None)
+    if not state_data or state_data.get("action") != "link":
+        logger.warning("Invalid or expired OAuth state token for linking")
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/settings?error=invalid_state"
+        )
+
+    user_id = state_data.get("user_id")
+    if not user_id:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/settings?error=invalid_state"
+        )
+
+    try:
+        # Exchange code for tokens
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                GOOGLE_TOKEN_URL,
+                data={
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": settings.GOOGLE_REDIRECT_URI or f"{settings.FRONTEND_URL}/api/auth/google/callback",
+                },
+            )
+
+            if token_response.status_code != 200:
+                logger.error("Failed to exchange code for token: %s", token_response.text)
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/settings?error=token_exchange_failed"
+                )
+
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+
+            # Get user info from Google
+            userinfo_response = await client.get(
+                GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+
+            if userinfo_response.status_code != 200:
+                logger.error("Failed to get user info: %s", userinfo_response.text)
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/settings?error=userinfo_failed"
+                )
+
+            google_user = userinfo_response.json()
+
+    except Exception as e:
+        logger.exception("Google OAuth link error: %s", str(e))
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/settings?error=oauth_error"
+        )
+
+    google_id = google_user.get("id")
+    google_email = google_user.get("email")
+
+    # Check if this Google account is already linked to another user
+    existing_user = db.query(User).filter(User.google_id == google_id).first()
+    if existing_user and existing_user.id != user_id:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/settings?error=google_already_linked"
+        )
+
+    # Get the user and link Google account
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/settings?error=user_not_found"
+        )
+
+    user.google_id = google_id
+    user.oauth_provider = "google"
+    db.commit()
+
+    logger.info("Linked Google account %s to user %s", google_email, user.email)
+
+    return RedirectResponse(
+        url=f"{settings.FRONTEND_URL}/settings?google_linked=true"
+    )
+
+
+@router.delete("/google/unlink")
+async def google_unlink_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Unlink Google account from current user.
+
+    User must have a password set to unlink (otherwise they'd be locked out).
+
+    Args:
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    if not current_user.google_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No Google account is linked"
+        )
+
+    # Check if user has a password set (required to unlink)
+    if not current_user.hashed_password or current_user.hashed_password == "":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You must set a password before unlinking Google account"
+        )
+
+    current_user.google_id = None
+    if current_user.oauth_provider == "google":
+        current_user.oauth_provider = None
+
+    db.commit()
+
+    return {"message": "Google account unlinked successfully"}

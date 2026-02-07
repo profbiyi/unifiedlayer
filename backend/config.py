@@ -169,6 +169,7 @@ class Settings(BaseSettings):
     # Google OAuth (User Authentication)
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: Optional[str] = None  # OAuth callback URL, e.g., http://localhost:8000/api/auth/google/callback
 
     # Slack Notifications
     SLACK_WEBHOOK_URL: Optional[str] = None

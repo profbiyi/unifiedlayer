@@ -171,6 +171,10 @@ class User(Base):
     password_reset_token = Column(String(255), nullable=True)
     password_reset_expires = Column(DateTime, nullable=True)
 
+    # OAuth fields
+    google_id = Column(String(255), nullable=True, unique=True, index=True)
+    oauth_provider = Column(String(50), nullable=True)  # 'google', 'github', etc.
+
     last_login = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
@@ -320,6 +324,7 @@ class Pipeline(Base):
     source = relationship("DataSource", back_populates="pipelines", foreign_keys=[source_id])
     destination = relationship("Destination", back_populates="pipelines", foreign_keys=[destination_id])
     runs = relationship("PipelineRun", back_populates="pipeline", cascade="all, delete-orphan")
+    sql_transformations = relationship("SQLTransformation", back_populates="pipeline", cascade="all, delete-orphan", order_by="SQLTransformation.execution_order")
 
     def __repr__(self):
         return f"<Pipeline(id={self.id}, name='{self.name}')>"
