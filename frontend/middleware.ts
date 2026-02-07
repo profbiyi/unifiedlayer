@@ -12,9 +12,22 @@ const PRODUCTION_DOMAIN = 'unifiedlayer.io';
 export function middleware(request: NextRequest) {
   const host = request.headers.get('host') || '';
   const { pathname, search } = request.nextUrl;
+  const userAgent = request.headers.get('user-agent') || '';
 
-  // Redirect Railway URLs to production domain
-  if (host.includes('railway.app') || host.includes('up.railway.app')) {
+  // Skip redirect for healthchecks and internal requests
+  // Railway healthchecks hit / or /api/health
+  const isHealthcheck =
+    pathname === '/api/health' ||
+    (pathname === '/' && (
+      !userAgent ||
+      userAgent.includes('Railway') ||
+      userAgent.includes('curl') ||
+      userAgent.includes('kube-probe') ||
+      userAgent.includes('health')
+    ));
+
+  // Redirect Railway URLs to production domain (but not healthchecks)
+  if (!isHealthcheck && (host.includes('railway.app') || host.includes('up.railway.app'))) {
     const redirectUrl = `https://${PRODUCTION_DOMAIN}${pathname}${search}`;
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
