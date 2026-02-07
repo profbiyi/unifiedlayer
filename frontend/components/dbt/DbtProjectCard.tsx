@@ -60,7 +60,7 @@ export default function DbtProjectCard({
   };
 
   const handleRun = async () => {
-    await triggerRun.mutateAsync();
+    await triggerRun.mutateAsync({});
   };
 
   const getStatusBadge = () => {

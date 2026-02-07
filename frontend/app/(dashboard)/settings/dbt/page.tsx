@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,23 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { DbtProjectCard } from "@/components/dbt/DbtProjectCard";
-import { DbtProjectForm } from "@/components/dbt/DbtProjectForm";
+import DbtProjectCard from "@/components/dbt/DbtProjectCard";
+import DbtProjectForm from "@/components/dbt/DbtProjectForm";
 import { Plus, GitBranch, Loader2 } from "lucide-react";
-import toast from "react-hot-toast";
 
 export default function DbtSettingsPage() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
-  const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ["dbt-projects"],
@@ -37,48 +27,15 @@ export default function DbtSettingsPage() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (projectData: any) => {
-      const { data } = await api.post("/dbt/projects", projectData);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dbt-projects"] });
-      setIsCreateOpen(false);
-      toast.success("dbt project created successfully");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to create project");
-    },
-  });
+  const handleEdit = (project: any) => {
+    setEditingProject(project);
+    setIsFormOpen(true);
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await api.put(`/dbt/projects/${id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dbt-projects"] });
-      setEditingProject(null);
-      toast.success("dbt project updated successfully");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to update project");
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/dbt/projects/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dbt-projects"] });
-      toast.success("dbt project deleted");
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to delete project");
-    },
-  });
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingProject(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -89,27 +46,10 @@ export default function DbtSettingsPage() {
             Manage your dbt projects for data transformations
           </p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add dbt Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add dbt Project</DialogTitle>
-              <DialogDescription>
-                Connect a dbt project from a Git repository
-              </DialogDescription>
-            </DialogHeader>
-            <DbtProjectForm
-              onSubmit={(data) => createMutation.mutate(data)}
-              isSubmitting={createMutation.isPending}
-              onCancel={() => setIsCreateOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsFormOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add dbt Project
+        </Button>
       </div>
 
       {isLoading ? (
@@ -124,7 +64,7 @@ export default function DbtSettingsPage() {
             <CardDescription className="text-center mb-4">
               Connect your first dbt project to run transformations after data loads
             </CardDescription>
-            <Button onClick={() => setIsCreateOpen(true)}>
+            <Button onClick={() => setIsFormOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Add dbt Project
             </Button>
@@ -136,34 +76,18 @@ export default function DbtSettingsPage() {
             <DbtProjectCard
               key={project.id}
               project={project}
-              onEdit={() => setEditingProject(project)}
-              onDelete={() => deleteMutation.mutate(project.public_id)}
+              onEdit={() => handleEdit(project)}
             />
           ))}
         </div>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingProject} onOpenChange={() => setEditingProject(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit dbt Project</DialogTitle>
-            <DialogDescription>
-              Update your dbt project configuration
-            </DialogDescription>
-          </DialogHeader>
-          {editingProject && (
-            <DbtProjectForm
-              initialData={editingProject}
-              onSubmit={(data) =>
-                updateMutation.mutate({ id: editingProject.public_id, data })
-              }
-              isSubmitting={updateMutation.isPending}
-              onCancel={() => setEditingProject(null)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Create/Edit Form Dialog */}
+      <DbtProjectForm
+        open={isFormOpen}
+        onOpenChange={handleFormClose}
+        project={editingProject}
+      />
     </div>
   );
 }
