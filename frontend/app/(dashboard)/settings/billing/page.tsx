@@ -105,15 +105,15 @@ function formatDate(dateStr: string): string {
 const planDetails = [
   {
     id: "starter",
-    name: "Starter",
+    name: "Free Trial",
     price: "Free",
-    description: "For individuals getting started",
+    description: "Try UnifiedLayer for 30 days",
     features: [
-      "1,000 rows synced / month",
-      "100 API calls / month",
-      "5 pipeline runs / month",
+      "5,000 rows synced",
+      "1 pipeline sync",
       "1 data source",
-      "Community support",
+      "30-day trial period",
+      "Trial ends at 5k rows or 30 days",
     ],
   },
   {

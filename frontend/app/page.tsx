@@ -114,18 +114,18 @@ const whyUnifiedLayer = [
 
 const plans = [
   {
-    name: "Starter",
+    name: "Free Trial",
     price: "Free",
     period: "",
-    description: "Get started with 3 connectors and 10,000 rows/month",
-    badge: "Free Forever",
+    description: "Try UnifiedLayer free for 30 days",
+    badge: "30-Day Trial",
     features: [
-      "3 connectors",
-      "10,000 rows/month",
+      "5,000 rows synced",
+      "1 pipeline sync",
+      "1 data source",
       "1 user",
-      "3 pipelines",
-      "Community support",
-      "Basic scheduling",
+      "30-day trial",
+      "Ends at 5k rows or 30 days",
     ],
     highlighted: false,
   },
