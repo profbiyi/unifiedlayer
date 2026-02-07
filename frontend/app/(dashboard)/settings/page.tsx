@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Lock, Camera, Loader2 } from "lucide-react";
+import { User, Mail, Lock, Camera, Loader2, Bell, GitBranch, Shield, CreditCard } from "lucide-react";
 import api from "@/lib/api-client";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const { data: user, refetch } = useCurrentUser();
@@ -110,6 +111,54 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">
           Manage your account and preferences
         </p>
+      </div>
+
+      {/* Quick Links */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Link href="/settings/alerts">
+          <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 p-4">
+              <Bell className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">Alerts</p>
+                <p className="text-xs text-muted-foreground">Notifications & rules</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/settings/dbt">
+          <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 p-4">
+              <GitBranch className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">dbt Projects</p>
+                <p className="text-xs text-muted-foreground">Transformations</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/settings/security">
+          <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 p-4">
+              <Shield className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">Security</p>
+                <p className="text-xs text-muted-foreground">2FA & sessions</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/settings/billing">
+          <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 p-4">
+              <CreditCard className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">Billing</p>
+                <p className="text-xs text-muted-foreground">Plans & invoices</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
