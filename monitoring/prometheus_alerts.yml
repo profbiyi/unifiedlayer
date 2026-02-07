@@ -1,0 +1,356 @@
+# Prometheus Alert Rules for UnifiedLayer
+#
+# These rules monitor the data platform for critical issues and trigger alerts
+# to configured notification channels (Slack, Email).
+#
+# To use: Include this file in your prometheus.yml under rule_files:
+#   rule_files:
+#     - "prometheus_alerts.yml"
+
+groups:
+  # ─── Pipeline Alerts ───────────────────────────────────────────────────────
+  - name: pipeline_alerts
+    rules:
+      # Pipeline failure rate exceeds threshold
+      - alert: HighPipelineFailureRate
+        expr: |
+          (
+            sum(rate(pipeline_runs_total{status="failed"}[5m]))
+            /
+            sum(rate(pipeline_runs_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: pipeline
+        annotations:
+          summary: "High pipeline failure rate detected"
+          description: "Pipeline failure rate is {{ $value | humanizePercentage }} over the last 5 minutes. Threshold: 10%."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/pipeline-failure"
+
+      # Individual pipeline has consecutive failures
+      - alert: PipelineConsecutiveFailures
+        expr: |
+          changes(pipeline_runs_total{status="failed"}[30m]) >= 3
+        for: 1m
+        labels:
+          severity: warning
+          category: pipeline
+        annotations:
+          summary: "Pipeline {{ $labels.pipeline_name }} has consecutive failures"
+          description: "Pipeline {{ $labels.pipeline_name }} has failed 3 or more times in the last 30 minutes."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/consecutive-failures"
+
+      # Pipeline run taking too long
+      - alert: PipelineSlowExecution
+        expr: |
+          histogram_quantile(0.95,
+            rate(pipeline_run_duration_seconds_bucket[15m])
+          ) > 3600
+        for: 10m
+        labels:
+          severity: warning
+          category: pipeline
+        annotations:
+          summary: "Pipeline execution is slow"
+          description: "95th percentile pipeline execution time is {{ $value | humanizeDuration }}. Expected < 1 hour."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/slow-pipeline"
+
+      # No pipeline runs in expected interval (stale)
+      - alert: NoPipelineRuns
+        expr: |
+          time() - max(pipeline_last_run_timestamp) > 86400
+        for: 5m
+        labels:
+          severity: warning
+          category: pipeline
+        annotations:
+          summary: "No pipeline runs in 24 hours"
+          description: "No pipeline has run in the last 24 hours. Check scheduled pipelines."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/no-pipeline-runs"
+
+  # ─── API Alerts ────────────────────────────────────────────────────────────
+  - name: api_alerts
+    rules:
+      # High API error rate
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: api
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value | humanizePercentage }}. Threshold: 5%."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/api-errors"
+
+      # High API latency
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: api
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile API latency is {{ $value }}s. Threshold: 2s."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/high-latency"
+
+      # API endpoint specific error rate
+      - alert: EndpointHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[10m])) by (endpoint)
+            /
+            sum(rate(http_requests_total[10m])) by (endpoint)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: api
+        annotations:
+          summary: "High error rate on endpoint {{ $labels.endpoint }}"
+          description: "Endpoint {{ $labels.endpoint }} has {{ $value | humanizePercentage }} error rate."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/endpoint-errors"
+
+      # Rate limiting triggered
+      - alert: RateLimitTriggered
+        expr: |
+          sum(rate(http_requests_total{status="429"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: api
+        annotations:
+          summary: "Rate limiting is being triggered frequently"
+          description: "{{ $value }} rate limit responses per second in the last 5 minutes."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/rate-limit"
+
+  # ─── Database Alerts ───────────────────────────────────────────────────────
+  - name: database_alerts
+    rules:
+      # Database connection pool exhaustion
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          (
+            db_pool_checked_out / db_pool_total_connections
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "{{ $value | humanizePercentage }} of database connections are in use."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/connection-pool"
+
+      # Database connection failures
+      - alert: DatabaseConnectionFailures
+        expr: |
+          rate(db_connection_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database connection failures detected"
+          description: "{{ $value }} database connection errors per second."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/db-connection"
+
+      # Slow database queries
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            rate(db_query_duration_seconds_bucket[5m])
+          ) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "95th percentile query time is {{ $value }}s. Threshold: 5s."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/slow-queries"
+
+      # Database health check failing
+      - alert: DatabaseHealthCheckFailing
+        expr: |
+          db_health_check_success == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database health check is failing"
+          description: "Database health check has been failing for 2 minutes."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/db-health"
+
+  # ─── Queue/Redis Alerts ────────────────────────────────────────────────────
+  - name: queue_alerts
+    rules:
+      # Queue backlog growing
+      - alert: QueueBacklogGrowing
+        expr: |
+          redis_queue_length > 1000
+        for: 10m
+        labels:
+          severity: warning
+          category: queue
+        annotations:
+          summary: "Queue backlog is growing"
+          description: "Queue has {{ $value }} pending items. Threshold: 1000."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/queue-backlog"
+
+      # Redis connection issues
+      - alert: RedisConnectionIssues
+        expr: |
+          redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: queue
+        annotations:
+          summary: "Redis is unavailable"
+          description: "Cannot connect to Redis. Queue operations are affected."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/redis-down"
+
+      # Redis memory usage high
+      - alert: RedisHighMemoryUsage
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          category: queue
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis is using {{ $value | humanizePercentage }} of available memory."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/redis-memory"
+
+  # ─── Data Quality Alerts ───────────────────────────────────────────────────
+  - name: data_quality_alerts
+    rules:
+      # Data quality check failures
+      - alert: DataQualityCheckFailed
+        expr: |
+          data_quality_check_success{check_type!=""} == 0
+        for: 1m
+        labels:
+          severity: warning
+          category: data_quality
+        annotations:
+          summary: "Data quality check failed: {{ $labels.check_type }}"
+          description: "Quality check {{ $labels.check_type }} for pipeline {{ $labels.pipeline_name }} has failed."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/quality-check"
+
+      # Low data quality score
+      - alert: LowDataQualityScore
+        expr: |
+          avg(data_quality_score) by (pipeline_name) < 0.8
+        for: 15m
+        labels:
+          severity: warning
+          category: data_quality
+        annotations:
+          summary: "Low data quality score for {{ $labels.pipeline_name }}"
+          description: "Pipeline {{ $labels.pipeline_name }} has data quality score of {{ $value | humanizePercentage }}."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/low-quality"
+
+  # ─── Application Health Alerts ─────────────────────────────────────────────
+  - name: application_alerts
+    rules:
+      # Application not responding
+      - alert: ApplicationDown
+        expr: |
+          up{job="unifiedlayer"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "UnifiedLayer application is down"
+          description: "The UnifiedLayer API is not responding. Immediate attention required."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/app-down"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes /
+            (node_memory_MemTotal_bytes * 0.8)
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High memory usage"
+          description: "Application is using more than 80% of available memory."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/high-memory"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: |
+          rate(process_cpu_seconds_total[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High CPU usage"
+          description: "Application CPU usage is at {{ $value | humanizePercentage }}."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/high-cpu"
+
+  # ─── Business Metric Alerts ────────────────────────────────────────────────
+  - name: business_alerts
+    rules:
+      # Low pipeline success rate
+      - alert: LowPipelineSuccessRate
+        expr: |
+          (
+            sum(rate(pipeline_runs_total{status="completed"}[1h]))
+            /
+            sum(rate(pipeline_runs_total[1h]))
+          ) < 0.9
+        for: 30m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "Low pipeline success rate"
+          description: "Pipeline success rate is {{ $value | humanizePercentage }}. Expected > 90%."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/low-success"
+
+      # Data freshness (stale data)
+      - alert: StaleData
+        expr: |
+          time() - max(data_last_sync_timestamp) by (source_name) > 86400
+        for: 5m
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "Stale data detected for {{ $labels.source_name }}"
+          description: "Data source {{ $labels.source_name }} has not been synced in 24+ hours."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/stale-data"
+
+      # No data processed
+      - alert: NoDataProcessed
+        expr: |
+          sum(increase(data_rows_processed_total[1h])) == 0
+        for: 2h
+        labels:
+          severity: warning
+          category: business
+        annotations:
+          summary: "No data has been processed"
+          description: "No rows have been processed in the last 2 hours."
+          runbook_url: "https://docs.unifiedlayer.com/alerts/no-data"
