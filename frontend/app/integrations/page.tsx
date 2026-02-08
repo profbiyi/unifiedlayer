@@ -93,7 +93,7 @@ export default function IntegrationsPage() {
             </Link>
           </div>
           <nav className="flex items-center gap-4">
-            <Link href="/developers" className="text-sm font-medium text-primary">
+            <Link href="/integrations" className="text-sm font-medium text-primary">
               Integrations
             </Link>
             <Link href="/login">
@@ -122,7 +122,7 @@ export default function IntegrationsPage() {
               accounting software, banks, and more. No coding required.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link href="/developers/connectors">
+              <Link href="/integrations/connectors">
                 <Button size="lg">
                   Browse All Integrations
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -212,7 +212,7 @@ export default function IntegrationsPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/developers/connectors">
+              <Link href="/integrations/connectors">
                 <Button size="lg" variant="outline">
                   View All Connectors
                 </Button>

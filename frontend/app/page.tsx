@@ -180,7 +180,7 @@ export default function Home() {
           </div>
           <nav className="flex items-center gap-4">
             <Link
-              href="/developers"
+              href="/integrations"
               className="text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               Integrations
@@ -430,7 +430,7 @@ export default function Home() {
               <Link href="/login" className="hover:text-foreground">
                 Sign In
               </Link>
-              <Link href="/developers" className="hover:text-foreground">
+              <Link href="/integrations" className="hover:text-foreground">
                 Integrations
               </Link>
               <Link href="/privacy" className="hover:text-foreground">

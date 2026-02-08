@@ -233,7 +233,7 @@ export default function ConnectorsPage() {
       {/* Header */}
       <header className="border-b">
         <div className="container flex h-16 items-center justify-between">
-          <Link href="/developers">
+          <Link href="/integrations">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Integrations
