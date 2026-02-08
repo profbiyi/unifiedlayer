@@ -183,7 +183,7 @@ export default function Home() {
               href="/developers"
               className="text-sm font-medium text-muted-foreground hover:text-foreground"
             >
-              Developers
+              Integrations
             </Link>
             <Link href="#pricing">
               <Button variant="ghost" size="sm">
@@ -431,7 +431,7 @@ export default function Home() {
                 Sign In
               </Link>
               <Link href="/developers" className="hover:text-foreground">
-                Developers
+                Integrations
               </Link>
               <Link href="/privacy" className="hover:text-foreground">
                 Privacy
