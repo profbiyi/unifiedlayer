@@ -12,10 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowRight,
-  Book,
   Code2,
   Database,
-  FileJson,
   Key,
   Plug,
   Terminal,
@@ -170,37 +168,10 @@ export default function DevelopersPage() {
             <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
               Build with the UnifiedLayer API
             </h1>
-            <p className="mb-8 text-lg text-muted-foreground">
+            <p className="text-lg text-muted-foreground">
               Full REST API access to pipelines, connectors, billing, and more.
               Build custom integrations or extend the platform with the Connector SDK.
             </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/docs`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button size="lg">
-                  <FileJson className="mr-2 h-4 w-4" />
-                  Interactive API Docs (Swagger)
-                </Button>
-              </a>
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/redoc`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button size="lg" variant="outline">
-                  <Book className="mr-2 h-4 w-4" />
-                  API Reference (ReDoc)
-                </Button>
-              </a>
-            </div>
-            {!process.env.NEXT_PUBLIC_API_URL && (
-              <p className="mt-4 text-sm text-amber-600">
-                API URL not configured. Set NEXT_PUBLIC_API_URL environment variable.
-              </p>
-            )}
           </div>
         </div>
       </section>
