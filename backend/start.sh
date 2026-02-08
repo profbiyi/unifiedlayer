@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 echo "Running database migrations..."
@@ -12,7 +12,7 @@ if DATABASE_URL:
     # Fix for Railway's postgres:// URL
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-    
+
     engine = create_engine(DATABASE_URL)
     with engine.connect() as conn:
         # Add missing OAuth columns
