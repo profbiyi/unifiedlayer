@@ -348,17 +348,17 @@ async def startup_event():
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
 
-    # Add missing database columns (safe to run multiple times)
+    # Ensure OAuth columns exist in database (safe to run multiple times)
     try:
-        from backend.database import engine
         from sqlalchemy import text
+        from backend.database import engine
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50)"))
             conn.commit()
-            logger.info("Database schema migration check completed")
+        logger.info("Database schema check completed - OAuth columns present")
     except Exception as e:
-        logger.warning(f"Schema migration check failed (may be fine if columns exist): {e}")
+        logger.error(f"Failed to add OAuth columns: {e}")
 
     # Startup warnings for missing optional config
     if not getattr(settings, 'ENCRYPTION_KEY', None):

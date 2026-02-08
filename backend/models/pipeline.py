@@ -171,9 +171,9 @@ class User(Base):
     password_reset_token = Column(String(255), nullable=True)
     password_reset_expires = Column(DateTime, nullable=True)
 
-    # OAuth fields
-    google_id = Column(String(255), nullable=True, unique=True, index=True)
-    oauth_provider = Column(String(50), nullable=True)  # 'google', 'github', etc.
+    # OAuth fields (for future social login support)
+    google_id = Column(String(255), nullable=True)
+    oauth_provider = Column(String(50), nullable=True)
 
     last_login = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
