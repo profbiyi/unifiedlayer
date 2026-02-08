@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -20,8 +20,6 @@ import {
   Building2,
   FileSpreadsheet,
   Landmark,
-  Receipt,
-  Loader2,
   CheckCircle2,
   XCircle,
 } from "lucide-react";
@@ -30,24 +28,180 @@ interface Connector {
   name: string;
   display_name: string;
   description: string;
-  icon: string;
   category: string;
   version: string;
-  author: string;
   capabilities: {
     incremental: boolean;
-    cdc: boolean;
     schema_discovery: boolean;
     connection_test: boolean;
     auth_types: string[];
   };
 }
 
+// Static connector data for the public marketing page
+const staticConnectors: Connector[] = [
+  {
+    name: "stripe",
+    display_name: "Stripe",
+    description: "Sync payment data, customers, invoices, and subscriptions from Stripe.",
+    category: "payment",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "paystack",
+    display_name: "Paystack",
+    description: "Connect to Paystack for African payment processing data - transactions, customers, and settlements.",
+    category: "payment",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "quickbooks",
+    display_name: "QuickBooks Online",
+    description: "Sync accounting data including invoices, customers, payments, and financial reports.",
+    category: "accounting",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "xero",
+    display_name: "Xero",
+    description: "Connect to Xero for invoices, contacts, bank transactions, and account data.",
+    category: "accounting",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "sage",
+    display_name: "Sage Business Cloud",
+    description: "Sync financial data from Sage including contacts, invoices, and ledger entries.",
+    category: "accounting",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "freeagent",
+    display_name: "FreeAgent",
+    description: "UK-focused accounting software connector for invoices, expenses, and bank feeds.",
+    category: "accounting",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "mono",
+    display_name: "Mono",
+    description: "African Open Banking - connect to bank accounts across Nigeria, Kenya, and Ghana.",
+    category: "banking",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "truelayer",
+    display_name: "TrueLayer",
+    description: "UK & EU Open Banking - secure access to bank accounts and transaction data.",
+    category: "banking",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "postgres",
+    display_name: "PostgreSQL",
+    description: "Connect to PostgreSQL databases to extract and sync table data.",
+    category: "database",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["credentials"],
+    },
+  },
+  {
+    name: "mysql",
+    display_name: "MySQL",
+    description: "Extract data from MySQL databases with support for incremental syncs.",
+    category: "database",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["credentials"],
+    },
+  },
+  {
+    name: "mongodb",
+    display_name: "MongoDB",
+    description: "Connect to MongoDB for document-based data extraction and sync.",
+    category: "database",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["credentials"],
+    },
+  },
+  {
+    name: "csv",
+    display_name: "CSV Upload",
+    description: "Upload CSV files directly for quick data imports and one-time loads.",
+    category: "file",
+    version: "1.0.0",
+    capabilities: {
+      incremental: false,
+      schema_discovery: true,
+      connection_test: false,
+      auth_types: ["none"],
+    },
+  },
+];
+
 const categoryIcons: Record<string, any> = {
   payment: CreditCard,
   accounting: Building2,
   banking: Landmark,
-  tax: Receipt,
   database: Database,
   file: FileSpreadsheet,
 };
@@ -56,35 +210,17 @@ const categoryColors: Record<string, string> = {
   payment: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   accounting: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   banking: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  tax: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   database: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
   file: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
 };
 
 export default function ConnectorsPage() {
-  const [connectors, setConnectors] = useState<Connector[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchConnectors() {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connectors/`);
-        const data = await res.json();
-        setConnectors(data.connectors || []);
-      } catch (error) {
-        console.error("Failed to fetch connectors:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchConnectors();
-  }, []);
+  const categories = Array.from(new Set(staticConnectors.map((c) => c.category)));
 
-  const categories = Array.from(new Set(connectors.map((c) => c.category)));
-
-  const filteredConnectors = connectors.filter((connector) => {
+  const filteredConnectors = staticConnectors.filter((connector) => {
     const matchesSearch =
       connector.display_name.toLowerCase().includes(search.toLowerCase()) ||
       connector.description.toLowerCase().includes(search.toLowerCase());
@@ -100,7 +236,7 @@ export default function ConnectorsPage() {
           <Link href="/developers">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Developers
+              Back to Integrations
             </Button>
           </Link>
           <Link href="/">
@@ -113,11 +249,10 @@ export default function ConnectorsPage() {
         {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            Available Connectors
+            Available Integrations
           </h1>
           <p className="text-muted-foreground">
-            Pre-built connectors for popular data sources. Each connector supports
-            schema discovery, connection testing, and seamless integration with pipelines.
+            Pre-built connectors for popular data sources. Connect in minutes, no coding required.
           </p>
         </div>
 
@@ -126,7 +261,7 @@ export default function ConnectorsPage() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search connectors..."
+              placeholder="Search integrations..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -154,20 +289,16 @@ export default function ConnectorsPage() {
         </div>
 
         {/* Connectors Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredConnectors.length === 0 ? (
+        {filteredConnectors.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No connectors found</p>
+            <p className="text-muted-foreground">No integrations found</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredConnectors.map((connector) => {
               const CategoryIcon = categoryIcons[connector.category] || Database;
               return (
-                <Card key={connector.name} className="flex flex-col">
+                <Card key={connector.name} className="flex flex-col hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -186,9 +317,6 @@ export default function ConnectorsPage() {
                           </Badge>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-xs">
-                        v{connector.version}
-                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col">
@@ -198,15 +326,14 @@ export default function ConnectorsPage() {
 
                     {/* Capabilities */}
                     <div className="space-y-2 text-sm">
-                      <p className="font-medium text-muted-foreground">Capabilities:</p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-3">
                         <div className="flex items-center gap-1">
                           {connector.capabilities.incremental ? (
                             <CheckCircle2 className="h-3 w-3 text-green-600" />
                           ) : (
                             <XCircle className="h-3 w-3 text-muted-foreground" />
                           )}
-                          <span className="text-xs">Incremental</span>
+                          <span className="text-xs">Incremental Sync</span>
                         </div>
                         <div className="flex items-center gap-1">
                           {connector.capabilities.schema_discovery ? (
@@ -214,7 +341,7 @@ export default function ConnectorsPage() {
                           ) : (
                             <XCircle className="h-3 w-3 text-muted-foreground" />
                           )}
-                          <span className="text-xs">Schema Discovery</span>
+                          <span className="text-xs">Auto-Discovery</span>
                         </div>
                         <div className="flex items-center gap-1">
                           {connector.capabilities.connection_test ? (
@@ -222,16 +349,8 @@ export default function ConnectorsPage() {
                           ) : (
                             <XCircle className="h-3 w-3 text-muted-foreground" />
                           )}
-                          <span className="text-xs">Connection Test</span>
+                          <span className="text-xs">Test Connection</span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 mt-2">
-                        <span className="text-xs text-muted-foreground">Auth:</span>
-                        {connector.capabilities.auth_types.map((auth) => (
-                          <Badge key={auth} variant="outline" className="text-xs">
-                            {auth}
-                          </Badge>
-                        ))}
                       </div>
                     </div>
                   </CardContent>
@@ -245,12 +364,22 @@ export default function ConnectorsPage() {
         <div className="mt-8 pt-8 border-t">
           <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
             <div>
-              <span className="font-bold text-foreground">{connectors.length}</span> connectors
+              <span className="font-bold text-foreground">{staticConnectors.length}</span> integrations
             </div>
             <div>
               <span className="font-bold text-foreground">{categories.length}</span> categories
             </div>
           </div>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-12 text-center">
+          <p className="text-muted-foreground mb-4">
+            Ready to connect your data?
+          </p>
+          <Link href="/register">
+            <Button size="lg">Start Free Trial</Button>
+          </Link>
         </div>
       </main>
     </div>
