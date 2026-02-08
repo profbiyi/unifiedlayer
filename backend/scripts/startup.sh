@@ -34,12 +34,25 @@ import os
 import sys
 sys.path.insert(0, '/app')
 
+from sqlalchemy import text
 from backend.database import engine, Base
 # Import all models to register them
 from backend.models import *
 
 print("Creating all tables from SQLAlchemy models...")
 Base.metadata.create_all(bind=engine)
+
+# Add missing columns if they don't exist (for schema migrations)
+print("Checking for missing columns...")
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50)"))
+        conn.commit()
+        print("Schema migration check complete!")
+    except Exception as e:
+        print(f"Column check note: {e}")
+
 print("Tables created successfully!")
 EOF
 
