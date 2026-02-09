@@ -1,0 +1,66 @@
+# Production Dockerfile for UnifiedLayer Backend
+# This file at root level ensures Railway can find it
+
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Final production stage
+FROM python:3.11-slim
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/dlt_data /app/dlt_pipelines && \
+    chown -R appuser:appuser /app
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    curl \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy alembic for migrations
+COPY --chown=appuser:appuser alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser alembic /app/alembic
+
+# Copy application code
+COPY --chown=appuser:appuser backend /app/backend
+
+# Copy and make startup script executable
+COPY --chown=appuser:appuser backend/scripts/startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
+
+# Run startup script (migrations + seeding + uvicorn)
+CMD ["/app/startup.sh"]
