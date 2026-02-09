@@ -55,20 +55,38 @@ def create_super_admin(
     if existing_user:
         print(f"\n📋 User '{email}' already exists. Updating password...")
         new_hash = get_password_hash(password)
-        existing_user.hashed_password = new_hash
-        existing_user.is_active = True
-        existing_user.is_superuser = True
-        existing_user.email_verified = True
-        db.commit()
 
-        # Debug: Verify password hash immediately
+        # Debug: Verify password hash immediately BEFORE saving
         from backend.auth import verify_password
         verification_ok = verify_password(password, new_hash)
-        print(f"   ✅ Password updated for: {existing_user.email}")
         print(f"   🔐 Hash verification test: {'PASSED' if verification_ok else 'FAILED'}")
+
         if not verification_ok:
-            print(f"   ⚠️  WARNING: Password verification failed! Check bcrypt/passlib compatibility.")
-        return existing_user
+            print(f"   ⚠️  Hash verification failed - bcrypt issue detected!")
+            print(f"   🔄 Attempting to recreate user with fresh credentials...")
+
+            # Delete the user and their roles, then recreate
+            from backend.models import UserRole
+            db.query(UserRole).filter(UserRole.user_id == existing_user.id).delete()
+            db.delete(existing_user)
+            db.commit()
+            print(f"   🗑️  Deleted corrupted user record")
+
+            # Return None to trigger fresh user creation below
+            existing_user = None
+        else:
+            existing_user.hashed_password = new_hash
+            existing_user.is_active = True
+            existing_user.is_superuser = True
+            existing_user.email_verified = True
+            db.commit()
+            print(f"   ✅ Password updated for: {email}")
+            return existing_user
+
+    # If existing_user was set to None due to hash failure, we fall through to create new user
+    if existing_user is None:
+        # Re-check - user was deleted, proceed to creation
+        pass
 
     # Check if super admin organization exists
     super_admin_org = db.query(Organization).filter(
@@ -100,12 +118,24 @@ def create_super_admin(
 
     # Create super admin user
     print(f"\n📋 Creating Super Admin user...")
+
+    # Generate and verify hash before creating user
+    from backend.auth import verify_password
+    password_hash = get_password_hash(password)
+    hash_ok = verify_password(password, password_hash)
+    print(f"   🔐 New hash verification: {'PASSED' if hash_ok else 'FAILED'}")
+
+    if not hash_ok:
+        print(f"   ❌ CRITICAL: Cannot create valid password hash!")
+        print(f"   ❌ Check bcrypt/passlib versions in requirements.txt")
+        return None
+
     super_admin_user = User(
         organization_id=super_admin_org.id,
         email=email,
         username=username,
         full_name=full_name,
-        hashed_password=get_password_hash(password),
+        hashed_password=password_hash,
         is_active=True,
         is_superuser=True,  # Legacy field for compatibility
         email_verified=True,
