@@ -56,9 +56,26 @@ async def login(
     from datetime import datetime, timezone
     from backend.models.pipeline import Organization
 
+    # Debug: Log login attempt (mask password)
+    logger.info(f"Login attempt for: {username}")
+
     user = authenticate_user(db, username, password)
 
     if not user:
+        # Debug: Check if user exists at all
+        from backend.models.pipeline import User as UserModel
+        debug_user = db.query(UserModel).filter(
+            (UserModel.email == username) | (UserModel.username == username)
+        ).first()
+        if debug_user:
+            logger.warning(f"Login failed for existing user: {username} (is_active={debug_user.is_active})")
+            # Debug: Try password verification directly
+            from backend.auth import verify_password
+            pwd_check = verify_password(password, debug_user.hashed_password)
+            logger.warning(f"Direct password verify result: {pwd_check}")
+        else:
+            logger.warning(f"Login failed - user not found: {username}")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",

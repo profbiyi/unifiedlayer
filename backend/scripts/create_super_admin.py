@@ -54,12 +54,20 @@ def create_super_admin(
 
     if existing_user:
         print(f"\n📋 User '{email}' already exists. Updating password...")
-        existing_user.hashed_password = get_password_hash(password)
+        new_hash = get_password_hash(password)
+        existing_user.hashed_password = new_hash
         existing_user.is_active = True
         existing_user.is_superuser = True
         existing_user.email_verified = True
         db.commit()
+
+        # Debug: Verify password hash immediately
+        from backend.auth import verify_password
+        verification_ok = verify_password(password, new_hash)
         print(f"   ✅ Password updated for: {existing_user.email}")
+        print(f"   🔐 Hash verification test: {'PASSED' if verification_ok else 'FAILED'}")
+        if not verification_ok:
+            print(f"   ⚠️  WARNING: Password verification failed! Check bcrypt/passlib compatibility.")
         return existing_user
 
     # Check if super admin organization exists
@@ -212,10 +220,13 @@ def env_mode(db: Session):
     if password == "changeme123":
         print("⚠️  WARNING: Using default password! Set SUPER_ADMIN_PASSWORD env var.")
 
+    # Debug: show password length and first/last chars
+    masked_pwd = password[0] + "*" * (len(password) - 2) + password[-1] if len(password) > 2 else "***"
     print(f"Creating Super Admin:")
     print(f"  Email: {email}")
     print(f"  Username: {username}")
-    print(f"  Full Name: {full_name}\n")
+    print(f"  Full Name: {full_name}")
+    print(f"  Password: {masked_pwd} (length: {len(password)})\n")
 
     user = create_super_admin(email, username, password, full_name, db)
 
