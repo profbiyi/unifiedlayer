@@ -1,13 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRegister } from "@/hooks/queries/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -16,12 +15,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ShieldAlert } from "lucide-react";
 
 function RegisterForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const invitationToken = searchParams.get("token");
   const hasValidInvitation = !!invitationToken;
+
+  // Redirect to login if no invitation token
+  useEffect(() => {
+    if (!hasValidInvitation) {
+      router.replace("/login");
+    }
+  }, [hasValidInvitation, router]);
+
+  // Don't render the form if no token (will redirect)
+  if (!hasValidInvitation) {
+    return null;
+  }
 
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -78,22 +89,6 @@ function RegisterForm() {
         </CardDescription>
       </CardHeader>
 
-      {!hasValidInvitation && (
-        <CardContent>
-          <Alert variant="destructive" className="mb-0">
-            <ShieldAlert className="h-4 w-4" />
-            <AlertTitle>Invitation Only</AlertTitle>
-            <AlertDescription>
-              Account creation is by invitation only. Contact your administrator
-              to request access, or reach out to{" "}
-              <a href="mailto:sales@unifiedlayer.io" className="underline font-medium">
-                sales@unifiedlayer.io
-              </a>{" "}
-              to get started.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      )}
 
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
@@ -106,7 +101,7 @@ function RegisterForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={!hasValidInvitation || registerMutation.isPending}
+              disabled={registerMutation.isPending}
             />
           </div>
           <div className="space-y-2">
@@ -118,7 +113,7 @@ function RegisterForm() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              disabled={!hasValidInvitation || registerMutation.isPending}
+              disabled={registerMutation.isPending}
             />
           </div>
           <div className="space-y-2">
@@ -130,7 +125,7 @@ function RegisterForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={!hasValidInvitation || registerMutation.isPending}
+              disabled={registerMutation.isPending}
             />
           </div>
           <div className="space-y-2">
@@ -142,7 +137,7 @@ function RegisterForm() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              disabled={!hasValidInvitation || registerMutation.isPending}
+              disabled={registerMutation.isPending}
             />
           </div>
         </CardContent>
@@ -150,7 +145,7 @@ function RegisterForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={!hasValidInvitation || registerMutation.isPending}
+            disabled={registerMutation.isPending}
           >
             {registerMutation.isPending ? "Creating account..." : "Register"}
           </Button>
