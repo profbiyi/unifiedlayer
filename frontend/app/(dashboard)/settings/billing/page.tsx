@@ -119,7 +119,7 @@ const planDetails = [
   {
     id: "professional",
     name: "Professional",
-    price: "From \u00a335/mo",
+    price: "Contact Us",
     description: "For growing businesses",
     features: [
       "Up to 3 team members",

@@ -131,8 +131,8 @@ const plans = [
   },
   {
     name: "Professional",
-    price: "From \u00a335",
-    period: "/month",
+    price: "Contact Us",
+    period: "",
     description:
       "Unlimited connectors, quality checks, lineage, and analytics",
     badge: "Most Popular",

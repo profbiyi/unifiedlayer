@@ -16,8 +16,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import CurrencySelector from "@/components/CurrencySelector";
-import { formatPrice } from "@/lib/currency";
 
 // This would come from your backend/API in production
 const PLAN_FEATURES = {
@@ -52,7 +50,6 @@ const PLAN_FEATURES = {
 export default function BillingPage() {
   const { toast } = useToast();
   const [contactingRequested, setContactingRequested] = useState(false);
-  const [currency, setCurrency] = useState("USD");
 
   // In production, fetch this from your API
   const currentPlan = "professional" as "starter" | "professional" | "enterprise";
@@ -84,11 +81,6 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* Currency Selector */}
-      <div className="flex items-center justify-end gap-3">
-        <span className="text-sm text-muted-foreground">Display prices in:</span>
-        <CurrencySelector onChange={setCurrency} />
-      </div>
 
       {/* Current Plan Overview */}
       <Card className="border-primary">
@@ -172,11 +164,7 @@ export default function BillingPage() {
               </CardTitle>
               <CardDescription>Perfect for small teams getting started</CardDescription>
               <div className="mt-2">
-                <span className="text-2xl font-bold">$0</span>
-                <span className="text-muted-foreground text-sm">/month</span>
-                {currency !== "USD" && (
-                  <p className="text-xs text-muted-foreground">{formatPrice(0, currency)}/month</p>
-                )}
+                <span className="text-2xl font-bold">Free Trial</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -223,11 +211,7 @@ export default function BillingPage() {
               </CardTitle>
               <CardDescription>For growing teams that need more power</CardDescription>
               <div className="mt-2">
-                <span className="text-2xl font-bold">$49</span>
-                <span className="text-muted-foreground text-sm">/month</span>
-                {currency !== "USD" && (
-                  <p className="text-xs text-muted-foreground">{formatPrice(49, currency)}/month</p>
-                )}
+                <span className="text-2xl font-bold">Contact Us</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -267,11 +251,7 @@ export default function BillingPage() {
               </CardTitle>
               <CardDescription>For large organizations with complex needs</CardDescription>
               <div className="mt-2">
-                <span className="text-2xl font-bold">$199</span>
-                <span className="text-muted-foreground text-sm">/month</span>
-                {currency !== "USD" && (
-                  <p className="text-xs text-muted-foreground">{formatPrice(199, currency)}/month</p>
-                )}
+                <span className="text-2xl font-bold">Contact Us</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
