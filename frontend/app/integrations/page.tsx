@@ -128,11 +128,11 @@ export default function IntegrationsPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/register">
+              <a href="mailto:hello@unifiedlayer.io">
                 <Button size="lg" variant="outline">
-                  Start Free Trial
+                  Contact Sales
                 </Button>
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -206,12 +206,12 @@ export default function IntegrationsPage() {
               Start your free trial today. Connect your first data source in under 5 minutes.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Link href="/register">
+              <a href="mailto:hello@unifiedlayer.io">
                 <Button size="lg">
-                  Start Free Trial
+                  Contact Sales
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </Link>
+              </a>
               <Link href="/integrations/connectors">
                 <Button size="lg" variant="outline">
                   View All Connectors
