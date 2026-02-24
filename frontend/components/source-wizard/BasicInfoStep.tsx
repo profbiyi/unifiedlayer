@@ -20,6 +20,18 @@ interface BasicInfoStepProps {
 
 const SOURCE_TYPES = [
   {
+    value: "stripe",
+    label: "Stripe",
+    description: "Sync payments, customers, subscriptions & invoices from Stripe",
+    icon: CreditCard,
+  },
+  {
+    value: "paystack",
+    label: "Paystack",
+    description: "Sync transactions, customers & settlements from Paystack",
+    icon: CreditCard,
+  },
+  {
     value: "postgresql",
     label: "PostgreSQL",
     description: "Connect to PostgreSQL database",
@@ -36,12 +48,6 @@ const SOURCE_TYPES = [
     label: "MongoDB",
     description: "Connect to MongoDB database",
     icon: Database,
-  },
-  {
-    value: "paystack",
-    label: "Paystack",
-    description: "Sync transactions, customers & settlements from Paystack",
-    icon: CreditCard,
   },
   {
     value: "google_sheets",

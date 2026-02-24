@@ -48,7 +48,7 @@ class SQLTransformation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    pipeline_id = Column(Integer, ForeignKey("pipelines.id", ondelete="CASCADE"), nullable=False)
+    pipeline_id = Column(Integer, ForeignKey("pipelines.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -95,8 +95,8 @@ class TransformationResult(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    pipeline_run_id = Column(Integer, ForeignKey("pipeline_runs.id", ondelete="CASCADE"), nullable=False)
-    transformation_id = Column(Integer, ForeignKey("sql_transformations.id", ondelete="CASCADE"), nullable=False)
+    pipeline_run_id = Column(Integer, ForeignKey("pipeline_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    transformation_id = Column(Integer, ForeignKey("sql_transformations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     status = Column(SQLEnum(TransformationStatus), default=TransformationStatus.PENDING, nullable=False)
 

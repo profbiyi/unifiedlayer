@@ -22,6 +22,38 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Sensitive keys that should be redacted from logs
+SENSITIVE_KEYS = {"password", "secret", "api_key", "token", "credentials", "secret_key", "access_key", "private_key"}
+
+
+def sanitize_for_logging(config: dict) -> dict:
+    """
+    Remove sensitive values from config for safe logging.
+
+    Args:
+        config: Configuration dictionary that may contain sensitive values
+
+    Returns:
+        Sanitized copy of the config with sensitive values replaced by "***REDACTED***"
+    """
+    if not isinstance(config, dict):
+        return config
+
+    sanitized = {}
+    for key, value in config.items():
+        if any(s in key.lower() for s in SENSITIVE_KEYS):
+            sanitized[key] = "***REDACTED***"
+        elif isinstance(value, dict):
+            sanitized[key] = sanitize_for_logging(value)
+        elif isinstance(value, list):
+            sanitized[key] = [
+                sanitize_for_logging(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            sanitized[key] = value
+    return sanitized
+
 
 @task(retries=3, retry_delay_seconds=60)
 def fetch_source_data(source_config: Dict[str, Any], source_type: str):
@@ -91,6 +123,13 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
     elif source_type == "paystack":
         from backend.connectors.paystack import paystack_source
         source = paystack_source(secret_key=source_config.get("secret_key"))
+
+    elif source_type == "stripe":
+        from backend.connectors.stripe_connector import stripe_source
+        source = stripe_source(
+            api_key=source_config.get("api_key"),
+            tables=source_config.get("tables"),
+        )
 
     elif source_type == "google_sheets":
         from backend.connectors.google_sheets import google_sheets_source
@@ -510,77 +549,15 @@ def load_to_destination(
         # Load data
         load_info = pipeline.run(source)
 
-    # Extract statistics from dlt load_info
-    stats = {
-        "rows_written": 0,
-        "bytes_written": 0,
-        "tables_loaded": 0,
-        "tables": [],
-    }
+    # Extract statistics from dlt load_info using helper
+    from backend.utils.dlt_helpers import extract_load_stats
 
-    logger.info(f"Load info: {load_info}")
-    logger.info(f"Load info type: {type(load_info)}")
+    stats = extract_load_stats(load_info, pipeline)
 
-    # Method 1: Try to get row_counts directly (most reliable)
-    try:
-        if hasattr(load_info, 'row_counts') and load_info.row_counts:
-            row_counts = load_info.row_counts
-            logger.info(f"Row counts from load_info.row_counts: {row_counts}")
-            for table_name, count in row_counts.items():
-                stats["rows_written"] += count
-                stats["tables"].append({"name": table_name, "rows": count})
-                stats["tables_loaded"] += 1
-    except Exception as e:
-        logger.warning(f"Could not get row_counts: {e}")
+    # Remove internal extraction_method key before returning
+    stats.pop("extraction_method", None)
 
-    # Method 2: Try metrics from load packages
-    try:
-        for package in load_info.load_packages:
-            logger.info(f"Load package: {package}")
-            logger.info(f"Package state: {package.state}")
-
-            # Get tables from schema update
-            if hasattr(package, 'schema_update') and package.schema_update:
-                for table_name in package.schema_update.keys():
-                    if table_name not in [t["name"] for t in stats["tables"]]:
-                        stats["tables_loaded"] += 1
-                        stats["tables"].append({"name": table_name, "rows": 0})
-
-            # Try to get metrics from jobs
-            if hasattr(package, 'jobs'):
-                for job in package.jobs:
-                    logger.info(f"Job: {job}, file_path: {getattr(job, 'file_path', 'N/A')}")
-                    if hasattr(job, 'metrics') and job.metrics:
-                        logger.info(f"Job metrics: {job.metrics}")
-                        rows = job.metrics.get("rows", 0) or job.metrics.get("rows_count", 0)
-                        stats["rows_written"] += rows
-    except Exception as e:
-        logger.warning(f"Error extracting package metrics: {e}")
-
-    # Method 3: Get metrics from pipeline directly
-    try:
-        if hasattr(pipeline, 'last_trace') and pipeline.last_trace:
-            trace = pipeline.last_trace
-            logger.info(f"Pipeline trace: {trace}")
-            if hasattr(trace, 'metrics'):
-                logger.info(f"Trace metrics: {trace.metrics}")
-    except Exception as e:
-        logger.warning(f"Could not get pipeline trace: {e}")
-
-    # Method 4: Try to get from load_info as string (contains summary)
-    try:
-        load_info_str = str(load_info)
-        logger.info(f"Load info string: {load_info_str}")
-        # Parse row count from string like "Loaded 150 rows"
-        import re
-        row_match = re.search(r'(\d+)\s*rows?', load_info_str, re.IGNORECASE)
-        if row_match and stats["rows_written"] == 0:
-            stats["rows_written"] = int(row_match.group(1))
-            logger.info(f"Extracted rows from string: {stats['rows_written']}")
-    except Exception as e:
-        logger.warning(f"Could not parse load info string: {e}")
-
-    logger.info(f"Final load stats: {stats}")
+    logger.info(f"Final load stats: {stats['rows_written']} rows, {stats['tables_loaded']} tables")
     return stats
 
 
@@ -1079,7 +1056,7 @@ def _parse_error_message(error: str, traceback_str: str = "") -> str:
     return error
 
 
-@flow(name="Execute Data Pipeline", log_prints=True)
+@flow(name="Execute Data Pipeline", log_prints=True, timeout_seconds=1800)  # 30-minute timeout
 def execute_pipeline_flow(pipeline_id: int, run_id: int) -> Dict[str, Any]:
     """
     Execute a data pipeline with comprehensive error handling and progress tracking.
@@ -1237,7 +1214,37 @@ def execute_pipeline_flow(pipeline_id: int, run_id: int) -> Dict[str, Any]:
                 logger.warning(f"Failed to record lineage: {lineage_error}")
                 # Don't fail the pipeline if lineage recording fails
 
-            # Step 5: Finalize (Progress: 98-100%)
+            # Step 5: Auto-model if enabled (Progress: 95-98%)
+            pipeline_config = pipeline.config or {}
+            if pipeline_config.get("auto_model", False):
+                update_run_progress(
+                    run_id,
+                    progress_percent=96,
+                    current_step="Running AI auto-modeling",
+                )
+
+                try:
+                    from backend.services.ai_modeler import get_ai_modeler
+                    ai_modeler = get_ai_modeler()
+                    modeling_result = ai_modeler.auto_model_pipeline(pipeline_id, db)
+
+                    if modeling_result.error:
+                        logger.warning(f"Auto-modeling completed with error: {modeling_result.error}")
+                    else:
+                        logger.info(
+                            f"Auto-modeling completed: {len(modeling_result.canonical_models)} canonical, "
+                            f"{len(modeling_result.dimensional_models)} dimensional models generated"
+                        )
+                        stats["auto_model"] = {
+                            "canonical_models": len(modeling_result.canonical_models),
+                            "dimensional_models": len(modeling_result.dimensional_models),
+                            "business_questions": len(modeling_result.business_questions),
+                        }
+                except Exception as model_error:
+                    logger.warning(f"Auto-modeling failed: {model_error}")
+                    # Don't fail the pipeline if auto-modeling fails
+
+            # Step 6: Finalize (Progress: 98-100%)
             update_run_progress(
                 run_id,
                 progress_percent=98,

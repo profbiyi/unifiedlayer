@@ -142,7 +142,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     email = Column(String(255), nullable=False, unique=True, index=True)
     username = Column(String(100), nullable=False, unique=True, index=True)
@@ -154,7 +154,7 @@ class User(Base):
 
     # Invitation fields
     email_verified = Column(Boolean, default=False, nullable=False, server_default='false')
-    invited_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    invited_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     invitation_token = Column(String(255), nullable=True, unique=True)  # Unique token for invitation
     invitation_status = Column(String(20), nullable=True)  # pending, accepted, cancelled, expired
     invitation_accepted_at = Column(DateTime, nullable=True)
@@ -231,7 +231,7 @@ class DataSource(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -262,7 +262,7 @@ class Destination(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -293,9 +293,9 @@ class Pipeline(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    source_id = Column(Integer, ForeignKey("data_sources.id"), nullable=False)
-    destination_id = Column(Integer, ForeignKey("destinations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_id = Column(Integer, ForeignKey("data_sources.id", ondelete="CASCADE"), nullable=False, index=True)
+    destination_id = Column(Integer, ForeignKey("destinations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -340,14 +340,14 @@ class PipelineRun(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    pipeline_id = Column(Integer, ForeignKey("pipelines.id"), nullable=False)
+    pipeline_id = Column(Integer, ForeignKey("pipelines.id", ondelete="CASCADE"), nullable=False, index=True)
 
     status = Column(SQLEnum(PipelineStatus), default=PipelineStatus.PENDING, nullable=False, index=True)
 
     # Retry tracking
     retry_count = Column(Integer, nullable=False, default=0, server_default='0')  # Current retry attempt number (0 = first run)
     is_retry = Column(Boolean, default=False, nullable=False, server_default='false')  # Whether this run is a retry
-    original_run_id = Column(Integer, ForeignKey("pipeline_runs.id"), nullable=True)  # ID of the original failed run
+    original_run_id = Column(Integer, ForeignKey("pipeline_runs.id", ondelete="SET NULL"), nullable=True, index=True)  # ID of the original failed run
 
     # Execution metadata
     started_at = Column(DateTime, nullable=True)

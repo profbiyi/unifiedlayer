@@ -426,6 +426,34 @@ export default function ConnectionDetailsStep({
     </div>
   );
 
+  const renderStripeForm = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="api_key">
+          Secret Key <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="api_key"
+          type="password"
+          placeholder="sk_live_..."
+          value={data.config.api_key || ""}
+          onChange={(e) => updateConfig("api_key", e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Your Stripe secret key. Use sk_test_... for testing.
+        </p>
+      </div>
+
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          Find your API keys in the Stripe Dashboard under Developers &gt; API keys.
+          We&apos;ll sync customers, charges, invoices, subscriptions, and more.
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+
   const renderPaystackForm = () => (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -821,14 +849,16 @@ export default function ConnectionDetailsStep({
 
   const renderForm = () => {
     switch (data.source_type) {
+      case "stripe":
+        return renderStripeForm();
+      case "paystack":
+        return renderPaystackForm();
       case "postgresql":
         return renderPostgreSQLForm();
       case "mysql":
         return renderMySQLForm();
       case "mongodb":
         return renderMongoDBForm();
-      case "paystack":
-        return renderPaystackForm();
       case "google_sheets":
         return renderGoogleSheetsForm();
       case "rest_api":

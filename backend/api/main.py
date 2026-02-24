@@ -46,9 +46,11 @@ class CustomJSONResponse(JSONResponse):
 
 from backend.config import settings
 from backend.database import get_db, init_db, DatabaseHealthCheck
-from backend.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, AuthRateLimitMiddleware
+from backend.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, AuthRateLimitMiddleware, RequestIDMiddleware
+from backend.utils.errors import ErrorResponse, ErrorCodes, get_request_id
 
 # Import API routes
+from fastapi import APIRouter
 from backend.api.routes import (
     auth,
     two_factor,
@@ -82,7 +84,17 @@ from backend.api.routes import (
     transformations,
     alerts,
     dbt,
+    dashboards,
+    recipes,
+    ai_assistant,
+    onboarding,
+    health,
+    models,
+    cross_source,
 )
+
+# Create API v1 router for versioned endpoints
+api_v1_router = APIRouter(prefix="/api/v1")
 
 # Configure logging
 logging.basicConfig(
@@ -202,10 +214,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,  # Required for HTTPOnly cookies
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Idempotency-Key"],
+    expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
 )
+
+# Request ID middleware (add first so all middlewares have access)
+app.add_middleware(RequestIDMiddleware)
 
 # Security middleware
 app.add_middleware(SecurityHeadersMiddleware)
@@ -219,43 +234,53 @@ app.add_middleware(
     requests_per_minute=settings.RATE_LIMIT_PER_MINUTE,
 )
 
-# Include API routers
-app.include_router(auth.router)
-app.include_router(two_factor.router)
-app.include_router(organizations.router)
-app.include_router(users.router)
-app.include_router(sources.router)
-app.include_router(source_discovery.router)
-app.include_router(api_preview.router)
-app.include_router(destinations.router)
-app.include_router(destination_discovery.router)
-app.include_router(pipelines.router)
-app.include_router(transformations.router)
-app.include_router(dbt.router)
-app.include_router(dbt.pipeline_dbt_router)
-app.include_router(runs.router)
-app.include_router(lineage.router)
-app.include_router(metrics.router)
-app.include_router(quality.router)
+# Include API routers under /api/v1 prefix
+api_v1_router.include_router(auth.router)
+api_v1_router.include_router(two_factor.router)
+api_v1_router.include_router(organizations.router)
+api_v1_router.include_router(users.router)
+api_v1_router.include_router(sources.router)
+api_v1_router.include_router(source_discovery.router)
+api_v1_router.include_router(api_preview.router)
+api_v1_router.include_router(destinations.router)
+api_v1_router.include_router(destination_discovery.router)
+api_v1_router.include_router(pipelines.router)
+api_v1_router.include_router(transformations.router)
+api_v1_router.include_router(dbt.router)
+api_v1_router.include_router(dbt.pipeline_dbt_router)
+api_v1_router.include_router(runs.router)
+api_v1_router.include_router(lineage.router)
+api_v1_router.include_router(metrics.router)
+api_v1_router.include_router(quality.router)
 
-app.include_router(templates.router)
-app.include_router(billing.router)
-app.include_router(connectors.router)
-app.include_router(analytics.router)
-app.include_router(sme_insights.router)
-app.include_router(oauth.router)
-app.include_router(audit.router)
-app.include_router(api_keys.router)
-app.include_router(webhooks.router)
-app.include_router(notifications.router)
-app.include_router(exports.router)
-app.include_router(gdpr.router)
-app.include_router(alerts.router)
+api_v1_router.include_router(templates.router)
+api_v1_router.include_router(billing.router)
+api_v1_router.include_router(connectors.router)
+api_v1_router.include_router(analytics.router)
+api_v1_router.include_router(sme_insights.router)
+api_v1_router.include_router(oauth.router)
+api_v1_router.include_router(audit.router)
+api_v1_router.include_router(api_keys.router)
+api_v1_router.include_router(webhooks.router)
+api_v1_router.include_router(notifications.router)
+api_v1_router.include_router(exports.router)
+api_v1_router.include_router(gdpr.router)
+api_v1_router.include_router(alerts.router)
+api_v1_router.include_router(dashboards.router)
+api_v1_router.include_router(recipes.router)
+api_v1_router.include_router(ai_assistant.router)
+api_v1_router.include_router(onboarding.router)
+api_v1_router.include_router(health.router)
+api_v1_router.include_router(models.router)
+api_v1_router.include_router(cross_source.router)
 
 # RBAC routers
-app.include_router(admin.router)
-app.include_router(invitations.router)
-app.include_router(roles.router)
+api_v1_router.include_router(admin.router)
+api_v1_router.include_router(invitations.router)
+api_v1_router.include_router(roles.router)
+
+# Add versioned API router to app
+app.include_router(api_v1_router)
 
 
 @app.middleware("http")
@@ -303,42 +328,60 @@ async def log_requests(request: Request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors."""
-    logger.error(f"Validation error: {exc.errors()}")
+    """Handle validation errors with standardized error response."""
+    request_id = get_request_id(request)
+    logger.error(f"Validation error [{request_id}]: {exc.errors()}")
+
+    error = ErrorResponse(
+        code=ErrorCodes.VALIDATION_ERROR,
+        message="Request validation failed",
+        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        request_id=request_id,
+        details={"errors": exc.errors()},
+    )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": "Validation Error",
-            "details": exc.errors(),
-            "body": exc.body.decode() if isinstance(exc.body, bytes) else exc.body,
-        },
+        content=error.to_dict(),
     )
 
 
 @app.exception_handler(ValidationError)
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
-    """Handle Pydantic validation errors."""
-    logger.error(f"Pydantic validation error: {exc.errors()}")
+    """Handle Pydantic validation errors with standardized error response."""
+    request_id = get_request_id(request)
+    logger.error(f"Pydantic validation error [{request_id}]: {exc.errors()}")
+
+    error = ErrorResponse(
+        code=ErrorCodes.VALIDATION_ERROR,
+        message="Data validation failed",
+        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        request_id=request_id,
+        details={"errors": exc.errors()},
+    )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": "Validation Error",
-            "detail": str(exc),
-            "details": exc.errors(),
-        },
+        content=error.to_dict(),
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """Handle general exceptions."""
-    logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
+    """Handle general exceptions with standardized error response."""
+    request_id = get_request_id(request)
+    logger.error(f"Unhandled exception [{request_id}]: {str(exc)}", exc_info=True)
+
+    # In production, don't leak internal error details
+    message = str(exc) if settings.DEBUG else "An internal error occurred"
+
+    error = ErrorResponse(
+        code=ErrorCodes.INTERNAL_ERROR,
+        message=message,
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        request_id=request_id,
+    )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": "Internal Server Error",
-            "message": str(exc) if settings.DEBUG else "An error occurred",
-        },
+        content=error.to_dict(),
     )
 
 
@@ -348,21 +391,15 @@ async def startup_event():
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
 
-    # Ensure OAuth columns exist in database (safe to run multiple times)
-    try:
-        from sqlalchemy import text
-        from backend.database import engine
-        with engine.connect() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255)"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50)"))
-            conn.commit()
-        logger.info("Database schema check completed - OAuth columns present")
-    except Exception as e:
-        logger.error(f"Failed to add OAuth columns: {e}")
-
-    # Startup warnings for missing optional config
+    # CRITICAL: Require ENCRYPTION_KEY in production
     if not getattr(settings, 'ENCRYPTION_KEY', None):
-        logger.warning("ENCRYPTION_KEY is not set — credentials will be stored as plain JSON (not encrypted)")
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(
+                "ENCRYPTION_KEY is required in production. "
+                "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+            )
+        else:
+            logger.warning("ENCRYPTION_KEY is not set — credentials will be stored as plain JSON (not encrypted)")
     if not getattr(settings, 'STRIPE_SECRET_KEY', None):
         logger.warning("STRIPE_SECRET_KEY is not set — Stripe billing features will be unavailable")
     if not getattr(settings, 'PAYSTACK_SECRET_KEY', None):

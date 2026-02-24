@@ -3,9 +3,12 @@ Webhook ingestion routes.
 
 Public endpoints for receiving push events from payment providers.
 Authenticated endpoint for listing webhook events.
+
+Includes idempotency protection to prevent duplicate webhook processing.
 """
 import hashlib
 import hmac
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -19,6 +22,7 @@ from backend.database import get_db
 from backend.auth import get_current_user
 from backend.models.pipeline import User
 from backend.models.webhook import WebhookEvent, WebhookEventStatus
+from backend.utils.idempotency import get_idempotency_result, store_idempotency_result
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +50,19 @@ def _verify_paystack_signature(payload_body: bytes, signature: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 
-def _verify_flutterwave_signature(signature: str) -> bool:
-    """Verify Flutterwave webhook by comparing verif-hash header."""
+def _verify_flutterwave_signature(payload_body: bytes, signature: str) -> bool:
+    """Verify Flutterwave webhook using HMAC SHA-256."""
     secret = settings.FLUTTERWAVE_WEBHOOK_SECRET
     if not secret:
         logger.warning("No Flutterwave webhook secret configured")
         return False
-    return hmac.compare_digest(secret, signature)
+    # Flutterwave uses HMAC SHA-256 for webhook verification
+    expected = hmac.new(
+        secret.encode("utf-8"),
+        payload_body,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
 
 
 def _verify_gocardless_signature(payload_body: bytes, signature: str) -> bool:
@@ -78,6 +88,61 @@ def _verify_mpesa_ip(client_ip: str) -> bool:
         return False
 
 
+def _extract_idempotency_key(source_type: str, payload: dict) -> str:
+    """
+    Extract or generate an idempotency key based on the webhook source type.
+
+    - Stripe: uses payload["id"] (event ID)
+    - Paystack: uses payload["data"]["reference"]
+    - Others: hash of the payload
+    """
+    if source_type == "stripe":
+        # Stripe events have a unique 'id' field
+        return f"webhook:stripe:{payload.get('id', '')}"
+
+    if source_type == "paystack":
+        # Paystack uses data.reference as unique identifier
+        data = payload.get("data", {})
+        reference = data.get("reference", "")
+        if reference:
+            return f"webhook:paystack:{reference}"
+        # Fallback to hashing payload if no reference
+        payload_str = json.dumps(payload, sort_keys=True, default=str)
+        payload_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+        return f"webhook:paystack:{payload_hash}"
+
+    if source_type == "flutterwave":
+        # Flutterwave uses transaction reference
+        tx_ref = payload.get("data", {}).get("tx_ref", "")
+        if tx_ref:
+            return f"webhook:flutterwave:{tx_ref}"
+        # Fallback to payload hash
+        payload_str = json.dumps(payload, sort_keys=True, default=str)
+        payload_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+        return f"webhook:flutterwave:{payload_hash}"
+
+    if source_type == "gocardless":
+        # GoCardless events have unique event IDs
+        events = payload.get("events", [])
+        if events and events[0].get("id"):
+            return f"webhook:gocardless:{events[0]['id']}"
+        # Fallback to payload hash
+        payload_str = json.dumps(payload, sort_keys=True, default=str)
+        payload_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+        return f"webhook:gocardless:{payload_hash}"
+
+    if source_type == "mpesa":
+        # M-Pesa uses transaction ID
+        tx_id = payload.get("TransID", payload.get("CheckoutRequestID", ""))
+        if tx_id:
+            return f"webhook:mpesa:{tx_id}"
+
+    # Generic fallback: hash the entire payload
+    payload_str = json.dumps(payload, sort_keys=True, default=str)
+    payload_hash = hashlib.sha256(payload_str.encode()).hexdigest()
+    return f"webhook:{source_type}:{payload_hash}"
+
+
 @router.post("/{source_type}", status_code=status.HTTP_200_OK)
 async def receive_webhook(
     source_type: str,
@@ -93,7 +158,7 @@ async def receive_webhook(
     Supported source types: paystack, flutterwave, gocardless, mpesa.
     Stripe webhooks are handled separately in billing routes.
     """
-    valid_sources = {"paystack", "flutterwave", "gocardless", "mpesa"}
+    valid_sources = {"paystack", "flutterwave", "gocardless", "mpesa", "stripe"}
     if source_type not in valid_sources:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -102,6 +167,17 @@ async def receive_webhook(
 
     payload_body = await request.body()
     payload_json = await request.json()
+
+    # --- Idempotency Check ---
+    # Extract idempotency key based on source type
+    idempotency_key = _extract_idempotency_key(source_type, payload_json)
+
+    # Check if this webhook has already been processed
+    cached_result = get_idempotency_result(idempotency_key)
+    if cached_result:
+        logger.info(f"Duplicate webhook detected for {source_type}, key: {idempotency_key[:50]}...")
+        # Return the cached response to ensure idempotent behavior
+        return cached_result.get("body", {"status": "received", "verified": True, "duplicate": True})
 
     # Extract signature and verify based on source type
     signature_value: Optional[str] = None
@@ -113,7 +189,7 @@ async def receive_webhook(
 
     elif source_type == "flutterwave":
         signature_value = request.headers.get("verif-hash", "")
-        verified = _verify_flutterwave_signature(signature_value)
+        verified = _verify_flutterwave_signature(payload_body, signature_value)
 
     elif source_type == "gocardless":
         signature_value = request.headers.get("Webhook-Signature", "")
@@ -137,8 +213,11 @@ async def receive_webhook(
         )
         db.add(event)
         db.commit()
-        # Return 200 to prevent retries from providers that interpret non-200 as failure
-        return {"status": "received", "verified": False}
+        # Return 400 for failed signature - providers will retry but we've logged the attempt
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook signature verification failed",
+        )
 
     # Determine event type from payload (varies by provider)
     if source_type == "paystack":
@@ -166,7 +245,17 @@ async def receive_webhook(
 
     logger.info(f"Webhook event stored: {source_type}/{event_type} (id={event.id})")
 
-    return {"status": "received", "verified": True, "event_id": str(event.public_id)}
+    # Mark event as processed and set processed_at timestamp
+    event.status = WebhookEventStatus.PROCESSED
+    event.processed_at = datetime.now(timezone.utc)
+    db.commit()
+
+    response_body = {"status": "received", "verified": True, "event_id": str(event.public_id)}
+
+    # Store in idempotency cache to prevent duplicate processing
+    store_idempotency_result(idempotency_key, 200, response_body)
+
+    return response_body
 
 
 @router.get("/events", status_code=status.HTTP_200_OK)

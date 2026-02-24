@@ -1,6 +1,7 @@
 """
 Pipeline API routes.
 """
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.schemas import PipelineCreate, PipelineUpdate, PipelineResponse
 from backend.models.pipeline import Pipeline, User, PipelineStatus, PipelineRun
+from backend.models.billing import Subscription, SubscriptionStatus
 from backend.auth import get_current_user
 from backend.prefect_flows.pipeline_flow import execute_pipeline_flow
 from backend.config import settings
@@ -20,6 +22,28 @@ from prefect import get_client
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/pipelines", tags=["Pipelines"])
+
+
+def check_subscription_active(org_id: int, db: Session) -> bool:
+    """
+    Check if an organization has an active subscription.
+
+    Args:
+        org_id: Organization ID
+        db: Database session
+
+    Returns:
+        True if subscription status is ACTIVE or TRIALING, False otherwise
+    """
+    subscription = db.query(Subscription).filter(
+        Subscription.organization_id == org_id
+    ).first()
+
+    if not subscription:
+        # No subscription record found - treat as inactive
+        return False
+
+    return subscription.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING)
 
 
 @router.get("", response_model=List[PipelineResponse])
@@ -488,6 +512,37 @@ async def trigger_pipeline_run(
             detail="Your organization's data syncing has been disabled. Please contact support.",
         )
 
+    # Check subscription status - block execution if subscription is inactive
+    from backend.models.billing import Subscription, SubscriptionStatus
+    subscription = db.query(Subscription).filter(
+        Subscription.organization_id == current_user.organization_id
+    ).first()
+
+    if subscription:
+        inactive_statuses = {
+            SubscriptionStatus.PAST_DUE,
+            SubscriptionStatus.CANCELLED,
+            SubscriptionStatus.UNPAID,
+            SubscriptionStatus.INCOMPLETE,
+        }
+        if subscription.status in inactive_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Subscription inactive ({subscription.status.value}). Please update your payment to continue.",
+            )
+
+    # Check for existing active run on this pipeline (prevent concurrent runs)
+    active_run = db.query(PipelineRun).filter(
+        PipelineRun.pipeline_id == pipeline.id,
+        PipelineRun.status.in_([PipelineStatus.PENDING, PipelineStatus.RUNNING]),
+    ).first()
+
+    if active_run:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Pipeline already has an active run (ID: {active_run.id}, status: {active_run.status.value}). Please wait for it to complete.",
+        )
+
     # Create pipeline run
     run = PipelineRun(
         pipeline_id=pipeline.id,  # Use integer ID
@@ -522,7 +577,10 @@ def _submit_flow_to_prefect(pipeline_id: int, run_id: int):
     Submit flow run to Prefect for execution.
 
     Prefect flows are automatically tracked in Prefect UI with full logging.
+    On failure, updates the pipeline run status to FAILED.
     """
+    from backend.database import get_db_session
+
     try:
         # Execute the Prefect flow
         # Prefect automatically:
@@ -534,7 +592,23 @@ def _submit_flow_to_prefect(pipeline_id: int, run_id: int):
         logger.info(f"Flow run completed for pipeline_id={pipeline_id}, run_id={run_id}")
         return result
     except Exception as e:
-        logger.error(f"Flow run failed for pipeline_id={pipeline_id}, run_id={run_id}: {str(e)}", exc_info=True)
+        error_msg = str(e)
+        logger.error(f"Flow run failed for pipeline_id={pipeline_id}, run_id={run_id}: {error_msg}", exc_info=True)
+
+        # Update run status to FAILED on submission/execution error
+        try:
+            db = get_db_session()
+            run = db.query(PipelineRun).filter(PipelineRun.id == run_id).first()
+            if run and run.status in [PipelineStatus.PENDING, PipelineStatus.RUNNING]:
+                run.status = PipelineStatus.FAILED
+                run.error_message = f"Flow execution failed: {error_msg[:500]}"
+                run.completed_at = datetime.now(timezone.utc)
+                db.commit()
+                logger.info(f"Marked run {run_id} as FAILED due to execution error")
+            db.close()
+        except Exception as db_error:
+            logger.error(f"Failed to update run status after error: {db_error}")
+
         raise
 
 

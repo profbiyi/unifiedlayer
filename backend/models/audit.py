@@ -31,8 +31,9 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    # SET NULL to preserve audit trail even if user/org is deleted (compliance)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Action details
     action = Column(String(50), nullable=False)  # create, update, delete, login, export, execute
@@ -74,11 +75,11 @@ class SuperAdminAccessLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
 
-    # Who accessed
-    super_admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # Who accessed (SET NULL to preserve audit trail)
+    super_admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
 
-    # What was accessed
-    target_org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    # What was accessed (SET NULL to preserve audit trail)
+    target_org_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     action = Column(String(50), nullable=False)  # view_pipelines, view_runs, view_sources, impersonate, etc.
     resource_type = Column(String(50), nullable=False)  # pipeline, run, source, destination, user
     resource_id = Column(String(255), nullable=True)  # Optional specific resource ID
@@ -117,9 +118,9 @@ class ImpersonationSession(Base):
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
 
-    # Session details
-    super_admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    target_org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    # Session details (CASCADE: delete sessions when user/org is deleted)
+    super_admin_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_org_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash = Column(String(255), nullable=False, unique=True)  # Hashed impersonation token
 
     # Session timing

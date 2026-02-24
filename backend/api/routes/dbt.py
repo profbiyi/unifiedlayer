@@ -9,7 +9,7 @@ from uuid import UUID
 import re
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel, Field, field_validator, computed_field
 
@@ -142,6 +142,7 @@ class DbtRunResponse(BaseModel):
     public_id: UUID
     dbt_project_id: int
     pipeline_run_id: Optional[int]
+    celery_task_id: Optional[str]
     command: str
     target: Optional[str]
     select: Optional[str]
@@ -534,35 +535,54 @@ def _test_git_connection(
     2. Check if the branch exists
     3. Check if the subdirectory exists
     4. Verify dbt_project.yml is present
+
+    Security note: Git credentials are passed via environment variables
+    to avoid exposure in error messages or process listings.
     """
     import subprocess
     import tempfile
     import os
 
     try:
-        # Build auth URL if credentials provided
-        auth_url = git_repo_url
+        # Build environment with credentials (safer than embedding in URL)
+        env = os.environ.copy()
+        use_url = git_repo_url
+
         if git_credentials:
             if git_credentials.get('token'):
-                # For HTTPS URLs, embed token
+                # For HTTPS URLs, use credential helper via environment
                 if git_repo_url.startswith('https://'):
-                    # https://github.com/... -> https://token@github.com/...
                     username = git_credentials.get('username', 'oauth2')
                     token = git_credentials['token']
-                    auth_url = git_repo_url.replace('https://', f'https://{username}:{token}@')
+                    # Use GIT_ASKPASS with a helper script to provide credentials
+                    # This avoids exposing tokens in URLs (which appear in logs/errors)
+                    env['GIT_USERNAME'] = username
+                    env['GIT_PASSWORD'] = token
+                    # Configure git to use credential from environment
+                    env['GIT_TERMINAL_PROMPT'] = '0'
+                    # Use credential.helper to read from environment
+                    env['GIT_CONFIG_COUNT'] = '1'
+                    env['GIT_CONFIG_KEY_0'] = 'credential.helper'
+                    env['GIT_CONFIG_VALUE_0'] = '!f() { echo "username=$GIT_USERNAME"; echo "password=$GIT_PASSWORD"; }; f'
 
         # Test with git ls-remote (doesn't clone, just checks access)
         result = subprocess.run(
-            ['git', 'ls-remote', '--heads', auth_url, git_branch],
+            ['git', 'ls-remote', '--heads', use_url, git_branch],
             capture_output=True,
             text=True,
             timeout=30,
+            env=env,
         )
 
         if result.returncode != 0:
+            # Sanitize error message to remove any potential credential leaks
+            error_msg = result.stderr.strip()
+            # Remove any accidentally leaked credentials from error message
+            if git_credentials and git_credentials.get('token'):
+                error_msg = error_msg.replace(git_credentials['token'], '[REDACTED]')
             return TestConnectionResult(
                 success=False,
-                message=f"Failed to access repository: {result.stderr.strip()}",
+                message=f"Failed to access repository: {error_msg}",
                 branch_exists=False,
             )
 
@@ -582,10 +602,11 @@ def _test_git_connection(
         # Shallow clone to temp directory for validation
         with tempfile.TemporaryDirectory() as tmpdir:
             clone_result = subprocess.run(
-                ['git', 'clone', '--depth', '1', '--branch', git_branch, auth_url, tmpdir],
+                ['git', 'clone', '--depth', '1', '--branch', git_branch, use_url, tmpdir],
                 capture_output=True,
                 text=True,
                 timeout=120,
+                env=env,
             )
 
             if clone_result.returncode != 0:
@@ -639,9 +660,15 @@ def _test_git_connection(
             message="Connection timed out",
         )
     except Exception as e:
+        # Sanitize error message to prevent credential leaks
+        error_msg = str(e)
+        if git_credentials and git_credentials.get('token'):
+            error_msg = error_msg.replace(git_credentials['token'], '[REDACTED]')
+        if git_credentials and git_credentials.get('ssh_key'):
+            error_msg = error_msg.replace(git_credentials['ssh_key'], '[REDACTED]')
         return TestConnectionResult(
             success=False,
-            message=f"Error: {str(e)}",
+            message=f"Error: {error_msg}",
         )
 
 
@@ -716,7 +743,6 @@ def _parse_manifest_models(manifest: Dict[str, Any]) -> List[DbtModelInfo]:
 async def trigger_dbt_run(
     project_id: str,
     run_config: DbtRunCreate,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -734,7 +760,14 @@ async def trigger_dbt_run(
     - snapshot: Run snapshots
     - docs: Generate documentation
     - source: Run source freshness checks
+
+    The dbt execution runs as a background Celery task with:
+    - 30-minute timeout
+    - Up to 3 retries with exponential backoff
+    - Task cancellation support via /runs/{run_id}/cancel
     """
+    from backend.tasks.dbt_tasks import execute_dbt_run
+
     project = get_dbt_project_or_404(project_id, db, current_user.organization_id)
 
     if not project.is_active:
@@ -760,71 +793,82 @@ async def trigger_dbt_run(
 
     logger.info(f"dbt run triggered: {dbt_run.id} for project {project.id} by user {current_user.id}")
 
-    # Submit run to background worker
-    background_tasks.add_task(
-        _execute_dbt_run,
-        dbt_run.id,
-        project.id,
-    )
+    # Submit run to Celery background worker
+    task = execute_dbt_run.delay(dbt_run.id, project.id)
+
+    # Store Celery task ID for cancellation/monitoring
+    dbt_run.celery_task_id = task.id
+    db.commit()
+    db.refresh(dbt_run)
+
+    logger.info(f"dbt run {dbt_run.id} submitted to Celery with task_id={task.id}")
 
     return dbt_run
 
 
-def _execute_dbt_run(run_id: int, project_id: int):
+@router.post("/runs/{run_id}/cancel", response_model=DbtRunResponse)
+@require_permission("dbt_project", "execute")
+async def cancel_dbt_run(
+    run_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
-    Execute dbt run in background.
+    Cancel a running or pending dbt execution.
 
-    This is a placeholder implementation. In production, this would:
-    1. Clone/pull the git repository
-    2. Set up the dbt environment
-    3. Execute the dbt command
-    4. Capture logs and results
-    5. Update the run record
+    **Requires:** dbt_project.execute permission
+
+    This endpoint will:
+    1. Revoke the Celery task if it's still pending or running
+    2. Update the run status to CANCELLED
     """
-    from backend.database import SessionLocal
+    from celery.result import AsyncResult
+    from backend.celery_app import celery_app
 
-    db = SessionLocal()
     try:
-        run = db.query(DbtRun).filter(DbtRun.id == run_id).first()
-        project = db.query(DbtProject).filter(DbtProject.id == project_id).first()
+        run_uuid = UUID(run_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid run ID format",
+        )
 
-        if not run or not project:
-            logger.error(f"dbt run or project not found: run_id={run_id}, project_id={project_id}")
-            return
+    run = db.query(DbtRun).join(DbtProject).filter(
+        DbtRun.public_id == run_uuid,
+        DbtProject.organization_id == current_user.organization_id,
+    ).first()
 
-        # Update status to running
-        run.status = DbtRunStatus.RUNNING
-        run.started_at = datetime.now(timezone.utc)
-        db.commit()
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="dbt run not found",
+        )
 
-        # TODO: Implement actual dbt execution
-        # This would involve:
-        # 1. Clone repo to temp directory
-        # 2. Install dbt dependencies (pip install dbt-core dbt-<adapter>)
-        # 3. Set up profiles.yml
-        # 4. Run dbt command
-        # 5. Parse results
+    # Check if run is already in a terminal state
+    if run.status in (DbtRunStatus.COMPLETED, DbtRunStatus.FAILED, DbtRunStatus.CANCELLED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel run in '{run.status.value}' state",
+        )
 
-        logger.info(f"dbt run {run_id} started for project {project.name}")
+    # Revoke the Celery task if we have a task ID
+    if run.celery_task_id:
+        logger.info(f"Revoking Celery task {run.celery_task_id} for dbt run {run.id}")
+        celery_app.control.revoke(run.celery_task_id, terminate=True, signal="SIGTERM")
 
-        # Placeholder: Mark as completed
-        # In production, this would be updated based on actual execution
-        run.status = DbtRunStatus.COMPLETED
-        run.completed_at = datetime.now(timezone.utc)
+    # Update run status
+    run.status = DbtRunStatus.CANCELLED
+    run.completed_at = datetime.now(timezone.utc)
+    run.error_message = f"Cancelled by user {current_user.email}"
+    if run.started_at:
         run.duration_seconds = (run.completed_at - run.started_at).total_seconds()
-        run.logs = f"dbt {run.command} completed successfully (placeholder)"
 
-        db.commit()
+    db.commit()
+    db.refresh(run)
 
-    except Exception as e:
-        logger.error(f"dbt run {run_id} failed: {str(e)}", exc_info=True)
-        if run:
-            run.status = DbtRunStatus.FAILED
-            run.completed_at = datetime.now(timezone.utc)
-            run.error_message = str(e)
-            db.commit()
-    finally:
-        db.close()
+    logger.info(f"dbt run {run.id} cancelled by user {current_user.id}")
+
+    return run
 
 
 @router.get("/runs", response_model=List[DbtRunResponse])

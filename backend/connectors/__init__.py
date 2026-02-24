@@ -7,6 +7,7 @@ from backend.connectors.mysql import mysql_source, MySQLConnector
 from backend.connectors.whatsapp_business import whatsapp_business_source, WhatsAppBusinessConnector
 from backend.connectors.rest_api import rest_api_source, RESTAPIConnector
 from backend.connectors.paystack import paystack_source, PaystackConnector
+from backend.connectors.stripe_connector import stripe_source, StripeConnector, StripeSDKConnector
 from backend.connectors.google_sheets import google_sheets_source, GoogleSheetsConnector
 
 # UK-specific connectors (registered via @register_connector decorator)
@@ -35,6 +36,9 @@ __all__ = [
     "RESTAPIConnector",
     "paystack_source",
     "PaystackConnector",
+    "stripe_source",
+    "StripeConnector",
+    "StripeSDKConnector",
     "google_sheets_source",
     "GoogleSheetsConnector",
     "GoCardlessConnector",

@@ -5,8 +5,9 @@ Provides JWT token generation/validation, password hashing,
 and authentication dependencies for FastAPI.
 """
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any
 import logging
+import uuid
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Request
@@ -20,6 +21,7 @@ from backend.models.rbac import UserRole
 from backend.models.api_key import APIKey
 from sqlalchemy.orm import joinedload
 import hashlib
+from backend.utils.token_blacklist import is_token_blacklisted
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +82,15 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({"exp": expire, "iat": datetime.now(timezone.utc)})
+    # Add JTI (JWT ID) claim for unique token identification
+    # This enables token blacklisting for secure logout
+    jti = str(uuid.uuid4())
+
+    to_encode.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "jti": jti,
+    })
 
     encoded_jwt = jwt.encode(
         to_encode,
@@ -102,7 +112,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
         Decoded token payload
 
     Raises:
-        AuthError: If token is invalid
+        AuthError: If token is invalid or blacklisted
     """
     try:
         payload = jwt.decode(
@@ -110,6 +120,12 @@ def decode_access_token(token: str) -> Dict[str, Any]:
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
+
+        # Check if token is blacklisted (logout, security revocation, etc.)
+        jti = payload.get("jti")
+        if is_token_blacklisted(token, jti):
+            raise AuthError("Token has been revoked")
+
         return payload
     except JWTError as e:
         raise AuthError(f"Invalid token: {str(e)}")
@@ -194,9 +210,10 @@ async def get_current_user(
     except (AuthError, ValueError, TypeError):
         raise credentials_exception
 
-    # Load user with roles eagerly for RBAC
+    # Load user with roles and organization eagerly for RBAC
     user = db.query(User).options(
-        joinedload(User.user_roles).joinedload(UserRole.role)
+        joinedload(User.user_roles).joinedload(UserRole.role),
+        joinedload(User.organization)
     ).filter(User.id == user_id).first()
 
     if user is None:
@@ -250,7 +267,8 @@ async def get_current_user_or_api_key(
             if user_id_str is not None:
                 user_id = int(user_id_str)
                 user = db.query(User).options(
-                    joinedload(User.user_roles).joinedload(UserRole.role)
+                    joinedload(User.user_roles).joinedload(UserRole.role),
+                    joinedload(User.organization)
                 ).filter(User.id == user_id).first()
                 if user and user.is_active:
                     if user.organization and not user.organization.is_active:
@@ -296,7 +314,8 @@ async def get_current_user_or_api_key(
 
         # Load associated user
         user = db.query(User).options(
-            joinedload(User.user_roles).joinedload(UserRole.role)
+            joinedload(User.user_roles).joinedload(UserRole.role),
+            joinedload(User.organization)
         ).filter(User.id == api_key_record.user_id).first()
 
         if not user or not user.is_active:
@@ -441,130 +460,3 @@ def hash_api_key(api_key: str) -> str:
         SHA-256 hash of the key
     """
     return hashlib.sha256(api_key.encode()).hexdigest()
-
-
-def create_api_key(
-    db: Session,
-    user: User,
-    name: str,
-    scopes: Optional[list] = None,
-    expires_at: Optional[datetime] = None,
-) -> Tuple[str, APIKey]:
-    """
-    Generate a secure API key and store it in the database.
-
-    Args:
-        db: Database session
-        user: User the key belongs to
-        name: User-provided name for the key
-        scopes: Optional list of permission scopes
-        expires_at: Optional expiration datetime
-
-    Returns:
-        Tuple of (plain_text_key, APIKey model)
-        Note: The plain text key is only returned once at creation!
-    """
-    import secrets
-
-    # Generate secure key with prefix
-    raw_key = secrets.token_urlsafe(32)
-    plain_key = f"dpk_{raw_key}"
-
-    # Store only the hash
-    key_hash = hash_api_key(plain_key)
-
-    # Store prefix for identification (first 12 chars: "dpk_" + 8 more)
-    key_prefix = plain_key[:12]
-
-    api_key = APIKey(
-        user_id=user.id,
-        organization_id=user.organization_id,
-        name=name,
-        key_prefix=key_prefix,
-        key_hash=key_hash,
-        scopes=scopes,
-        expires_at=expires_at,
-        is_active=True,
-    )
-
-    db.add(api_key)
-    db.commit()
-    db.refresh(api_key)
-
-    # Return both the plain key (shown once to user) and the model
-    return plain_key, api_key
-
-
-def verify_api_key(db: Session, api_key: str) -> Optional[User]:
-    """
-    Verify an API key and return associated user.
-
-    Args:
-        db: Database session
-        api_key: API key to verify (format: dpk_...)
-
-    Returns:
-        User object if valid, None otherwise
-    """
-    # Validate key format
-    if not api_key or not api_key.startswith("dpk_"):
-        return None
-
-    # Hash the provided key
-    key_hash = hash_api_key(api_key)
-
-    # Find the API key record
-    api_key_record = db.query(APIKey).filter(
-        APIKey.key_hash == key_hash,
-        APIKey.is_active == True,
-    ).first()
-
-    if not api_key_record:
-        return None
-
-    # Check if key is valid (not expired)
-    if not api_key_record.is_valid:
-        return None
-
-    # Update last used timestamp
-    api_key_record.last_used_at = datetime.now(timezone.utc)
-    db.commit()
-
-    # Load the user with roles
-    user = db.query(User).options(
-        joinedload(User.user_roles).joinedload(UserRole.role)
-    ).filter(User.id == api_key_record.user_id).first()
-
-    if not user or not user.is_active:
-        return None
-
-    # Check if organization is active
-    if user.organization and not user.organization.is_active:
-        return None
-
-    return user
-
-
-def revoke_api_key(db: Session, api_key_id: int, user: User) -> bool:
-    """
-    Revoke an API key.
-
-    Args:
-        db: Database session
-        api_key_id: ID of the API key to revoke
-        user: User requesting the revocation
-
-    Returns:
-        True if revoked, False if not found or not authorized
-    """
-    api_key_record = db.query(APIKey).filter(
-        APIKey.id == api_key_id,
-        APIKey.user_id == user.id,
-    ).first()
-
-    if not api_key_record:
-        return False
-
-    api_key_record.is_active = False
-    db.commit()
-    return True

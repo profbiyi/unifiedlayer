@@ -28,8 +28,8 @@ export default function NotificationBell() {
     try {
       const { data } = await api.get("/notifications/count");
       setUnreadCount(data.unread);
-    } catch {
-      // silently fail
+    } catch (error) {
+      console.warn("Failed to fetch notification count:", error);
     }
   }, []);
 
@@ -40,8 +40,8 @@ export default function NotificationBell() {
         params: { limit: 10 },
       });
       setNotifications(data.items);
-    } catch {
-      // silently fail
+    } catch (error) {
+      console.warn("Failed to fetch notifications:", error);
     } finally {
       setLoading(false);
     }
@@ -79,8 +79,8 @@ export default function NotificationBell() {
         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
       );
       setUnreadCount((c) => Math.max(0, c - 1));
-    } catch {
-      // silently fail
+    } catch (error) {
+      console.warn("Failed to mark notification as read:", error);
     }
   };
 
@@ -89,8 +89,8 @@ export default function NotificationBell() {
       await api.post("/notifications/mark-all-read");
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       setUnreadCount(0);
-    } catch {
-      // silently fail
+    } catch (error) {
+      console.warn("Failed to mark all notifications as read:", error);
     }
   };
 

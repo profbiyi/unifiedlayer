@@ -906,6 +906,119 @@ If you didn't request a password reset, you can safely ignore this email.
 
         return self.send([to_email], subject, html_body, html=True)
 
+    def send_2fa_disabled_notification(
+        self,
+        to_email: str,
+        user_name: str,
+        organization_name: Optional[str] = None,
+        logo_url: Optional[str] = None,
+        brand_primary_color: Optional[str] = None,
+        brand_secondary_color: Optional[str] = None,
+    ) -> bool:
+        """
+        Send notification when 2FA is disabled.
+
+        This is a security notification to alert users when their
+        two-factor authentication has been turned off.
+
+        Args:
+            to_email: Recipient email address
+            user_name: User's name
+            organization_name: Organization name (optional)
+            logo_url: Organization logo URL (optional)
+            brand_primary_color: Organization primary color (optional)
+            brand_secondary_color: Organization secondary color (optional)
+
+        Returns:
+            True if sent successfully
+        """
+        org_name = organization_name or "UnifiedLayer"
+        subject = f"Security Alert: Two-Factor Authentication Disabled - {org_name}"
+
+        # Email content
+        content = f"""
+        <style>
+            .security-alert {{
+                background: #fef2f2;
+                border-left: 4px solid #ef4444;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 20px 0;
+            }}
+            .info-box {{
+                background: #f3f4f6;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 20px 0;
+            }}
+        </style>
+
+        <p>Hi {user_name or "there"},</p>
+
+        <div class="security-alert">
+            <p style="margin: 0;"><strong>🔓 Two-Factor Authentication Disabled</strong></p>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">
+                Two-factor authentication (2FA) has been disabled on your {org_name} account.
+                This was performed at <strong>{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</strong>.
+            </p>
+        </div>
+
+        <p><strong>If you made this change:</strong></p>
+        <p style="color: #6b7280; font-size: 14px;">
+            No action is required. However, we strongly recommend keeping 2FA enabled for better account security.
+        </p>
+
+        <p><strong>If you did NOT make this change:</strong></p>
+        <div class="info-box">
+            <p style="margin: 0; font-size: 14px;">
+                1. Immediately change your password<br>
+                2. Re-enable two-factor authentication<br>
+                3. Review your recent account activity<br>
+                4. Contact support if you suspect unauthorized access
+            </p>
+        </div>
+
+        <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+            This email was sent automatically as a security measure. If you have any questions, please contact our support team.
+        </p>
+"""
+
+        html_body = self.get_branded_template(
+            content=content,
+            header_title="🔐 Security Alert",
+            header_subtitle="Two-factor authentication has been disabled",
+            header_color_start="#ef4444",  # Red gradient for security alert
+            header_color_end="#dc2626",
+            brand_primary_color=brand_primary_color,
+            brand_secondary_color=brand_secondary_color,
+            logo_url=logo_url,
+            organization_name=organization_name,
+        )
+
+        # Plain text version
+        plain_body = f"""
+Security Alert: Two-Factor Authentication Disabled
+
+Hi {user_name or "there"},
+
+Two-factor authentication (2FA) has been disabled on your {org_name} account.
+This was performed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC.
+
+If you made this change:
+No action is required. However, we strongly recommend keeping 2FA enabled.
+
+If you did NOT make this change:
+1. Immediately change your password
+2. Re-enable two-factor authentication
+3. Review your recent account activity
+4. Contact support if you suspect unauthorized access
+
+---
+{org_name} - Modern Data Integration
+"""
+
+        return self.send([to_email], subject, html_body, html=True)
+
 
 class SlackNotifier:
     """

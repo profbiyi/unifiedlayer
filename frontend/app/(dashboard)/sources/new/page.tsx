@@ -158,7 +158,16 @@ export default function NewSourceWizardPage() {
         organization_id: currentUser.organization_id,
       } as any,
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          // Check if an auto-dashboard was created
+          if (data.auto_dashboard) {
+            // Store notification in sessionStorage for the sources page to display
+            sessionStorage.setItem(
+              "auto_dashboard_notification",
+              JSON.stringify(data.auto_dashboard)
+            );
+          }
+          // Navigate to sources page
           router.push("/sources");
         },
       }

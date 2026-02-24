@@ -6,7 +6,7 @@ import secrets
 from datetime import timedelta, datetime, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
-from fastapi import APIRouter, Depends, HTTPException, status, Form, Response, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Form, Response, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -24,17 +24,97 @@ from backend.auth import (
 from backend.models.pipeline import User
 from backend.config import settings
 from backend.utils.email import send_verification_email
+import redis
+import json
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# In-memory store for OAuth state tokens (in production, use Redis)
-_oauth_states: dict[str, dict] = {}
+
+def log_auth_event(
+    db: Session,
+    action: str,
+    user_id: int = None,
+    organization_id: int = None,
+    request: Request = None,
+    details: dict = None,
+) -> None:
+    """
+    Log an authentication event to the audit log.
+
+    Args:
+        db: Database session
+        action: Action type (login_success, login_failed, logout, password_reset, etc.)
+        user_id: User ID if known
+        organization_id: Organization ID if known
+        request: FastAPI request for IP/user agent extraction
+        details: Additional details to log
+    """
+    from backend.models.audit import AuditLog
+    from backend.middleware import get_client_ip, _parse_trusted_proxies
+
+    ip_address = None
+    user_agent = None
+
+    if request:
+        trusted_proxies = _parse_trusted_proxies()
+        ip_address = get_client_ip(request, trusted_proxies)
+        user_agent = request.headers.get("user-agent", "")[:500]
+
+    try:
+        audit_log = AuditLog(
+            user_id=user_id,
+            organization_id=organization_id,
+            action=action,
+            resource_type="auth",
+            resource_id=str(user_id) if user_id else None,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to log auth event: {e}")
+        # Don't fail the request if audit logging fails
+        db.rollback()
+
+# Redis-backed OAuth state storage
+_redis_client = None
+OAUTH_STATE_PREFIX = "oauth_state:"
+OAUTH_STATE_TTL = 600  # 10 minutes
+
+
+def _get_redis_client():
+    """Get or create Redis client for OAuth state storage."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    return _redis_client
+
+
+def _store_oauth_state(state: str, data: dict) -> None:
+    """Store OAuth state in Redis with TTL."""
+    client = _get_redis_client()
+    key = f"{OAUTH_STATE_PREFIX}{state}"
+    client.setex(key, OAUTH_STATE_TTL, json.dumps(data, default=str))
+
+
+def _get_oauth_state(state: str) -> dict | None:
+    """Retrieve and delete OAuth state from Redis (one-time use)."""
+    client = _get_redis_client()
+    key = f"{OAUTH_STATE_PREFIX}{state}"
+    data = client.get(key)
+    if data:
+        client.delete(key)  # One-time use - delete after retrieval
+        return json.loads(data)
+    return None
 
 
 @router.post("/login")
 async def login(
+    request: Request,
     response: Response,
     username: str = Form(...),
     password: str = Form(...),
@@ -45,6 +125,7 @@ async def login(
     Sets HTTPOnly cookie for secure authentication.
 
     Args:
+        request: FastAPI request object
         response: FastAPI response object
         username: User email (username field)
         password: User password
@@ -56,25 +137,26 @@ async def login(
     from datetime import datetime, timezone
     from backend.models.pipeline import Organization
 
-    # Debug: Log login attempt (mask password)
     logger.info(f"Login attempt for: {username}")
 
     user = authenticate_user(db, username, password)
 
     if not user:
-        # Debug: Check if user exists at all
+        # Check if user exists for audit logging
         from backend.models.pipeline import User as UserModel
         debug_user = db.query(UserModel).filter(
             (UserModel.email == username) | (UserModel.username == username)
         ).first()
-        if debug_user:
-            logger.warning(f"Login failed for existing user: {username} (is_active={debug_user.is_active})")
-            # Debug: Try password verification directly
-            from backend.auth import verify_password
-            pwd_check = verify_password(password, debug_user.hashed_password)
-            logger.warning(f"Direct password verify result: {pwd_check}")
-        else:
-            logger.warning(f"Login failed - user not found: {username}")
+
+        # Log failed login attempt
+        log_auth_event(
+            db=db,
+            action="login_failed",
+            user_id=debug_user.id if debug_user else None,
+            organization_id=debug_user.organization_id if debug_user else None,
+            request=request,
+            details={"username": username, "reason": "invalid_credentials" if debug_user else "user_not_found"},
+        )
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,6 +176,16 @@ async def login(
 
     # Single commit for all changes
     db.commit()
+
+    # Log successful login
+    log_auth_event(
+        db=db,
+        action="login_success",
+        user_id=user.id,
+        organization_id=user.organization_id,
+        request=request,
+        details={"2fa_required": user.two_factor_enabled},
+    )
 
     # If 2FA is enabled, return a short-lived temp token instead of full access
     if user.two_factor_enabled:
@@ -207,19 +299,50 @@ async def get_current_user_info(
 
 @router.post("/logout")
 async def logout(
+    request: Request,
     response: Response,
     current_user: User = Depends(get_current_user),
 ):
     """
-    Logout current user by clearing the authentication cookie.
+    Logout current user by clearing the authentication cookie and blacklisting the token.
 
     Args:
+        request: FastAPI request object
         response: FastAPI response object
         current_user: Current authenticated user
 
     Returns:
         Success message
     """
+    from backend.utils.token_blacklist import add_token_to_blacklist
+    from backend.auth import decode_access_token
+
+    # Get the token from cookie or header
+    token = request.cookies.get("token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+
+    # Add token to blacklist if we have it
+    if token:
+        try:
+            # Decode to get JTI and expiration
+            from jose import jwt
+            # Decode without verification since we just want the claims
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            jti = payload.get("jti")
+            exp = payload.get("exp")
+
+            if jti and exp:
+                # Calculate remaining TTL
+                expires_in = int(exp - datetime.now(timezone.utc).timestamp())
+                if expires_in > 0:
+                    add_token_to_blacklist(token, expires_in, jti)
+                    logger.info(f"Token blacklisted on logout for user {current_user.id}")
+        except Exception as e:
+            logger.warning(f"Could not blacklist token on logout: {e}")
+
     # Clear the authentication cookie
     response.delete_cookie(
         key="token",
@@ -315,10 +438,11 @@ async def reset_password(
     """
     from datetime import timezone
 
-    # Find user with valid token
+    # Find user with valid token and lock the row to prevent race conditions
+    # This ensures only one concurrent request can reset the password
     user = db.query(User).filter(
         User.password_reset_token == token
-    ).first()
+    ).with_for_update().first()
 
     if not user:
         raise HTTPException(
@@ -466,18 +590,12 @@ async def google_login(
     # Generate state token for CSRF protection
     state = secrets.token_urlsafe(32)
 
-    # Store state with metadata (expires in 10 minutes)
-    _oauth_states[state] = {
-        "created_at": datetime.now(timezone.utc),
+    # Store state with metadata in Redis (auto-expires after 10 minutes)
+    _store_oauth_state(state, {
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "redirect_uri": redirect_uri or settings.FRONTEND_URL,
         "action": "login"
-    }
-
-    # Clean up old states (older than 10 minutes)
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
-    expired_states = [s for s, data in _oauth_states.items() if data["created_at"] < cutoff]
-    for s in expired_states:
-        del _oauth_states[s]
+    })
 
     # Build Google OAuth URL
     params = {
@@ -525,8 +643,8 @@ async def google_callback(
             url=f"{settings.FRONTEND_URL}/login?error=oauth_denied"
         )
 
-    # Validate state token
-    state_data = _oauth_states.pop(state, None)
+    # Validate state token (retrieved from Redis, auto-deleted after use)
+    state_data = _get_oauth_state(state)
     if not state_data:
         logger.warning("Invalid or expired OAuth state token")
         return RedirectResponse(
@@ -677,13 +795,13 @@ async def google_link_account(
     # Generate state token for CSRF protection
     state = secrets.token_urlsafe(32)
 
-    # Store state with user ID for linking
-    _oauth_states[state] = {
-        "created_at": datetime.now(timezone.utc),
+    # Store state with user ID for linking in Redis (auto-expires after 10 minutes)
+    _store_oauth_state(state, {
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "redirect_uri": f"{settings.FRONTEND_URL}/settings",
         "action": "link",
-        "user_id": current_user.id
-    }
+        "user_id": str(current_user.id)
+    })
 
     # Build Google OAuth URL
     params = {
@@ -725,8 +843,8 @@ async def google_link_callback(
             url=f"{settings.FRONTEND_URL}/settings?error=oauth_denied"
         )
 
-    # Validate state token
-    state_data = _oauth_states.pop(state, None)
+    # Validate state token (retrieved from Redis, auto-deleted after use)
+    state_data = _get_oauth_state(state)
     if not state_data or state_data.get("action") != "link":
         logger.warning("Invalid or expired OAuth state token for linking")
         return RedirectResponse(

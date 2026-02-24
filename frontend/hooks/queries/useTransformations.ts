@@ -196,9 +196,8 @@ export const useTestSQL = (pipelineId: string) => {
       );
       return data;
     },
-    onError: (error: any) => {
-      // Don't show toast for SQL errors - we display them in the UI
-      console.error("SQL test error:", error);
+    onError: () => {
+      // SQL errors are displayed in the UI, no additional handling needed
     },
   });
 };

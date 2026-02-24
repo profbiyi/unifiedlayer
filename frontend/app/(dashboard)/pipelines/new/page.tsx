@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Database, HardDrive, Plus } from "lucide-react";
 import Link from "next/link";
 import { CreatePipelineRequest, TransformationConfig } from "@/types/pipeline";
 import TransformationStep from "@/components/pipeline/TransformationStep";
@@ -232,12 +232,22 @@ export default function NewPipelinePage() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      No sources available. Create one first.
-                    </p>
-                    <Link href="/sources">
-                      <Button variant="outline">Go to Sources</Button>
+                  <div className="rounded-lg border-2 border-dashed border-muted p-6 text-center space-y-3">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Database className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">No data sources yet</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        You need to connect a data source before creating a pipeline.
+                        This is where your data will come from.
+                      </p>
+                    </div>
+                    <Link href="/sources/new">
+                      <Button className="mt-2">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Your First Source
+                      </Button>
                     </Link>
                   </div>
                 )}
@@ -273,12 +283,22 @@ export default function NewPipelinePage() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      No destinations available. Create one first.
-                    </p>
-                    <Link href="/destinations">
-                      <Button variant="outline">Go to Destinations</Button>
+                  <div className="rounded-lg border-2 border-dashed border-muted p-6 text-center space-y-3">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <HardDrive className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">No destinations yet</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        You need to add a destination where your synced data will be stored.
+                        We support PostgreSQL, BigQuery, Snowflake, and more.
+                      </p>
+                    </div>
+                    <Link href="/destinations/new">
+                      <Button className="mt-2">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Your First Destination
+                      </Button>
                     </Link>
                   </div>
                 )}

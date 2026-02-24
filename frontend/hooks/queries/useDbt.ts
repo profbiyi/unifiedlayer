@@ -9,6 +9,9 @@ import {
   UpdateDbtProjectRequest,
   TriggerDbtRunRequest,
   TestConnectionResponse,
+  DbtModel,
+  DbtModelSummary,
+  DbtModelColumn,
 } from "@/types/dbt";
 import toast from "react-hot-toast";
 
@@ -19,6 +22,9 @@ export const dbtKeys = {
   project: (id: string) => [...dbtKeys.projects(), id] as const,
   runs: (projectId?: string) => [...dbtKeys.all, "runs", projectId] as const,
   run: (runId: string) => [...dbtKeys.all, "run", runId] as const,
+  models: () => [...dbtKeys.all, "models"] as const,
+  model: (id: string) => [...dbtKeys.models(), id] as const,
+  modelColumns: (id: string) => [...dbtKeys.model(id), "columns"] as const,
 };
 
 // Fetch all dbt projects
@@ -213,6 +219,89 @@ export const useDbtRunLogs = (runId: string) => {
     refetchInterval: (query) => {
       // We'll need to fetch the run status separately or pass it in
       return 5000;
+    },
+  });
+};
+
+// ==================== dbt Models Hooks ====================
+
+// Fetch all dbt models (parsed from manifest)
+export const useDbtModels = (params?: {
+  search?: string;
+  tag?: string;
+  schema?: string;
+  materialization?: string;
+  projectId?: string;
+}) => {
+  return useQuery({
+    queryKey: [...dbtKeys.models(), params],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      if (params?.search) searchParams.append("search", params.search);
+      if (params?.tag) searchParams.append("tag", params.tag);
+      if (params?.schema) searchParams.append("schema", params.schema);
+      if (params?.materialization) searchParams.append("materialization", params.materialization);
+      if (params?.projectId) searchParams.append("project_id", params.projectId);
+
+      const url = `/dbt/models${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+      const { data } = await api.get<DbtModelSummary[]>(url);
+      return data;
+    },
+    staleTime: 30000,
+  });
+};
+
+// Fetch single dbt model with full details
+export const useDbtModel = (id: string) => {
+  return useQuery({
+    queryKey: dbtKeys.model(id),
+    queryFn: async () => {
+      const { data } = await api.get<DbtModel>(`/dbt/models/${id}`);
+      return data;
+    },
+    enabled: !!id,
+  });
+};
+
+// Fetch model columns
+export const useDbtModelColumns = (id: string) => {
+  return useQuery({
+    queryKey: dbtKeys.modelColumns(id),
+    queryFn: async () => {
+      const { data } = await api.get<DbtModelColumn[]>(`/dbt/models/${id}/columns`);
+      return data;
+    },
+    enabled: !!id,
+  });
+};
+
+// Fetch model runs (runs that included this model)
+export const useDbtModelRuns = (modelId: string) => {
+  return useQuery({
+    queryKey: [...dbtKeys.model(modelId), "runs"],
+    queryFn: async () => {
+      const { data } = await api.get<DbtRun[]>(`/dbt/models/${modelId}/runs`);
+      return data;
+    },
+    enabled: !!modelId,
+  });
+};
+
+// Refresh/re-parse manifest
+export const useRefreshDbtManifest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      const { data } = await api.post(`/dbt/projects/${projectId}/refresh-manifest`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dbtKeys.models() });
+      toast.success("Manifest refreshed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Failed to refresh manifest");
     },
   });
 };

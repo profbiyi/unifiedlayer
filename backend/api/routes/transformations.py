@@ -384,6 +384,13 @@ def create_transformation(
     db.commit()
     db.refresh(db_transformation)
 
+    # Record column-level lineage from the SQL query
+    try:
+        _record_transformation_lineage(db, db_transformation, pipeline.organization_id)
+    except Exception as e:
+        logger.warning(f"Failed to record column lineage for transformation {db_transformation.id}: {e}")
+        # Don't fail the creation if lineage recording fails
+
     logger.info(
         f"Created transformation '{db_transformation.name}' (id={db_transformation.id}) "
         f"for pipeline '{pipeline.name}' (id={pipeline.id})"
@@ -449,6 +456,13 @@ def update_transformation(
 
     db.commit()
     db.refresh(transformation)
+
+    # Re-record column-level lineage if SQL was updated
+    if update.sql_query is not None:
+        try:
+            _record_transformation_lineage(db, transformation, pipeline.organization_id, refresh=True)
+        except Exception as e:
+            logger.warning(f"Failed to update column lineage for transformation {transformation.id}: {e}")
 
     logger.info(
         f"Updated transformation '{transformation.name}' (id={transformation.id}) "
@@ -562,3 +576,38 @@ def reorder_transformations(
     return db.query(SQLTransformation).filter(
         SQLTransformation.pipeline_id == pipeline.id
     ).order_by(SQLTransformation.execution_order).all()
+
+
+def _record_transformation_lineage(
+    db: Session,
+    transformation: SQLTransformation,
+    organization_id: int,
+    refresh: bool = False,
+) -> None:
+    """
+    Record column-level lineage from a SQL transformation.
+
+    Args:
+        db: Database session
+        transformation: SQLTransformation to analyze
+        organization_id: Organization ID for scoping
+        refresh: If True, delete existing lineage before recording
+    """
+    from backend.services.column_lineage_service import ColumnLineageService
+
+    service = ColumnLineageService(db)
+
+    if refresh:
+        # Delete existing lineage for this transformation
+        service.delete_lineage_for_transformation(transformation.id)
+
+    # Record new lineage
+    lineages = service.record_transformation_lineage(
+        transformation=transformation,
+        organization_id=organization_id,
+        dialect="postgres",  # Default dialect
+    )
+
+    logger.info(
+        f"Recorded {len(lineages)} column lineage entries for transformation {transformation.id}"
+    )

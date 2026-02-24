@@ -65,7 +65,7 @@ class QualityCheck(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -104,8 +104,8 @@ class PipelineQualityCheck(Base):
     __tablename__ = "pipeline_quality_checks"
 
     id = Column(Integer, primary_key=True, index=True)
-    pipeline_id = Column(Integer, ForeignKey("pipelines.id"), nullable=False)
-    quality_check_id = Column(Integer, ForeignKey("quality_checks.id"), nullable=False)
+    pipeline_id = Column(Integer, ForeignKey("pipelines.id", ondelete="CASCADE"), nullable=False, index=True)
+    quality_check_id = Column(Integer, ForeignKey("quality_checks.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # When to run this check
     run_on_success = Column(Boolean, default=True, nullable=False)  # Run after successful extraction
@@ -137,8 +137,8 @@ class QualityCheckResult(Base):
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
 
-    pipeline_run_id = Column(Integer, ForeignKey("pipeline_runs.id"), nullable=False)
-    pipeline_check_id = Column(Integer, ForeignKey("pipeline_quality_checks.id"), nullable=False)
+    pipeline_run_id = Column(Integer, ForeignKey("pipeline_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    pipeline_check_id = Column(Integer, ForeignKey("pipeline_quality_checks.id", ondelete="CASCADE"), nullable=False, index=True)
 
     status = Column(SQLEnum(QualityCheckStatus), nullable=False, index=True)
     severity = Column(SQLEnum(QualityCheckSeverity), nullable=False)

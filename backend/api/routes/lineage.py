@@ -1,8 +1,10 @@
 """
 Data Lineage API routes.
+
+Provides endpoints for table-level and column-level lineage tracking.
 """
 from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -13,10 +15,22 @@ from backend.schemas import (
     LineageEdgeCreate,
     LineageEdgeResponse,
     LineageGraphResponse,
+    ColumnLineageResponse,
+    ColumnDependencyResponse,
+    ColumnLineageGraphResponse,
+    ColumnImpactAnalysisResponse,
+    ParseSQLRequest,
+    ParseSQLResponse,
+    RefreshLineageResponse,
+    DbtColumnMetadataResponse,
 )
 from backend.models.lineage import LineageNode, LineageEdge
+from backend.models.column_lineage import ColumnLineage, DbtColumnMetadata
 from backend.models.pipeline import User, Pipeline, DataSource, Destination, PipelineRun
+from backend.models.transformation import SQLTransformation
 from backend.auth import get_current_user
+from backend.services.column_lineage_service import ColumnLineageService
+from backend.services.column_lineage_parser import SQLColumnLineageParser
 import logging
 
 logger = logging.getLogger(__name__)
@@ -389,4 +403,348 @@ async def get_pipeline_lineage_graph(
             "destinations": len(destinations),
             "activePipelines": sum(1 for p in pipelines if p.is_active),
         }
+    }
+
+
+# ============================================================================
+# Column-Level Lineage Endpoints
+# ============================================================================
+
+
+@router.get("/columns/{table_name}", response_model=List[ColumnLineageResponse])
+async def get_column_lineage_for_table(
+    table_name: str,
+    column_name: str = Query(None, description="Optional specific column"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get column lineage for a table.
+
+    Returns all column lineage relationships where the table
+    is either source or target.
+    """
+    service = ColumnLineageService(db)
+    lineages = service.get_column_lineage(
+        table_name=table_name,
+        organization_id=current_user.organization_id,
+        column_name=column_name,
+    )
+    return lineages
+
+
+@router.get(
+    "/columns/{table_name}/{column_name}/upstream",
+    response_model=List[ColumnDependencyResponse]
+)
+async def get_column_upstream(
+    table_name: str,
+    column_name: str,
+    max_depth: int = Query(10, ge=1, le=50, description="Maximum traversal depth"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Trace column upstream to find all source columns.
+
+    Returns all source columns that flow into this column,
+    traversing through transformations and pipelines.
+    """
+    service = ColumnLineageService(db)
+    upstream = service.get_upstream_columns(
+        table_name=table_name,
+        column_name=column_name,
+        organization_id=current_user.organization_id,
+        max_depth=max_depth,
+    )
+    return upstream
+
+
+@router.get(
+    "/columns/{table_name}/{column_name}/downstream",
+    response_model=List[ColumnDependencyResponse]
+)
+async def get_column_downstream(
+    table_name: str,
+    column_name: str,
+    max_depth: int = Query(10, ge=1, le=50, description="Maximum traversal depth"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Trace column downstream to find all dependent columns.
+
+    Returns all columns that depend on this column,
+    traversing through transformations and pipelines.
+    """
+    service = ColumnLineageService(db)
+    downstream = service.get_downstream_columns(
+        table_name=table_name,
+        column_name=column_name,
+        organization_id=current_user.organization_id,
+        max_depth=max_depth,
+    )
+    return downstream
+
+
+@router.get(
+    "/columns/{table_name}/{column_name}/impact",
+    response_model=ColumnImpactAnalysisResponse
+)
+async def get_column_impact_analysis(
+    table_name: str,
+    column_name: str,
+    max_depth: int = Query(10, ge=1, le=50, description="Maximum traversal depth"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Perform impact analysis for a column.
+
+    Shows all downstream columns, tables, and pipelines that
+    would be affected if this column changes or is removed.
+    """
+    service = ColumnLineageService(db)
+    impact = service.get_column_impact_analysis(
+        table_name=table_name,
+        column_name=column_name,
+        organization_id=current_user.organization_id,
+        max_depth=max_depth,
+    )
+    return impact
+
+
+@router.get(
+    "/columns/{table_name}/graph",
+    response_model=ColumnLineageGraphResponse
+)
+async def get_column_lineage_graph(
+    table_name: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get column lineage graph for a table.
+
+    Returns nodes (columns) and edges (lineage relationships)
+    suitable for visualization.
+    """
+    service = ColumnLineageService(db)
+    graph = service.get_table_column_lineage_graph(
+        table_name=table_name,
+        organization_id=current_user.organization_id,
+    )
+    return graph
+
+
+@router.post("/columns/parse-sql", response_model=ParseSQLResponse)
+async def parse_sql_for_lineage(
+    request: ParseSQLRequest = Body(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Parse SQL to extract column lineage mappings.
+
+    Analyzes the SQL statement and returns the column-level
+    lineage it would create, without persisting to the database.
+    """
+    parser = SQLColumnLineageParser(
+        dialect=request.dialect,
+    )
+
+    # Validate SQL first
+    is_valid, error = parser.validate_sql(request.sql)
+
+    if not is_valid:
+        return ParseSQLResponse(
+            mappings=[],
+            tables_referenced=[],
+            is_valid=False,
+            error=error,
+        )
+
+    # Parse lineage
+    mappings = parser.parse_sql(
+        request.sql,
+        target_table=request.target_table,
+        target_schema=request.target_schema,
+        target_database=request.target_database,
+    )
+
+    # Get referenced tables
+    tables = parser.get_all_referenced_tables(request.sql)
+
+    return ParseSQLResponse(
+        mappings=[m.to_dict() for m in mappings],
+        tables_referenced=tables,
+        is_valid=True,
+        error=None,
+    )
+
+
+@router.post(
+    "/columns/transformation/{transformation_id}/refresh",
+    response_model=RefreshLineageResponse
+)
+async def refresh_transformation_column_lineage(
+    transformation_id: int,
+    dialect: str = Query("postgres", description="SQL dialect"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Refresh column lineage for a SQL transformation.
+
+    Re-parses the transformation SQL and updates the column lineage.
+    """
+    # Verify transformation exists and belongs to user's org
+    transformation = db.query(SQLTransformation).filter(
+        SQLTransformation.id == transformation_id
+    ).first()
+
+    if not transformation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transformation not found",
+        )
+
+    pipeline = db.query(Pipeline).filter(
+        Pipeline.id == transformation.pipeline_id,
+        Pipeline.organization_id == current_user.organization_id,
+    ).first()
+
+    if not pipeline:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this transformation",
+        )
+
+    service = ColumnLineageService(db)
+
+    try:
+        lineages = service.refresh_transformation_lineage(
+            transformation_id=transformation_id,
+            organization_id=current_user.organization_id,
+            dialect=dialect,
+        )
+
+        return RefreshLineageResponse(
+            success=True,
+            lineage_count=len(lineages),
+            message=f"Refreshed {len(lineages)} column lineage entries",
+        )
+
+    except Exception as e:
+        logger.error(f"Error refreshing transformation lineage: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error refreshing lineage: {str(e)}",
+        )
+
+
+@router.get(
+    "/columns/dbt/{model_name}/metadata",
+    response_model=List[DbtColumnMetadataResponse]
+)
+async def get_dbt_column_metadata(
+    model_name: str,
+    dbt_project_id: int = Query(..., description="dbt project ID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get dbt column metadata for a model.
+
+    Returns column descriptions, data types, and tests
+    extracted from dbt manifest.
+    """
+    from backend.models.dbt import DbtProject
+
+    # Verify project belongs to user's org
+    project = db.query(DbtProject).filter(
+        DbtProject.id == dbt_project_id,
+        DbtProject.organization_id == current_user.organization_id,
+    ).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="dbt project not found",
+        )
+
+    metadata = db.query(DbtColumnMetadata).filter(
+        DbtColumnMetadata.dbt_project_id == dbt_project_id,
+        DbtColumnMetadata.model_name == model_name,
+    ).all()
+
+    return metadata
+
+
+@router.delete("/columns/transformation/{transformation_id}")
+async def delete_transformation_column_lineage(
+    transformation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Delete all column lineage for a transformation.
+    """
+    # Verify transformation exists and belongs to user's org
+    transformation = db.query(SQLTransformation).filter(
+        SQLTransformation.id == transformation_id
+    ).first()
+
+    if not transformation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transformation not found",
+        )
+
+    pipeline = db.query(Pipeline).filter(
+        Pipeline.id == transformation.pipeline_id,
+        Pipeline.organization_id == current_user.organization_id,
+    ).first()
+
+    if not pipeline:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this transformation",
+        )
+
+    service = ColumnLineageService(db)
+    deleted = service.delete_lineage_for_transformation(transformation_id)
+
+    return {
+        "success": True,
+        "deleted_count": deleted,
+    }
+
+
+@router.delete("/columns/pipeline/{pipeline_id}")
+async def delete_pipeline_column_lineage(
+    pipeline_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Delete all column lineage for a pipeline.
+    """
+    # Verify pipeline belongs to user's org
+    pipeline = db.query(Pipeline).filter(
+        Pipeline.id == pipeline_id,
+        Pipeline.organization_id == current_user.organization_id,
+    ).first()
+
+    if not pipeline:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pipeline not found",
+        )
+
+    service = ColumnLineageService(db)
+    deleted = service.delete_lineage_for_pipeline(pipeline_id)
+
+    return {
+        "success": True,
+        "deleted_count": deleted,
     }

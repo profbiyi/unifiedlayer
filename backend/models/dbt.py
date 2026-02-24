@@ -45,7 +45,7 @@ class DbtProject(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -92,8 +92,8 @@ class PipelineDbtConfig(Base):
     __tablename__ = "pipeline_dbt_configs"
 
     id = Column(Integer, primary_key=True, index=True)
-    pipeline_id = Column(Integer, ForeignKey("pipelines.id"), nullable=False, unique=True)
-    dbt_project_id = Column(Integer, ForeignKey("dbt_projects.id"), nullable=False)
+    pipeline_id = Column(Integer, ForeignKey("pipelines.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    dbt_project_id = Column(Integer, ForeignKey("dbt_projects.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Override configuration (if different from project defaults)
     target = Column(String(100), nullable=True)  # Override dbt target
@@ -127,8 +127,11 @@ class DbtRun(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    dbt_project_id = Column(Integer, ForeignKey("dbt_projects.id"), nullable=False)
-    pipeline_run_id = Column(Integer, ForeignKey("pipeline_runs.id"), nullable=True)  # Optional link to pipeline run
+    dbt_project_id = Column(Integer, ForeignKey("dbt_projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    pipeline_run_id = Column(Integer, ForeignKey("pipeline_runs.id", ondelete="SET NULL"), nullable=True, index=True)  # Optional link to pipeline run
+
+    # Celery task tracking
+    celery_task_id = Column(String(255), nullable=True, index=True)  # Celery task ID for cancellation/monitoring
 
     # Run configuration
     command = Column(String(50), nullable=False)  # run, test, build, compile, etc.

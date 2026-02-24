@@ -1,8 +1,9 @@
 """
 Data Source API routes.
 """
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -10,9 +11,32 @@ from backend.schemas import DataSourceCreate, DataSourceUpdate, DataSourceRespon
 from backend.models.pipeline import DataSource, User, Pipeline
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
+from backend.services.auto_dashboard_service import get_auto_dashboard_service
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# Response schema for source creation with auto-dashboard
+class AutoDashboardInfo(BaseModel):
+    """Auto-dashboard notification info."""
+    dashboard_id: str
+    template_id: str
+    dashboard_name: str
+    dashboard_url: str
+    title: str
+    message: str
+    cta: str
+    type: str = "auto_dashboard_created"
+
+
+class DataSourceCreateResponse(BaseModel):
+    """Extended response for source creation including auto-dashboard info."""
+    source: DataSourceResponse
+    auto_dashboard: Optional[AutoDashboardInfo] = None
+
+    class Config:
+        from_attributes = True
 
 router = APIRouter(prefix="/sources", tags=["Data Sources"])
 
@@ -122,7 +146,7 @@ async def get_source(
     return source
 
 
-@router.post("", response_model=DataSourceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=DataSourceCreateResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("source", "create")
 async def create_source(
     source_data: DataSourceCreate,
@@ -131,6 +155,9 @@ async def create_source(
 ):
     """
     Create a new data source.
+
+    If this is the first source of its type, an auto-dashboard may be created
+    and returned in the response.
 
     **Requires:** source.create permission
     """
@@ -163,7 +190,54 @@ async def create_source(
     db.refresh(source)
 
     logger.info(f"Data source created: {source.id} - {source.name}")
-    return source
+
+    # Try to create auto-dashboard for the new source
+    auto_dashboard_info = None
+    try:
+        auto_dashboard_service = get_auto_dashboard_service(db)
+
+        # Check if we should create an auto-dashboard
+        should_create, reason = auto_dashboard_service.should_create_auto_dashboard(
+            org_id=current_user.organization_id,
+            source_type=source_data.source_type,
+        )
+
+        if should_create:
+            dashboard = auto_dashboard_service.create_auto_dashboard(
+                org_id=current_user.organization_id,
+                source=source,
+            )
+
+            if dashboard:
+                notification = auto_dashboard_service.get_auto_dashboard_notification(dashboard)
+                auto_dashboard_info = AutoDashboardInfo(
+                    dashboard_id=notification["dashboard_id"],
+                    template_id=notification["template_id"],
+                    dashboard_name=notification["dashboard_name"],
+                    dashboard_url=notification["dashboard_url"],
+                    title=notification["title"],
+                    message=notification["message"],
+                    cta=notification["cta"],
+                    type=notification["type"],
+                )
+                logger.info(
+                    f"Auto-dashboard created for source {source.id}: {dashboard['name']}"
+                )
+        else:
+            logger.debug(
+                f"Auto-dashboard not created for source {source.id}: {reason}"
+            )
+
+    except Exception as e:
+        # Don't fail source creation if auto-dashboard creation fails
+        logger.warning(
+            f"Failed to create auto-dashboard for source {source.id}: {e}"
+        )
+
+    return DataSourceCreateResponse(
+        source=DataSourceResponse.model_validate(source),
+        auto_dashboard=auto_dashboard_info,
+    )
 
 
 @router.put("/{source_id}", response_model=DataSourceResponse)

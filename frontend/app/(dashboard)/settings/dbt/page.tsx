@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
 import DbtProjectCard from "@/components/dbt/DbtProjectCard";
 import DbtProjectForm from "@/components/dbt/DbtProjectForm";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { Plus, GitBranch, Loader2 } from "lucide-react";
+import { Plus, GitBranch, Loader2, BookOpen } from "lucide-react";
 
 export default function DbtSettingsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -55,10 +56,18 @@ export default function DbtSettingsPage() {
             Manage your dbt projects for data transformations
           </p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add dbt Project
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/settings/dbt/models">
+            <Button variant="outline">
+              <BookOpen className="mr-2 h-4 w-4" />
+              Models Catalog
+            </Button>
+          </Link>
+          <Button onClick={() => setIsFormOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add dbt Project
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

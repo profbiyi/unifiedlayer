@@ -1,5 +1,7 @@
 """
 OAuth2 callback routes for UK connectors (Xero, TrueLayer, HMRC MTD).
+
+Uses Redis-backed state tokens to prevent CSRF attacks.
 """
 import logging
 from urllib.parse import urlencode
@@ -13,6 +15,7 @@ from backend.auth import get_current_user
 from backend.config import settings
 from backend.database import get_db
 from backend.models.pipeline import DataSource, SourceType, User
+from backend.utils.oauth_state import generate_oauth_state, validate_oauth_state
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +32,23 @@ XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
 
 @router.get("/xero/authorize")
 async def xero_authorize(current_user: User = Depends(get_current_user)):
-    """Generate Xero OAuth2 authorization URL."""
+    """Generate Xero OAuth2 authorization URL with secure state token."""
     if not settings.XERO_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Xero OAuth not configured")
+
+    # Generate secure state token stored in Redis
+    state_token = generate_oauth_state(
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        provider="xero",
+    )
 
     params = {
         "response_type": "code",
         "client_id": settings.XERO_CLIENT_ID,
         "redirect_uri": f"{settings.FRONTEND_URL}/oauth/xero/callback",
         "scope": "openid profile email accounting.transactions accounting.contacts accounting.settings offline_access",
-        "state": str(current_user.organization_id),
+        "state": state_token,
     }
     return RedirectResponse(url=f"{XERO_AUTH_URL}?{urlencode(params)}")
 
@@ -50,7 +60,13 @@ async def xero_callback(
     db: Session = Depends(get_db),
 ):
     """Exchange Xero authorization code for tokens and store in DataSource."""
-    organization_id = int(state)
+    # Validate state token and extract organization_id
+    try:
+        state_data = validate_oauth_state(state, expected_provider="xero")
+        organization_id = state_data["organization_id"]
+    except ValueError as e:
+        logger.warning(f"Xero OAuth state validation failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
 
     async with httpx.AsyncClient() as client:
         token_response = await client.post(
@@ -135,9 +151,16 @@ def _truelayer_urls() -> tuple[str, str]:
 
 @router.get("/truelayer/authorize")
 async def truelayer_authorize(current_user: User = Depends(get_current_user)):
-    """Generate TrueLayer OAuth2 authorization URL."""
+    """Generate TrueLayer OAuth2 authorization URL with secure state token."""
     if not settings.TRUELAYER_CLIENT_ID:
         raise HTTPException(status_code=500, detail="TrueLayer OAuth not configured")
+
+    # Generate secure state token stored in Redis
+    state_token = generate_oauth_state(
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        provider="truelayer",
+    )
 
     auth_url, _ = _truelayer_urls()
     params = {
@@ -145,7 +168,7 @@ async def truelayer_authorize(current_user: User = Depends(get_current_user)):
         "client_id": settings.TRUELAYER_CLIENT_ID,
         "redirect_uri": f"{settings.FRONTEND_URL}/oauth/truelayer/callback",
         "scope": "info accounts balance transactions",
-        "state": str(current_user.organization_id),
+        "state": state_token,
     }
     if settings.ENVIRONMENT not in ("production", "staging"):
         params["enable_mock"] = "true"
@@ -160,7 +183,14 @@ async def truelayer_callback(
     db: Session = Depends(get_db),
 ):
     """Exchange TrueLayer authorization code for tokens and store in DataSource."""
-    organization_id = int(state)
+    # Validate state token and extract organization_id
+    try:
+        state_data = validate_oauth_state(state, expected_provider="truelayer")
+        organization_id = state_data["organization_id"]
+    except ValueError as e:
+        logger.warning(f"TrueLayer OAuth state validation failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
     _, token_url = _truelayer_urls()
 
     async with httpx.AsyncClient() as client:
@@ -234,9 +264,16 @@ def _hmrc_urls() -> tuple[str, str]:
 
 @router.get("/hmrc/authorize")
 async def hmrc_authorize(current_user: User = Depends(get_current_user)):
-    """Generate HMRC MTD OAuth2 authorization URL."""
+    """Generate HMRC MTD OAuth2 authorization URL with secure state token."""
     if not settings.HMRC_CLIENT_ID:
         raise HTTPException(status_code=500, detail="HMRC OAuth not configured")
+
+    # Generate secure state token stored in Redis
+    state_token = generate_oauth_state(
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        provider="hmrc",
+    )
 
     auth_url, _ = _hmrc_urls()
     params = {
@@ -244,7 +281,7 @@ async def hmrc_authorize(current_user: User = Depends(get_current_user)):
         "client_id": settings.HMRC_CLIENT_ID,
         "redirect_uri": f"{settings.FRONTEND_URL}/oauth/hmrc/callback",
         "scope": "read:vat write:vat",
-        "state": str(current_user.organization_id),
+        "state": state_token,
     }
     return RedirectResponse(url=f"{auth_url}?{urlencode(params)}")
 
@@ -257,7 +294,14 @@ async def hmrc_callback(
     db: Session = Depends(get_db),
 ):
     """Exchange HMRC authorization code for tokens and store in DataSource."""
-    organization_id = int(state)
+    # Validate state token and extract organization_id
+    try:
+        state_data = validate_oauth_state(state, expected_provider="hmrc")
+        organization_id = state_data["organization_id"]
+    except ValueError as e:
+        logger.warning(f"HMRC OAuth state validation failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+
     _, token_url = _hmrc_urls()
 
     async with httpx.AsyncClient() as client:

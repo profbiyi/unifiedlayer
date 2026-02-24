@@ -7,6 +7,8 @@ import Header from "@/components/layout/header";
 import AuthGuard from "@/components/auth-guard";
 import ImpersonationBanner from "@/components/layout/ImpersonationBanner";
 import { AnimatedPage } from "@/components/animations/PageTransition";
+import { WelcomeModal } from "@/components/feedback/WelcomeModal";
+import { GlobalConfetti } from "@/components/feedback/GlobalConfetti";
 import { useCurrentUser } from "@/hooks/queries/useAuth";
 import api from "@/lib/api-client";
 
@@ -27,6 +29,21 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { data: user } = useCurrentUser();
   const [impersonationSession, setImpersonationSession] = useState<ImpersonationSession | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Show welcome modal for first-time users
+  useEffect(() => {
+    if (user && !localStorage.getItem("unifiedlayer_welcome_seen")) {
+      // Small delay so the dashboard loads first
+      const timer = setTimeout(() => setShowWelcome(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  const handleWelcomeClose = () => {
+    setShowWelcome(false);
+    localStorage.setItem("unifiedlayer_welcome_seen", "true");
+  };
 
   // Check for active impersonation session (super admin only)
   useEffect(() => {
@@ -59,6 +76,16 @@ export default function DashboardLayout({
 
   return (
     <AuthGuard>
+      {/* Global confetti for celebrations */}
+      <GlobalConfetti />
+
+      {/* Welcome modal for first-time users */}
+      <WelcomeModal
+        isOpen={showWelcome}
+        onClose={handleWelcomeClose}
+        userName={user?.name?.split(" ")[0] || user?.email?.split("@")[0]}
+      />
+
       {impersonationSession && (
         <ImpersonationBanner
           session={impersonationSession}

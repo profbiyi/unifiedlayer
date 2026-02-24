@@ -583,6 +583,15 @@ class BillingService:
         if not sub:
             return
 
+        # Check if invoice already exists (idempotency protection)
+        existing_invoice = db.query(Invoice).filter(
+            Invoice.stripe_invoice_id == stripe_invoice["id"]
+        ).first()
+
+        if existing_invoice:
+            logger.info(f"Invoice {stripe_invoice['id']} already processed, skipping")
+            return
+
         invoice = Invoice(
             subscription_id=sub.id,
             organization_id=sub.organization_id,

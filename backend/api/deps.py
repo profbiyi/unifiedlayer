@@ -3,13 +3,15 @@ API Dependencies.
 
 Common dependency functions for FastAPI routes.
 """
-
-from fastapi import HTTPException, status
+from typing import Optional, Tuple, Any
+from fastapi import HTTPException, status, Request, Header
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from backend.auth import get_current_user
 from backend.models import User, Organization
 from backend.rbac.permissions import user_has_permission
+from backend.utils.idempotency import get_idempotency_result, store_idempotency_result
 
 
 def check_permission(user: User, permission: str, db: Session) -> None:
@@ -57,4 +59,54 @@ def verify_org_access(user: User, organization_id: int, db: Session) -> None:
         )
 
 
-__all__ = ["get_current_user", "check_permission", "verify_org_access"]
+async def check_idempotency(
+    x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key"),
+) -> Optional[str]:
+    """
+    Dependency to extract idempotency key from request header.
+
+    Usage:
+        @router.post("/create")
+        async def create_resource(
+            idempotency_key: Optional[str] = Depends(check_idempotency),
+        ):
+            # Check for cached result
+            cached = get_cached_idempotency_result(idempotency_key)
+            if cached:
+                return JSONResponse(
+                    status_code=cached["status_code"],
+                    content=cached["body"],
+                )
+            # ... process request ...
+            # Store result if idempotency_key provided
+            if idempotency_key:
+                store_idempotency_result(idempotency_key, 201, response_dict)
+    """
+    return x_idempotency_key
+
+
+def get_cached_idempotency_result(
+    idempotency_key: Optional[str],
+) -> Optional[dict]:
+    """
+    Check if we have a cached result for this idempotency key.
+
+    Args:
+        idempotency_key: The idempotency key from header
+
+    Returns:
+        Cached result dict with 'status_code' and 'body' if exists, None otherwise
+    """
+    if not idempotency_key:
+        return None
+    return get_idempotency_result(idempotency_key)
+
+
+__all__ = [
+    "get_current_user",
+    "check_permission",
+    "verify_org_access",
+    "check_idempotency",
+    "get_cached_idempotency_result",
+    "store_idempotency_result",
+]

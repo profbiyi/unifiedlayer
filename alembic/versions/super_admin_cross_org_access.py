@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'super_admin_access_001'
-down_revision = None  # Update this to your latest migration
+down_revision = 'add_missing_user_columns'
 branch_labels = None
 depends_on = None
 

@@ -115,6 +115,14 @@ export const useTriggerPipeline = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["runs"] });
       toast.success("Pipeline run triggered successfully");
+
+      // Check if this is first pipeline run - trigger celebration
+      const hasRunBefore = localStorage.getItem("unifiedlayer_first_run_done");
+      if (!hasRunBefore) {
+        localStorage.setItem("unifiedlayer_first_run_done", "true");
+        // Dispatch event for confetti component to listen
+        window.dispatchEvent(new CustomEvent("unifiedlayer:first-run"));
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Failed to trigger pipeline");

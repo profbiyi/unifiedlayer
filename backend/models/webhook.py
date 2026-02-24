@@ -43,7 +43,7 @@ class WebhookEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True)
 
     source_type = Column(String(50), nullable=False, index=True)  # paystack, flutterwave, gocardless, mpesa, stripe
     event_type = Column(String(255), nullable=False)  # e.g. charge.success, payment.completed

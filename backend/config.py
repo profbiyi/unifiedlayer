@@ -189,6 +189,11 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 100
 
+    # Trusted Proxies (comma-separated list of IP addresses/CIDRs)
+    # Only trust X-Forwarded-For header from these IPs
+    # Example: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1"
+    TRUSTED_PROXIES: Optional[str] = None
+
     @field_validator("DATABASE_URL")
     @classmethod
     def validate_database_url(cls, v):

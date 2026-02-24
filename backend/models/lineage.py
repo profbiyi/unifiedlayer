@@ -135,8 +135,8 @@ class LineageEdge(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    source_node_id = Column(Integer, ForeignKey("lineage_nodes.id"), nullable=False, index=True)
-    target_node_id = Column(Integer, ForeignKey("lineage_nodes.id"), nullable=False, index=True)
+    source_node_id = Column(Integer, ForeignKey("lineage_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_node_id = Column(Integer, ForeignKey("lineage_nodes.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Transformation type
     transformation_type = Column(SQLEnum(TransformationType), nullable=True)

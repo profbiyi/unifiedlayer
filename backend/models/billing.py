@@ -101,7 +101,7 @@ class Subscription(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, unique=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
 
     plan = Column(SQLEnum(SubscriptionPlan), nullable=False, default=SubscriptionPlan.STARTER)
     status = Column(SQLEnum(SubscriptionStatus), nullable=False, default=SubscriptionStatus.ACTIVE)
@@ -141,8 +141,8 @@ class Invoice(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
-    subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=False)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Provider reference
     stripe_invoice_id = Column(String(255), nullable=True, unique=True)
@@ -177,7 +177,7 @@ class UsageRecord(Base):
     __tablename__ = "usage_records"
 
     id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Period (year-month)
     period_year = Column(Integer, nullable=False)

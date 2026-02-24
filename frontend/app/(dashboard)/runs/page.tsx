@@ -19,10 +19,16 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { TableRowSkeleton } from "@/components/skeletons/TableRowSkeleton";
+import { EmptyRuns } from "@/components/feedback/EmptyStates";
+import { StatusBadge } from "@/components/feedback/StatusIndicator";
+import { ProgressRing, IndeterminateRing } from "@/components/feedback/ProgressRing";
+import { SyncHelp } from "@/components/tooltips/QuickHelp";
+import { AnimatedCard, SlideIn } from "@/components/feedback/MicroInteractions";
 import { format, formatDistanceToNow } from "date-fns";
 import { Activity, Clock, CheckCircle, XCircle, Loader2, Database, AlertCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PipelineRun } from "@/types/pipeline";
+import { motion } from "framer-motion";
 
 const getStatusIcon = (status: string) => {
   switch (status.toLowerCase()) {
@@ -54,10 +60,10 @@ const getStatusLabel = (status: string) => {
   }
 };
 
-const getStatusVariant = (status: string) => {
-  switch (status) {
+const getStatusVariant = (status: string): "active" | "error" | "running" | "warning" | "inactive" => {
+  switch (status.toLowerCase()) {
     case "completed":
-      return "success";
+      return "active";
     case "failed":
       return "error";
     case "running":
@@ -65,7 +71,7 @@ const getStatusVariant = (status: string) => {
     case "pending":
       return "warning";
     default:
-      return "default";
+      return "inactive";
   }
 };
 
@@ -77,7 +83,10 @@ export default function RunsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pipeline Runs</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">Pipeline Runs</h1>
+            <SyncHelp />
+          </div>
           <p className="text-muted-foreground">
             Monitor all pipeline execution history
           </p>
@@ -97,120 +106,154 @@ export default function RunsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Pipeline Runs</h1>
-        <p className="text-muted-foreground">
-          Monitor all pipeline execution history
-        </p>
-      </div>
+      <SlideIn direction="down" duration={0.3}>
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold tracking-tight">Pipeline Runs</h1>
+            <SyncHelp />
+          </div>
+          <p className="text-muted-foreground">
+            Monitor all pipeline execution history
+          </p>
+        </div>
+      </SlideIn>
 
       {runs && runs.length === 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle>No runs yet</CardTitle>
-            <CardDescription>
-              Pipeline runs will appear here once you trigger a pipeline
-            </CardDescription>
-          </CardHeader>
+          <EmptyRuns />
         </Card>
       ) : (
-        <div className="space-y-4">
+        <motion.div
+          className="space-y-4"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.05,
+                delayChildren: 0.1,
+              },
+            },
+          }}
+        >
           {runs?.map((run) => (
-            <Card
+            <motion.div
               key={run.id}
-              className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => setSelectedRun(run)}
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                visible: { opacity: 1, y: 0 },
+              }}
             >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(run.status)}
-                    <div>
-                      <CardTitle className="text-lg">
-                        {run.pipeline_name || `Pipeline Run #${run.id}`}
-                      </CardTitle>
-                      <CardDescription>
-                        {run.started_at
-                          ? format(new Date(run.started_at), "PPpp")
-                          : "Not started"}
-                      </CardDescription>
+              <AnimatedCard
+                className="cursor-pointer hover:border-primary/50"
+                onClick={() => setSelectedRun(run)}
+                hoverScale={1.01}
+                hoverY={-2}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon(run.status)}
+                      <div>
+                        <CardTitle className="text-lg">
+                          {run.pipeline_name || `Pipeline Run #${run.id}`}
+                        </CardTitle>
+                        <CardDescription>
+                          {run.started_at
+                            ? format(new Date(run.started_at), "PPpp")
+                            : "Not started"}
+                        </CardDescription>
+                      </div>
                     </div>
-                  </div>
-                  <Badge variant={getStatusVariant(run.status) as any}>
-                    {getStatusLabel(run.status)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {/* Progress bar for running pipelines */}
-                {run.status === "running" && (
-                  <div className="mb-4 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-2">
-                        <Zap className="h-4 w-4 text-running animate-pulse" />
-                        {run.run_metadata?.current_step || "Processing..."}
-                      </span>
-                      <span className="font-medium">
-                        {run.run_metadata?.progress_percent || 0}%
-                      </span>
-                    </div>
-                    <Progress
-                      value={run.run_metadata?.progress_percent || 0}
-                      className="h-2"
-                      animated={true}
-                      indeterminate={!run.run_metadata?.progress_percent || run.run_metadata?.progress_percent === 0}
+                    <StatusBadge
+                      status={getStatusVariant(run.status)}
+                      label={getStatusLabel(run.status)}
                     />
                   </div>
-                )}
+                </CardHeader>
+                <CardContent>
+                  {/* Progress section for running pipelines */}
+                  {run.status === "running" && (
+                    <div className="mb-4 flex items-center gap-4">
+                      <div className="flex-shrink-0">
+                        {run.run_metadata?.progress_percent ? (
+                          <ProgressRing
+                            progress={run.run_metadata.progress_percent}
+                            size="md"
+                            color="running"
+                          />
+                        ) : (
+                          <IndeterminateRing size="md" color="running" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-running animate-pulse" />
+                            {run.run_metadata?.current_step || "Processing..."}
+                          </span>
+                        </div>
+                        <Progress
+                          value={run.run_metadata?.progress_percent || 0}
+                          className="h-2"
+                          animated={true}
+                          indeterminate={!run.run_metadata?.progress_percent || run.run_metadata?.progress_percent === 0}
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Started
-                    </p>
-                    <p className="text-sm">
-                      {run.started_at
-                        ? formatDistanceToNow(new Date(run.started_at), {
-                            addSuffix: true,
-                          })
-                        : "Not started"}
-                    </p>
-                  </div>
-                  {run.duration_seconds !== undefined && run.duration_seconds !== null && (
+                  <div className="grid gap-4 md:grid-cols-3">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Duration
+                        Started
                       </p>
                       <p className="text-sm">
-                        {run.duration_seconds < 60
-                          ? `${Math.round(run.duration_seconds)}s`
-                          : `${Math.floor(run.duration_seconds / 60)}m ${Math.round(run.duration_seconds % 60)}s`
-                        }
+                        {run.started_at
+                          ? formatDistanceToNow(new Date(run.started_at), {
+                              addSuffix: true,
+                            })
+                          : "Not started"}
+                      </p>
+                    </div>
+                    {run.duration_seconds !== undefined && run.duration_seconds !== null && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Duration
+                        </p>
+                        <p className="text-sm">
+                          {run.duration_seconds < 60
+                            ? `${Math.round(run.duration_seconds)}s`
+                            : `${Math.floor(run.duration_seconds / 60)}m ${Math.round(run.duration_seconds % 60)}s`
+                          }
+                        </p>
+                      </div>
+                    )}
+                    {run.rows_written !== undefined && run.rows_written !== null && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Rows Written
+                        </p>
+                        <p className="text-sm">
+                          {run.rows_written.toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {run.error_message && (
+                    <div className="mt-4 rounded-md bg-destructive/10 p-3">
+                      <p className="text-sm text-destructive">
+                        {run.error_message}
                       </p>
                     </div>
                   )}
-                  {run.rows_written !== undefined && run.rows_written !== null && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        Rows Written
-                      </p>
-                      <p className="text-sm">
-                        {run.rows_written.toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {run.error_message && (
-                  <div className="mt-4 rounded-md bg-destructive/10 p-3">
-                    <p className="text-sm text-destructive">
-                      {run.error_message}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </AnimatedCard>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Run Details Dialog */}
@@ -239,9 +282,10 @@ export default function RunsPage() {
                     <Activity className="h-4 w-4" />
                     Status
                   </h3>
-                  <Badge variant={getStatusVariant(selectedRun.status) as any} className="text-sm">
-                    {getStatusLabel(selectedRun.status)}
-                  </Badge>
+                  <StatusBadge
+                    status={getStatusVariant(selectedRun.status)}
+                    label={getStatusLabel(selectedRun.status)}
+                  />
                 </div>
 
                 {/* Progress for running pipelines */}
@@ -251,30 +295,34 @@ export default function RunsPage() {
                       <Zap className="h-4 w-4 text-running animate-pulse" />
                       Progress
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground flex items-center gap-2">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          {selectedRun.run_metadata?.current_step || "Processing..."}
-                        </span>
-                        <span className="text-sm font-medium">
-                          {selectedRun.run_metadata?.progress_percent || 0}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={selectedRun.run_metadata?.progress_percent || 0}
-                        className="h-3"
-                        animated={true}
-                        indeterminate={!selectedRun.run_metadata?.progress_percent || selectedRun.run_metadata?.progress_percent === 0}
+                    <div className="flex items-center gap-6">
+                      <ProgressRing
+                        progress={selectedRun.run_metadata?.progress_percent || 0}
+                        size="lg"
+                        color="running"
                       />
-                      {selectedRun.run_metadata?.source_name && (
-                        <div className="text-xs text-muted-foreground">
-                          Source: {selectedRun.run_metadata.source_name}
-                          {selectedRun.run_metadata?.destination_name && (
-                            <> → Destination: {selectedRun.run_metadata.destination_name}</>
-                          )}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            {selectedRun.run_metadata?.current_step || "Processing..."}
+                          </span>
                         </div>
-                      )}
+                        <Progress
+                          value={selectedRun.run_metadata?.progress_percent || 0}
+                          className="h-3"
+                          animated={true}
+                          indeterminate={!selectedRun.run_metadata?.progress_percent || selectedRun.run_metadata?.progress_percent === 0}
+                        />
+                        {selectedRun.run_metadata?.source_name && (
+                          <div className="text-xs text-muted-foreground">
+                            Source: {selectedRun.run_metadata.source_name}
+                            {selectedRun.run_metadata?.destination_name && (
+                              <> → Destination: {selectedRun.run_metadata.destination_name}</>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

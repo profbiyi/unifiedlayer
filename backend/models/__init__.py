@@ -33,6 +33,30 @@ from backend.models.transformation import (
     TransformationResult,
     TransformationStatus,
 )
+from backend.models.column_lineage import (
+    ColumnLineage,
+    ColumnLineageType,
+    DbtColumnMetadata,
+)
+from backend.models.ai import (
+    AIConversation,
+    AIMessage,
+    AISuggestedQuestion,
+    MessageRole,
+    ChartType,
+)
+from backend.models.health import (
+    ResourceHealth,
+    HealthCheckLog,
+    HealthStatus,
+    ResourceType,
+)
+from backend.models.data_model import (
+    GeneratedModel,
+    ModelGeneration,
+    ModelLayer,
+    ModelStatus,
+)
 
 __all__ = [
     "Organization",
@@ -63,4 +87,20 @@ __all__ = [
     "SQLTransformation",
     "TransformationResult",
     "TransformationStatus",
+    "ColumnLineage",
+    "ColumnLineageType",
+    "DbtColumnMetadata",
+    "AIConversation",
+    "AIMessage",
+    "AISuggestedQuestion",
+    "MessageRole",
+    "ChartType",
+    "ResourceHealth",
+    "HealthCheckLog",
+    "HealthStatus",
+    "ResourceType",
+    "GeneratedModel",
+    "ModelGeneration",
+    "ModelLayer",
+    "ModelStatus",
 ]

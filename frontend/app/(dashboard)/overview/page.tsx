@@ -9,6 +9,7 @@ import { useDestinations } from "@/hooks/queries/useDestinations";
 import { usePipelineRuns } from "@/hooks/queries/usePipelines";
 import { useOverviewMetrics } from "@/hooks/queries/useMetrics";
 import { useTemplates } from "@/hooks/queries/useTemplates";
+import { HealthOverview } from "@/components/health/HealthOverview";
 import { Badge } from "@/components/ui/badge";
 import { StatsCardSkeleton } from "@/components/skeletons/StatsCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -302,6 +303,9 @@ export default function OverviewPage() {
           })}
         </div>
       )}
+
+      {/* System Health Overview */}
+      <HealthOverview />
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Pipeline Runs Over Time */}

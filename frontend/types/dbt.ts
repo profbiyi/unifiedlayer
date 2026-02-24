@@ -80,3 +80,71 @@ export interface TestConnectionResponse {
   message: string;
   branches?: string[];
 }
+
+// dbt Model types from parsed manifest
+export type DbtMaterialization = "table" | "view" | "incremental" | "ephemeral" | "snapshot" | "seed";
+
+export interface DbtModelColumn {
+  name: string;
+  description?: string;
+  data_type?: string;
+  tests?: DbtColumnTest[];
+}
+
+export interface DbtColumnTest {
+  name: string;
+  type: "unique" | "not_null" | "accepted_values" | "relationships" | "custom";
+  config?: Record<string, unknown>;
+  status?: "pass" | "fail" | "warn" | "skip" | "pending";
+  last_run_at?: string;
+}
+
+export interface DbtModelTest {
+  name: string;
+  type: string;
+  column_name?: string;
+  config?: Record<string, unknown>;
+  status?: "pass" | "fail" | "warn" | "skip" | "pending";
+  last_run_at?: string;
+  error_message?: string;
+}
+
+export interface DbtModel {
+  id: string;
+  unique_id: string;
+  name: string;
+  description?: string;
+  schema: string;
+  database?: string;
+  materialization: DbtMaterialization;
+  tags: string[];
+  columns: DbtModelColumn[];
+  tests: DbtModelTest[];
+  depends_on: string[];
+  referenced_by: string[];
+  raw_sql?: string;
+  compiled_sql?: string;
+  project_id: string;
+  project_name?: string;
+  package_name?: string;
+  path?: string;
+  meta?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbtModelSummary {
+  id: string;
+  unique_id: string;
+  name: string;
+  description?: string;
+  schema: string;
+  materialization: DbtMaterialization;
+  tags: string[];
+  columns_count: number;
+  tests_count: number;
+  upstream_count: number;
+  downstream_count: number;
+  project_name?: string;
+  last_run_status?: "pass" | "fail" | "skip" | "pending";
+}

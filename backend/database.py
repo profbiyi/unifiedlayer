@@ -93,7 +93,7 @@ def init_db() -> None:
     logger.info("Initializing database...")
 
     # Import all models to ensure they're registered
-    from backend.models import pipeline, lineage, billing, audit, webhook, notification
+    from backend.models import pipeline, lineage, billing, audit, webhook, notification, column_lineage, health, data_model
 
     # Create all tables (checkfirst=True prevents errors with multiple workers)
     Base.metadata.create_all(bind=engine, checkfirst=True)

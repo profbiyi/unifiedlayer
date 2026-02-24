@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Lock, Camera, Loader2, Bell, GitBranch, Shield, CreditCard } from "lucide-react";
+import { User, Mail, Lock, Camera, Loader2, Bell, GitBranch, Shield, CreditCard, Brain } from "lucide-react";
 import api from "@/lib/api-client";
 import Link from "next/link";
 
@@ -114,7 +114,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Link href="/settings/alerts">
           <Card className="hover:bg-accent transition-colors cursor-pointer">
             <CardContent className="flex items-center gap-3 p-4">
@@ -133,6 +133,17 @@ export default function SettingsPage() {
               <div>
                 <p className="font-medium">dbt Projects</p>
                 <p className="text-xs text-muted-foreground">Transformations</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/settings/ai-modeling">
+          <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <CardContent className="flex items-center gap-3 p-4">
+              <Brain className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">AI Modeling</p>
+                <p className="text-xs text-muted-foreground">Auto star schema</p>
               </div>
             </CardContent>
           </Card>

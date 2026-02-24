@@ -102,9 +102,9 @@ class UserRole(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False, index=True)
     organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True)
-    assigned_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    assigned_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     assigned_at = Column(DateTime, nullable=False, server_default=func.now())
 
     # Relationships
@@ -131,10 +131,10 @@ class UserInvitation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     public_id = Column(String(36), unique=True, nullable=False)  # UUID for public reference
-    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     email = Column(String(255), nullable=False, index=True)
-    role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
-    invited_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), nullable=False, index=True)
+    invited_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     token = Column(String(255), unique=True, nullable=False)  # Secure token for invitation link
     expires_at = Column(DateTime, nullable=False)  # Token expiration (typically 7 days)
     accepted_at = Column(DateTime, nullable=True)  # When invitation was accepted

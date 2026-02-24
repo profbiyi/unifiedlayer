@@ -336,6 +336,118 @@ npm run dev
 5. Added super admin cross-org access with audit logging
 6. Completed SQL transformations and dbt orchestration features
 7. Added alerting system with Slack/email integration
+8. Added AI Assistant (NL-to-SQL) with `/ask` page — requires `OPENAI_API_KEY`
+9. Added Health Monitoring (ResourceHealth, HealthCheckLog models + `/health` routes)
+10. Added Onboarding wizard with role-based source recommendations
+11. Added Column Lineage tables and parser service
+12. Added Cross-Source Modeling + Generated Models
+13. Added Celery task queue with dbt tasks and health check tasks
+14. Removed self-registration — super admin invites users only
+15. Added AI Conversation tables (migrations: 2026021701/2026021702)
+16. Added Onboarding progress table (migration: 2026021702)
+17. Added Generated Models table (migration: 2026022001)
+
+## New Features Added (Routes, Models, Services)
+
+### New Backend Routes (all registered in main.py under /api/v1)
+- `/ai` — AI Assistant (NL-to-SQL): `backend/api/routes/ai_assistant.py`
+- `/health` — Health monitoring: `backend/api/routes/health.py`
+- `/onboarding` — Onboarding wizard: `backend/api/routes/onboarding.py`
+- `/models` — Generated data models: `backend/api/routes/models.py`
+- `/cross-source` — Cross-source modeling: `backend/api/routes/cross_source.py`
+- `/dashboards` — Auto dashboards: `backend/api/routes/dashboards.py`
+- `/recipes` — Pipeline recipes: `backend/api/routes/recipes.py`
+
+### New Models
+- `backend/models/ai.py` — AIConversation, AIMessage (MessageRole, ChartType enums)
+- `backend/models/health.py` — ResourceHealth, HealthCheckLog (ResourceType, HealthStatus enums)
+- `backend/models/onboarding.py` — OnboardingProgress (UserRole, OnboardingStatus enums)
+- `backend/models/data_model.py` — GeneratedModel
+- `backend/models/column_lineage.py` — ColumnLineage
+
+### New Services
+- `backend/services/nl_to_sql.py` — NL to SQL conversion (OpenAI)
+- `backend/services/ai_schema_context.py` — Schema context builder for AI
+- `backend/services/sql_validator.py` — SQL safety validation
+- `backend/services/query_executor.py` — Execute SQL queries
+- `backend/services/auto_visualize.py` — Auto chart type detection
+- `backend/services/health_monitor.py` — Source/pipeline/destination health checks
+- `backend/services/onboarding_service.py` — Onboarding progress tracking
+- `backend/services/cross_source_modeler.py` — Cross-source data modeling
+- `backend/services/dashboard_service.py` — Auto-dashboard generation
+- `backend/services/column_lineage_service.py` — Column lineage tracking
+- `backend/services/column_lineage_parser.py` — Parse SQL for column lineage
+- `backend/services/dbt_executor.py` — dbt execution service
+- `backend/services/dbt_manifest_parser.py` — Parse dbt manifests
+
+### New Frontend Pages
+- `/ask` — AI chat interface (components in `frontend/components/ai/`)
+- `/models` — Generated data models list
+- `/models/[id]` — Model detail with analyze tab
+- `/onboarding` — Onboarding wizard
+- `/settings/ai-modeling` — AI modeling settings
+
+### Celery Tasks
+- `backend/celery_app.py` — Celery app config (broker: Redis)
+- `backend/tasks/dbt_tasks.py` — Async dbt job execution
+- `backend/tasks/health_checks.py` — Periodic health check tasks
+
+## Known Issues / Open Bugs (as of 2026-02-24)
+
+### Critical
+1. **Missing Alembic migration for health tables** — `ResourceHealth` and `HealthCheckLog`
+   models exist (`backend/models/health.py`) but have NO migration file. Health endpoints
+   will 500 on first use in production unless tables are manually created.
+
+2. **Broken Alembic migration chain** — Several recent migrations have `down_revision = None`
+   instead of pointing to their predecessor:
+   - `celery_task_id_dbt_runs` → should point to `add_oauth_columns`
+   - `2026021701` (AI tables) → should point to `add_column_lineage` or `celery_task_id_dbt_runs`
+   - `2026022001` (generated_models) → should point to `2026021702`
+   This creates multiple migration heads; `alembic upgrade head` may fail or leave gaps.
+
+3. **API key prefix mismatch** — `auth.py:create_api_key()` generates keys with `dpk_` prefix,
+   but `auth.py:get_current_user_or_api_key()` validates keys with `dp_live_` prefix. The
+   `api_keys.py` route correctly uses `dp_live_`. The `create_api_key()` / `verify_api_key()`
+   functions in `auth.py` are dead/broken code. All API key logic should go through the route.
+
+### High
+4. **`.env.local` has wrong API URL** — `NEXT_PUBLIC_API_URL=http://localhost:4200` (Prefect)
+   instead of `http://localhost:8000` (backend). Breaks local development.
+
+5. **`NEXT_PUBLIC_API_URL` must include `/api/v1`** — The frontend hooks call paths like
+   `/sources`, `/ai/ask`, etc. The backend serves these at `/api/v1/sources`, `/api/v1/ai/ask`.
+   For this to work, `NEXT_PUBLIC_API_URL` in production must be set to
+   `https://api.unifiedlayer.io/api/v1` (NOT just the domain). `.env.example` is misleading.
+
+### Medium
+6. **Hacky `__import__` in cross_source.py:301** — Should use a top-level `from datetime import datetime, timezone`
+7. **No Celery beat schedule for health checks** — Health tasks run on-demand only, not periodically
+8. **Unauthenticated `/config` endpoint** — Exposes CORS config, rate limit settings, etc.
+9. **`/stats` and `/metrics` are unauthenticated** — Prometheus metrics and DB stats exposed publicly
+10. **OAuth columns added via raw SQL in startup** — Should be purely in the alembic migration
+
+### Low
+11. **`ScrollArea` ref may not work for auto-scroll in `/ask` page** — shadcn ScrollArea doesn't
+    always forward refs; auto-scroll on new messages may silently fail.
+12. **No tests for new features** — AI assistant, health, onboarding, cross-source, column lineage
+    have zero test coverage.
+
+## API URL Convention (IMPORTANT)
+- Backend routes are ALL under `/api/v1` prefix
+- `NEXT_PUBLIC_API_URL` in production = `https://api.unifiedlayer.io/api/v1`
+- In local dev = `http://localhost:8000/api/v1` (NOT just `http://localhost:8000`)
+- The `.env.local` has a bug: it points to Prefect (4200) — fix to `http://localhost:8000/api/v1`
+
+## API Key Convention (IMPORTANT)
+- API keys are generated with prefix `dp_live_` (see `backend/api/routes/api_keys.py`)
+- Keys are validated with `dp_live_` prefix in `backend/auth.py:get_current_user_or_api_key()`
+- The `create_api_key()` / `verify_api_key()` helper functions in `auth.py` use `dpk_` prefix
+  and are dead code — do NOT use them. All API key management goes through the routes.
+
+## Environment Variables (Additional)
+- `OPENAI_API_KEY` — Required for AI Assistant (/ask) feature; gracefully degrades if missing
+- `REDIS_URL` — Required for Celery task queue (dbt tasks, health checks)
 
 ---
 

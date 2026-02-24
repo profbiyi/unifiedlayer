@@ -4,6 +4,25 @@ Pydantic schemas for API request/response validation.
 # Import all schemas from base module
 from backend.schemas.base import *
 
+# Import Column Lineage schemas
+from backend.schemas.column_lineage import (
+    ColumnLineageBase,
+    ColumnLineageCreate,
+    ColumnLineageResponse,
+    ColumnDependencyResponse,
+    ColumnLineageGraphNode,
+    ColumnLineageGraphEdge,
+    ColumnLineageGraphResponse,
+    ColumnImpactSummary,
+    AffectedPipeline,
+    ColumnImpactAnalysisResponse,
+    DbtColumnMetadataResponse,
+    ParseSQLRequest,
+    ParseSQLResponse,
+    TableColumnLineageRequest,
+    RefreshLineageResponse,
+)
+
 # Import RBAC schemas
 from backend.schemas.rbac import (
     # Role schemas
@@ -81,4 +100,21 @@ __all__ = [
     "CreateOrganizationRequest",
     "OrganizationCreatedResponse",
     "PlatformStats",
+
+    # Column Lineage schemas
+    "ColumnLineageBase",
+    "ColumnLineageCreate",
+    "ColumnLineageResponse",
+    "ColumnDependencyResponse",
+    "ColumnLineageGraphNode",
+    "ColumnLineageGraphEdge",
+    "ColumnLineageGraphResponse",
+    "ColumnImpactSummary",
+    "AffectedPipeline",
+    "ColumnImpactAnalysisResponse",
+    "DbtColumnMetadataResponse",
+    "ParseSQLRequest",
+    "ParseSQLResponse",
+    "TableColumnLineageRequest",
+    "RefreshLineageResponse",
 ]

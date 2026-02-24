@@ -229,7 +229,6 @@ export default function AdminDashboard() {
       fetchOrganizations();
       fetchStats();
     } catch (error: any) {
-      console.error("Onboard error:", error);
       const errorMessage = error.response?.data?.detail
         || error.response?.data?.message
         || error.message
@@ -397,8 +396,8 @@ export default function AdminDashboard() {
             ...prev,
             [orgId]: pipelinesRes.data.pipelines || [],
           }));
-        } catch (error) {
-          console.error("Failed to fetch org details", error);
+        } catch {
+          // Error handled silently - details will show as "Loading..."
         }
       }
     }

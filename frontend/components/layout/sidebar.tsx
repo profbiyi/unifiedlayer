@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/queries/useAuth";
+import { OnboardingWidget } from "@/components/onboarding/OnboardingWidget";
 import {
   LayoutDashboard,
   Workflow,
@@ -17,6 +18,9 @@ import {
   Sparkles,
   BarChart3,
   Lightbulb,
+  MessageSquareText,
+  Rocket,
+  Boxes,
 } from "lucide-react";
 
 const navItems = [
@@ -26,9 +30,19 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
+    title: "Get Started",
+    href: "/onboarding",
+    icon: Rocket,
+  },
+  {
     title: "Templates",
     href: "/templates",
     icon: Sparkles,
+  },
+  {
+    title: "Ask AI",
+    href: "/ask",
+    icon: MessageSquareText,
   },
   {
     title: "Pipelines",
@@ -54,6 +68,11 @@ const navItems = [
     title: "Lineage",
     href: "/lineage",
     icon: GitBranch,
+  },
+  {
+    title: "Models",
+    href: "/models",
+    icon: Boxes,
   },
   {
     title: "Analytics",
@@ -87,7 +106,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: user } = useCurrentUser();
 
-  const isSuperAdmin = user?.roles?.includes("super_admin");
+  const isSuperAdmin = user?.roles?.some(
+    (role: string) => role.toLowerCase() === "super_admin" || role === "SUPER_ADMIN"
+  );
 
   const visibleItems = navItems.filter(
     (item) => !(item as any).superAdminOnly || isSuperAdmin
@@ -98,7 +119,7 @@ export default function Sidebar() {
       <div className="flex h-16 items-center border-b px-6">
         <h1 className="text-xl font-bold">UnifiedLayer</h1>
       </div>
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -120,6 +141,10 @@ export default function Sidebar() {
           );
         })}
       </nav>
+      {/* Onboarding progress widget */}
+      <div className="p-4 border-t">
+        <OnboardingWidget />
+      </div>
     </div>
   );
 }

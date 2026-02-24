@@ -41,9 +41,10 @@ azure-storage-blob==12.19.0
 requests==2.31.0
 httpx==0.26.0
 
-# Redis
+# Redis & Task Queue
 redis==5.0.1
 hiredis==2.3.2
+celery[redis]==5.3.6
 
 # Monitoring & Observability
 prometheus-client>=0.20.0
@@ -83,3 +84,6 @@ stripe==8.4.0
 tenacity==8.2.3
 python-dateutil==2.8.2
 pytz==2023.3.post1
+
+# SQL Parsing (for column-level lineage)
+sqlglot>=20.0.0

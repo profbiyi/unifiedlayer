@@ -2,10 +2,12 @@
 Security and rate limiting middleware.
 
 Provides request rate limiting, security headers,
-and request validation middleware.
+request validation middleware, and request correlation IDs.
 """
 import time
-from typing import Dict, Optional, Tuple
+import uuid
+import ipaddress
+from typing import Dict, Optional, Tuple, Set, Union
 from collections import defaultdict
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -15,6 +17,136 @@ import logging
 from backend.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# Type alias for IP networks and addresses
+IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+IPAddress = Union[ipaddress.IPv4Address, ipaddress.IPv6Address]
+
+
+def _parse_trusted_proxies() -> Set[Union[IPNetwork, IPAddress]]:
+    """
+    Parse TRUSTED_PROXIES setting into a set of IP networks/addresses.
+
+    Returns:
+        Set of IP networks and addresses that are trusted proxies
+    """
+    trusted: Set[Union[IPNetwork, IPAddress]] = set()
+    if not settings.TRUSTED_PROXIES:
+        return trusted
+
+    for proxy in settings.TRUSTED_PROXIES.split(","):
+        proxy = proxy.strip()
+        if not proxy:
+            continue
+        try:
+            # Try to parse as network (CIDR notation)
+            if "/" in proxy:
+                trusted.add(ipaddress.ip_network(proxy, strict=False))
+            else:
+                # Parse as single IP address
+                trusted.add(ipaddress.ip_address(proxy))
+        except ValueError as e:
+            logger.warning(f"Invalid trusted proxy entry '{proxy}': {e}")
+
+    return trusted
+
+
+def _is_trusted_proxy(client_ip: str, trusted_proxies: Set[Union[IPNetwork, IPAddress]]) -> bool:
+    """
+    Check if a client IP is in the trusted proxies list.
+
+    Args:
+        client_ip: The client IP address to check
+        trusted_proxies: Set of trusted IP networks/addresses
+
+    Returns:
+        True if the client IP is a trusted proxy, False otherwise
+    """
+    if not trusted_proxies:
+        return False
+
+    try:
+        ip = ipaddress.ip_address(client_ip)
+        for proxy in trusted_proxies:
+            if isinstance(proxy, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
+                if ip in proxy:
+                    return True
+            elif ip == proxy:
+                return True
+    except ValueError:
+        return False
+
+    return False
+
+
+def get_client_ip(request: Request, trusted_proxies: Set[Union[IPNetwork, IPAddress]] = None) -> str:
+    """
+    Get the real client IP address, safely handling X-Forwarded-For.
+
+    Only trusts X-Forwarded-For header if the direct connection comes from
+    a trusted proxy. This prevents IP spoofing attacks.
+
+    Args:
+        request: The FastAPI request object
+        trusted_proxies: Set of trusted proxy IP networks/addresses
+
+    Returns:
+        The client IP address
+    """
+    direct_ip = request.client.host if request.client else "unknown"
+
+    # Only check X-Forwarded-For if we have trusted proxies configured
+    # AND the direct connection is from a trusted proxy
+    if trusted_proxies and _is_trusted_proxy(direct_ip, trusted_proxies):
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # Get the first IP (original client) from the chain
+            # X-Forwarded-For format: client, proxy1, proxy2, ...
+            return forwarded_for.split(",")[0].strip()
+
+    return direct_ip
+
+
+# Parse trusted proxies once at module load
+_TRUSTED_PROXIES = _parse_trusted_proxies()
+
+
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """
+    Request ID middleware for request correlation.
+
+    Generates a UUID for each request if X-Request-ID header is not present,
+    stores it in request.state.request_id, and adds it to response headers.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        """
+        Process request with correlation ID.
+
+        Args:
+            request: HTTP request
+            call_next: Next middleware/route handler
+
+        Returns:
+            HTTP response with X-Request-ID header
+        """
+        # Get existing request ID or generate a new one
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+
+        # Store in request state for access by handlers and logging
+        request.state.request_id = request_id
+
+        # Add to logging context
+        logger.debug(f"Request {request_id}: {request.method} {request.url.path}")
+
+        # Process request
+        response = await call_next(request)
+
+        # Add request ID to response headers
+        response.headers["X-Request-ID"] = request_id
+
+        return response
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -266,13 +398,8 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
         if not endpoint_key:
             return await call_next(request)
 
-        # Get client IP
-        client_ip = request.client.host if request.client else "unknown"
-
-        # Check X-Forwarded-For header (if behind proxy)
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            client_ip = forwarded_for.split(",")[0].strip()
+        # Get client IP securely using trusted proxies
+        client_ip = get_client_ip(request, _TRUSTED_PROXIES)
 
         current_time = time.time()
         limit = self.AUTH_ENDPOINTS[endpoint_key]
@@ -340,13 +467,8 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
         if not self.allowed_ips:
             return await call_next(request)
 
-        # Get client IP
-        client_ip = request.client.host if request.client else None
-
-        # Check X-Forwarded-For header (if behind proxy)
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            client_ip = forwarded_for.split(",")[0].strip()
+        # Get client IP securely using trusted proxies
+        client_ip = get_client_ip(request, _TRUSTED_PROXIES)
 
         if client_ip not in self.allowed_ips:
             logger.warning(f"Access denied for IP: {client_ip}")

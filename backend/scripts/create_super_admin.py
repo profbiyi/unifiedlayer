@@ -5,12 +5,13 @@ This script creates the initial super admin user for the platform.
 The super admin can then create organizations and manage the entire platform.
 
 Usage:
-    python -m backend.scripts.create_super_admin
+    python -m backend.scripts.create_super_admin          # Interactive mode (recommended)
+    python -m backend.scripts.create_super_admin --env    # Environment variable mode
 
-Environment Variables (optional):
+Environment Variables (for --env mode):
     SUPER_ADMIN_EMAIL - Default: admin@unifiedlayer.io
     SUPER_ADMIN_USERNAME - Default: superadmin
-    SUPER_ADMIN_PASSWORD - Default: changeme123 (CHANGE THIS!)
+    SUPER_ADMIN_PASSWORD - REQUIRED (no default for security)
     SUPER_ADMIN_FULLNAME - Default: Super Administrator
 """
 import sys
@@ -240,15 +241,20 @@ def env_mode(db: Session):
     """Run using environment variables."""
     email = os.getenv("SUPER_ADMIN_EMAIL", "admin@unifiedlayer.io")
     username = os.getenv("SUPER_ADMIN_USERNAME", "superadmin")
-    password = os.getenv("SUPER_ADMIN_PASSWORD", "changeme123")
+    password = os.getenv("SUPER_ADMIN_PASSWORD")
     full_name = os.getenv("SUPER_ADMIN_FULLNAME", "Super Administrator")
 
     print("\n" + "="*60)
-    print("🚀 SUPER ADMIN CREATION - ENVIRONMENT MODE")
+    print("SUPER ADMIN CREATION - ENVIRONMENT MODE")
     print("="*60 + "\n")
 
-    if password == "changeme123":
-        print("⚠️  WARNING: Using default password! Set SUPER_ADMIN_PASSWORD env var.")
+    # Require password to be explicitly set - no default allowed
+    if not password:
+        print("ERROR: SUPER_ADMIN_PASSWORD environment variable is required.")
+        print("Please set it before running this script:")
+        print("  export SUPER_ADMIN_PASSWORD='your-secure-password'")
+        print("\nAlternatively, run in interactive mode (without --env flag) to be prompted.")
+        return
 
     # Debug: show password length and first/last chars
     masked_pwd = password[0] + "*" * (len(password) - 2) + password[-1] if len(password) > 2 else "***"
