@@ -13,11 +13,11 @@ import {
   GitBranch,
   Database,
 } from "lucide-react";
-import { DbtModel } from "@/types/dbt";
+import { DbtModel, DbtModelSummary } from "@/types/dbt";
 
 interface ModelDependenciesProps {
   model: DbtModel;
-  allModels?: DbtModel[];
+  allModels?: DbtModel[] | DbtModelSummary[];
 }
 
 interface DependencyItemProps {

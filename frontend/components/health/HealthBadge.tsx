@@ -12,7 +12,9 @@ import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
 export type HealthStatus = "healthy" | "warning" | "critical" | "unknown";
 
 interface HealthBadgeProps {
-  status: HealthStatus;
+  status?: HealthStatus;
+  resourceType?: string;
+  resourceId?: string | number;
   score?: number;
   showScore?: boolean;
   showLabel?: boolean;
@@ -76,7 +78,7 @@ const sizeConfig = {
 };
 
 export function HealthBadge({
-  status,
+  status = "unknown",
   score,
   showScore = false,
   showLabel = true,

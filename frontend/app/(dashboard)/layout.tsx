@@ -83,7 +83,7 @@ export default function DashboardLayout({
       <WelcomeModal
         isOpen={showWelcome}
         onClose={handleWelcomeClose}
-        userName={user?.name?.split(" ")[0] || user?.email?.split("@")[0]}
+        userName={user?.full_name?.split(" ")[0] || user?.email?.split("@")[0]}
       />
 
       {impersonationSession && (
