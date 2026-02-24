@@ -10,7 +10,15 @@ from alembic import context
 
 # Import the Base and models
 from backend.database import Base
-from backend.models import pipeline, lineage, billing, audit, webhook, notification
+from backend.models import (  # noqa: F401 - imports needed for alembic autogenerate
+    pipeline, lineage, billing, audit, webhook, notification,
+    rbac, transformation, dbt, quality,
+)
+# New models added Feb 2026
+try:
+    from backend.models import ai, health, onboarding, data_model, column_lineage  # noqa: F401
+except ImportError:
+    pass
 from backend.config import settings
 
 # this is the Alembic Config object, which provides
