@@ -9,7 +9,7 @@ This module defines models for the role-based access control system including:
 - Audit Logs: Track all user actions for security and compliance
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -161,8 +161,8 @@ class UserInvitation(Base):
 
 
 # APIKey model moved to backend.models.api_key
-from backend.models.api_key import APIKey  # noqa: F401 - re-export for backward compatibility
+from backend.models.api_key import APIKey  # noqa: F401, E402 - re-export for backward compatibility
 
 
 # AuditLog model moved to backend.models.audit
-from backend.models.audit import AuditLog  # noqa: F401 - re-export for backward compatibility
+from backend.models.audit import AuditLog  # noqa: F401, E402 - re-export for backward compatibility

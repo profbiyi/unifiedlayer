@@ -260,7 +260,7 @@ export default function PipelineDetailPage() {
           ) : (
             <div className="text-center py-8">
               <p className="text-sm text-muted-foreground">
-                No runs yet. Click "Run Pipeline" to execute this pipeline.
+                No runs yet. Click &quot;Run Pipeline&quot; to execute this pipeline.
               </p>
             </div>
           )}

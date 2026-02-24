@@ -10,7 +10,7 @@ import logging
 import time
 import json
 
-from fastapi import FastAPI, Request, status, Depends
+from fastapi import FastAPI, APIRouter, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -19,38 +19,12 @@ from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_
 from starlette.responses import Response
 from sqlalchemy.orm import Session
 
-
-class CustomJSONResponse(JSONResponse):
-    """Custom JSON response that properly serializes datetimes with timezone."""
-
-    def render(self, content: Any) -> bytes:
-        return json.dumps(
-            content,
-            ensure_ascii=False,
-            allow_nan=False,
-            indent=None,
-            separators=(",", ":"),
-            default=self._json_serializer,
-        ).encode("utf-8")
-
-    @staticmethod
-    def _json_serializer(obj):
-        """Serialize datetime objects to ISO 8601 with UTC timezone."""
-        if isinstance(obj, datetime):
-            # If datetime is naive, assume UTC
-            if obj.tzinfo is None:
-                obj = obj.replace(tzinfo=timezone.utc)
-            # Return ISO 8601 format with 'Z' suffix for UTC
-            return obj.isoformat().replace('+00:00', 'Z')
-        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
 from backend.config import settings
 from backend.database import get_db, init_db, DatabaseHealthCheck
 from backend.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, AuthRateLimitMiddleware, RequestIDMiddleware
 from backend.utils.errors import ErrorResponse, ErrorCodes, get_request_id
 
 # Import API routes
-from fastapi import APIRouter
 from backend.api.routes import (
     auth,
     two_factor,
@@ -93,6 +67,31 @@ from backend.api.routes import (
     cross_source,
 )
 
+class CustomJSONResponse(JSONResponse):
+    """Custom JSON response that properly serializes datetimes with timezone."""
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            default=self._json_serializer,
+        ).encode("utf-8")
+
+    @staticmethod
+    def _json_serializer(obj):
+        """Serialize datetime objects to ISO 8601 with UTC timezone."""
+        if isinstance(obj, datetime):
+            # If datetime is naive, assume UTC
+            if obj.tzinfo is None:
+                obj = obj.replace(tzinfo=timezone.utc)
+            # Return ISO 8601 format with 'Z' suffix for UTC
+            return obj.isoformat().replace('+00:00', 'Z')
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
 # Create API v1 router for versioned endpoints
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -126,7 +125,6 @@ DATA_ROWS_PROCESSED = Counter(
 )
 
 # Configure JSON encoder for FastAPI
-from fastapi.responses import ORJSONResponse
 
 def custom_json_dumps(obj):
     """Custom JSON dumps with datetime handling."""

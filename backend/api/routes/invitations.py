@@ -11,12 +11,9 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
-
 from backend.database import get_db
-from backend.models import User, Organization, Role, UserRole, UserInvitation
+from backend.models import User, Role, UserRole, UserInvitation
 from backend.auth import (
-    get_current_user,
     require_org_admin,
     get_password_hash,
     get_request_info,
@@ -33,6 +30,7 @@ from backend.schemas.rbac import (
 from backend.rbac.audit import log_user_action
 from backend.rbac.permissions import check_org_user_limit
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
 

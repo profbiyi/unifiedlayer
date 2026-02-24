@@ -135,7 +135,7 @@ export default function OrganizationSettingsPage() {
                     disabled={!isOrgAdmin}
                   />
                   <p className="text-xs text-muted-foreground">
-                    This is your organization's display name
+                    This is your organization&apos;s display name
                   </p>
                 </div>
 

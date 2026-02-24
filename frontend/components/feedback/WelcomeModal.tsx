@@ -129,7 +129,7 @@ export function WelcomeModal({ isOpen, onClose, userName }: WelcomeModalProps) {
             </DialogTitle>
           </div>
           <DialogDescription>
-            Let's take a quick tour of what you can do
+            Let&apos;s take a quick tour of what you can do
           </DialogDescription>
         </DialogHeader>
 

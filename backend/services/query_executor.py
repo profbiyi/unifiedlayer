@@ -130,7 +130,7 @@ class QueryExecutor:
             # Reset timeout
             try:
                 self.db.execute(text("SET statement_timeout = '0'"))
-            except:
+            except Exception:
                 pass
 
             return QueryResult(
@@ -170,7 +170,7 @@ class QueryExecutor:
 
         # Check if we're in an async context
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're in async context, need to handle differently
             import nest_asyncio
             nest_asyncio.apply()

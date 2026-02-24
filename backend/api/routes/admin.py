@@ -8,12 +8,18 @@ Endpoints for platform administration:
 - Manage all users
 """
 
-from typing import List
+import hashlib
+import secrets
+from datetime import timedelta
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Organization, User, Pipeline, PipelineRun, UserRole, Role
+from backend.models import Organization, User, Pipeline, PipelineRun, UserRole, Role, DataSource, Destination
+from backend.models.audit import ImpersonationSession
 from backend.auth import require_super_admin, get_password_hash, get_request_info
 from backend.schemas.rbac import (
     CreateOrganizationRequest,
@@ -23,7 +29,7 @@ from backend.schemas.rbac import (
     PlatformStats,
     UserWithRoles,
 )
-from backend.rbac.audit import log_organization_action, log_user_action
+from backend.rbac.audit import log_organization_action, log_super_admin_access
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -523,11 +529,11 @@ async def get_platform_statistics(
 
     # Count organizations
     total_orgs = db.query(func.count(Organization.id)).scalar()
-    active_orgs = db.query(func.count(Organization.id)).filter(Organization.is_active == True).scalar()
+    active_orgs = db.query(func.count(Organization.id)).filter(Organization.is_active).scalar()
 
     # Count users
     total_users = db.query(func.count(User.id)).scalar()
-    active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
+    active_users = db.query(func.count(User.id)).filter(User.is_active).scalar()
 
     # Count pipelines
     total_pipelines = db.query(func.count(Pipeline.id)).scalar()
@@ -874,15 +880,6 @@ async def force_delete_organization_by_slug(
 
 
 # ==================== CROSS-ORG ACCESS ENDPOINTS ====================
-
-from typing import Optional
-from datetime import timedelta
-from pydantic import BaseModel
-from backend.models import Pipeline, PipelineRun, DataSource, Destination
-from backend.rbac.audit import log_super_admin_access
-from backend.models.audit import ImpersonationSession
-import secrets
-import hashlib
 
 
 class OrganizationDetailResponse(BaseModel):
@@ -1424,7 +1421,7 @@ async def start_impersonation(
     # End any existing active sessions for this admin
     db.query(ImpersonationSession).filter(
         ImpersonationSession.super_admin_id == current_user.id,
-        ImpersonationSession.is_active == True,
+        ImpersonationSession.is_active,
     ).update({"is_active": False, "ended_at": datetime.now(tz.utc)})
 
     # Generate impersonation token
@@ -1499,7 +1496,7 @@ async def stop_impersonation(
     # Find and end active sessions
     active_sessions = db.query(ImpersonationSession).filter(
         ImpersonationSession.super_admin_id == current_user.id,
-        ImpersonationSession.is_active == True,
+        ImpersonationSession.is_active,
     ).all()
 
     ended_count = 0
@@ -1544,7 +1541,7 @@ async def get_current_impersonation(
 
     session = db.query(ImpersonationSession).filter(
         ImpersonationSession.super_admin_id == current_user.id,
-        ImpersonationSession.is_active == True,
+        ImpersonationSession.is_active,
         ImpersonationSession.expires_at > datetime.now(tz.utc),
     ).first()
 

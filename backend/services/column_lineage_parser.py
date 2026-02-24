@@ -6,14 +6,14 @@ using the sqlglot library. Handles aliases, expressions, JOINs, subqueries,
 and various SQL constructs.
 """
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any
 import logging
 
 try:
     import sqlglot
     from sqlglot import exp
-    from sqlglot.optimizer import qualify, optimize
-    from sqlglot.optimizer.scope import build_scope
+    from sqlglot.optimizer import qualify, optimize  # noqa: F401
+    from sqlglot.optimizer.scope import build_scope  # noqa: F401
 except ImportError:
     raise ImportError(
         "sqlglot is required for column lineage parsing. "

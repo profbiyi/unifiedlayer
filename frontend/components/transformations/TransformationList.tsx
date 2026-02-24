@@ -277,7 +277,7 @@ function TransformationCard({
           <DialogHeader>
             <DialogTitle>Delete Transformation</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{transformation.name}"? This action
+              Are you sure you want to delete &quot;{transformation.name}&quot;? This action
               cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -364,7 +364,7 @@ export function TransformationList({
           <h3 className="font-semibold text-lg mb-1">No Transformations</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
             Create your first SQL transformation to process and transform data after
-            it's loaded to your destination.
+            it&apos;s loaded to your destination.
           </p>
         </CardContent>
       </Card>

@@ -85,7 +85,7 @@ export function SQLPreview({ result, isLoading, error }: SQLPreviewProps) {
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <Database className="h-12 w-12 text-muted-foreground/50 mb-4" />
           <p className="text-sm text-muted-foreground">
-            Click "Test SQL" to preview query results
+            Click &quot;Test SQL&quot; to preview query results
           </p>
           <p className="text-xs text-muted-foreground/70 mt-1">
             Results are limited to 100 rows for preview

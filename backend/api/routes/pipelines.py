@@ -1,9 +1,12 @@
 """
 Pipeline API routes.
 """
+import logging
 from datetime import datetime, timezone
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -12,12 +15,16 @@ from backend.models.pipeline import Pipeline, User, PipelineStatus, PipelineRun
 from backend.models.billing import Subscription, SubscriptionStatus
 from backend.auth import get_current_user
 from backend.prefect_flows.pipeline_flow import execute_pipeline_flow
-from backend.config import settings
 from backend.rbac.permissions import require_permission
-import logging
+from backend.utils.cron_utils import (
+    validate_cron_expression,
+    calculate_next_run,
+    get_cron_description,
+    PREDEFINED_SCHEDULES,
+    CronValidationError,
+)
 
 # Prefect flow execution
-from prefect import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -737,15 +744,6 @@ async def get_pipeline_run_details(
 
 
 # ==================== PIPELINE SCHEDULING ENDPOINTS ====================
-
-from pydantic import BaseModel, Field, field_validator
-from backend.utils.cron_utils import (
-    validate_cron_expression,
-    calculate_next_run,
-    get_cron_description,
-    PREDEFINED_SCHEDULES,
-    CronValidationError
-)
 
 
 class SetScheduleRequest(BaseModel):

@@ -7,16 +7,14 @@ automatic schema detection, and incremental loading.
 Supports parallel table extraction via dlt's parallelized resources,
 allowing concurrent fetching of multiple tables for better performance.
 """
-from typing import Iterator, Dict, Any, Optional, List, Union
-from datetime import datetime, timedelta
+from typing import Iterator, Dict, Any, Optional, List
+from datetime import datetime
 import mysql.connector
-from mysql.connector import pooling, Error
-from mysql.connector.cursor import MySQLCursorDict
+from mysql.connector import Error
 import dlt
 from dlt.sources import DltResource
 from dlt.common.typing import TDataItem
 import logging
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -448,7 +446,7 @@ def mysql_source(
             table_name: str = table,
             cursor_col: Optional[str] = cursor_column,
             last_value: dlt.sources.incremental[Any] = dlt.sources.incremental(
-                cursor_col or "id",
+                cursor_column or "id",
                 initial_value=None,
             ) if cursor_column else None
         ) -> Iterator[TDataItem]:

@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
             </div>
             <CardTitle>Check Your Email</CardTitle>
             <CardDescription>
-              If an account exists with {email}, you'll receive password reset instructions
+              If an account exists with {email}, you&apos;ll receive password reset instructions
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Forgot Password?</CardTitle>
           <CardDescription>
-            Enter your email address and we'll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset your password
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

@@ -107,7 +107,7 @@ export default function InvitationsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Pending Invitations</h1>
           <p className="text-muted-foreground">
-            Manage invitations you've sent to join your organization
+            Manage invitations you&apos;ve sent to join your organization
           </p>
         </div>
 

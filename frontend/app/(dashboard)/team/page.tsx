@@ -223,7 +223,7 @@ export default function TeamPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Team Members</h1>
           <p className="text-muted-foreground">
-            Manage your organization's users and their roles
+            Manage your organization&apos;s users and their roles
           </p>
         </div>
 
@@ -246,7 +246,7 @@ export default function TeamPage() {
             <DialogHeader>
               <DialogTitle>Invite Team Member</DialogTitle>
               <DialogDescription>
-                Send an invitation to join your organization. They'll receive an email with a link to create their account.
+                Send an invitation to join your organization. They&apos;ll receive an email with a link to create their account.
               </DialogDescription>
             </DialogHeader>
 
