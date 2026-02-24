@@ -9,15 +9,13 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from backend.models.pipeline import DataSource, Destination, Pipeline, Organization
+from backend.models.pipeline import DataSource, Destination, Pipeline
 from backend.models.transformation import SQLTransformation
 from backend.templates.pipeline_recipes import (
-    PIPELINE_RECIPES,
     RECIPE_CATEGORIES,
     get_all_recipes,
     get_recipe_by_id,
     get_recipes_by_category,
-    get_recipes_by_source_type,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,7 +59,7 @@ class RecipeService:
         # Get connected sources
         sources = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).all()
 
         source_types = {s.source_type.lower(): s for s in sources}
@@ -69,7 +67,7 @@ class RecipeService:
         # Get destinations
         destinations = self.db.query(Destination).filter(
             Destination.organization_id == org_id,
-            Destination.is_active == True,
+            Destination.is_active,
         ).all()
 
         has_destination = len(destinations) > 0
@@ -124,13 +122,13 @@ class RecipeService:
         source = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
             DataSource.source_type.ilike(required_source),
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).first()
 
         # Check destinations
         destinations = self.db.query(Destination).filter(
             Destination.organization_id == org_id,
-            Destination.is_active == True,
+            Destination.is_active,
         ).all()
 
         # Check for specific destination type if required

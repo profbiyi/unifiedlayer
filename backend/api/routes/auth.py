@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 import httpx
 
 from backend.database import get_db
-from backend.schemas import Token, UserLogin, UserCreate, UserResponse
+from backend.schemas import UserCreate, UserResponse
 from backend.auth import (
     authenticate_user,
     create_access_token,
@@ -315,7 +315,6 @@ async def logout(
         Success message
     """
     from backend.utils.token_blacklist import add_token_to_blacklist
-    from backend.auth import decode_access_token
 
     # Get the token from cookie or header
     token = request.cookies.get("token")
@@ -652,7 +651,7 @@ async def google_callback(
         )
 
     redirect_uri = state_data.get("redirect_uri", settings.FRONTEND_URL)
-    action = state_data.get("action", "login")
+    state_data.get("action", "login")
 
     try:
         # Exchange code for tokens
@@ -699,7 +698,7 @@ async def google_callback(
 
     google_id = google_user.get("id")
     email = google_user.get("email")
-    name = google_user.get("name", "")
+    google_user.get("name", "")
 
     if not email:
         return RedirectResponse(

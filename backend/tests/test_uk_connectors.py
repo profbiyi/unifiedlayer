@@ -1,9 +1,7 @@
 """
 Tests for UK connectors (GoCardless, Xero, Open Banking, HMRC MTD).
 """
-import pytest
 from unittest.mock import patch, MagicMock
-import json
 
 from backend.connectors.gocardless import GoCardlessConnector
 from backend.connectors.xero import XeroConnector

@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
-from backend.models import User, Role, UserRole, Organization
+from backend.models import User, Role, UserRole
 
 
 def migrate_users_to_rbac():
@@ -39,7 +39,7 @@ def migrate_users_to_rbac():
         users_without_roles = db.query(User).outerjoin(
             UserRole, User.id == UserRole.user_id
         ).filter(
-            UserRole.id == None
+            UserRole.id is None
         ).all()
 
         if not users_without_roles:
@@ -59,19 +59,16 @@ def migrate_users_to_rbac():
         # Process users
         for user in users_without_roles:
             role_to_assign = None
-            assigned_role_name = ""
 
             # Check if user is superuser (old system)
             if user.is_superuser:
                 role_to_assign = super_admin_role
-                assigned_role_name = "SUPER_ADMIN"
                 super_admins_count += 1
                 print(f"  - Assigning SUPER_ADMIN to {user.email} (is_superuser=True)")
 
             # Check if this is the first user in their organization
             elif user.organization_id and user.organization_id not in orgs_with_admin:
                 role_to_assign = org_admin_role
-                assigned_role_name = "ORG_ADMIN"
                 orgs_with_admin.add(user.organization_id)
                 org_admins_count += 1
                 org_name = user.organization.name if user.organization else "Unknown"
@@ -80,7 +77,6 @@ def migrate_users_to_rbac():
             # All other users become org_user
             else:
                 role_to_assign = org_user_role
-                assigned_role_name = "ORG_USER"
                 org_users_count += 1
                 print(f"  - Assigning ORG_USER to {user.email}")
 
@@ -98,7 +94,7 @@ def migrate_users_to_rbac():
         # Commit all changes
         db.commit()
 
-        print(f"\n✅ Migration completed successfully!")
+        print("\n✅ Migration completed successfully!")
         print(f"   Total users migrated: {migrated_count}")
         print(f"   - SUPER_ADMIN: {super_admins_count}")
         print(f"   - ORG_ADMIN: {org_admins_count}")

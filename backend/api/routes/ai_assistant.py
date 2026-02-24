@@ -402,7 +402,7 @@ async def get_suggested_questions(
     # Get connected sources
     sources = db.query(DataSource).filter(
         DataSource.organization_id == current_user.organization_id,
-        DataSource.is_active == True,
+        DataSource.is_active,
     ).all()
 
     source_types = {s.source_type.lower() for s in sources}

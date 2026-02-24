@@ -4,7 +4,6 @@ AI Assistant Models.
 Models for storing AI conversation history, queries, and results.
 """
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import (
     Column,

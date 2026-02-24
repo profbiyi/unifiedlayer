@@ -4,7 +4,7 @@ Quality Check Pydantic Schemas.
 Schemas for quality check API request/response models.
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, UUID4
 

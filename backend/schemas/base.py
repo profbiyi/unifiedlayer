@@ -3,10 +3,10 @@ Pydantic schemas for API request/response validation.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field, computed_field, model_validator, model_serializer
+from pydantic import BaseModel, EmailStr, computed_field, model_validator, model_serializer
 
 
 import re

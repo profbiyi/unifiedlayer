@@ -6,8 +6,8 @@ Implements various types of quality checks that can be run on pipeline data.
 
 import re
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, Optional
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -15,7 +15,6 @@ from backend.models.quality import (
     QualityCheck,
     QualityCheckType,
     QualityCheckStatus,
-    QualityCheckSeverity,
 )
 
 logger = logging.getLogger(__name__)

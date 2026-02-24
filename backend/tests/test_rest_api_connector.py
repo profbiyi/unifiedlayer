@@ -2,13 +2,9 @@
 Tests for REST API Connector with all pagination strategies.
 """
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
-import json
+from unittest.mock import Mock, patch
 from backend.connectors.rest_api import (
     RESTAPIConnector,
-    AuthType,
-    PaginationType,
     RESTAPIError,
     rest_api_source,
 )

@@ -871,7 +871,7 @@ async def _test_rest_api_connection(config: Dict[str, Any]) -> ConnectionTestRes
 
             return ConnectionTestResponse(
                 success=True,
-                message=f"Successfully connected to REST API",
+                message="Successfully connected to REST API",
                 metadata=metadata,
             )
 

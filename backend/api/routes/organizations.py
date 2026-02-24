@@ -177,7 +177,6 @@ async def update_my_organization_branding(
     - Primary brand color (hex code)
     - Secondary brand color (hex code)
     """
-    from backend.auth import require_org_admin
 
     # Check if user is org admin
     if not current_user.is_org_admin():

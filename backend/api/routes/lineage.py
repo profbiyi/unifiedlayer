@@ -25,7 +25,7 @@ from backend.schemas import (
     DbtColumnMetadataResponse,
 )
 from backend.models.lineage import LineageNode, LineageEdge
-from backend.models.column_lineage import ColumnLineage, DbtColumnMetadata
+from backend.models.column_lineage import DbtColumnMetadata
 from backend.models.pipeline import User, Pipeline, DataSource, Destination, PipelineRun
 from backend.models.transformation import SQLTransformation
 from backend.auth import get_current_user

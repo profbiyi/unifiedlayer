@@ -3,13 +3,12 @@ API Dependencies.
 
 Common dependency functions for FastAPI routes.
 """
-from typing import Optional, Tuple, Any
-from fastapi import HTTPException, status, Request, Header
-from fastapi.responses import JSONResponse
+from typing import Optional
+from fastapi import HTTPException, status, Header
 from sqlalchemy.orm import Session
 
 from backend.auth import get_current_user
-from backend.models import User, Organization
+from backend.models import User
 from backend.rbac.permissions import user_has_permission
 from backend.utils.idempotency import get_idempotency_result, store_idempotency_result
 

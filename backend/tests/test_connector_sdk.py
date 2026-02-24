@@ -1,10 +1,9 @@
 """
 Tests for the Connector SDK (base class and registry).
 """
-import pytest
 from typing import Iterator, Dict, Any
 
-from backend.connectors.sdk.base import BaseConnector, ConnectorMetadata, ConnectorCapabilities
+from backend.connectors.sdk.base import BaseConnector, ConnectorMetadata
 from backend.connectors.sdk.registry import ConnectorRegistry, register_connector
 
 

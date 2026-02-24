@@ -5,7 +5,6 @@ Defines database models for SQL transformations that run after
 data is loaded to the destination.
 """
 from datetime import datetime, timezone
-from typing import Optional
 import uuid
 import enum
 

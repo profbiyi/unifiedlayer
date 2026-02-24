@@ -11,7 +11,7 @@ Usage:
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional
+from typing import Optional
 import signal
 import sys
 
@@ -102,8 +102,8 @@ class PipelineScheduler:
             due_pipelines = (
                 self.db.query(Pipeline)
                 .filter(
-                    Pipeline.is_active == True,
-                    Pipeline.schedule_enabled == True,
+                    Pipeline.is_active,
+                    Pipeline.schedule_enabled,
                     Pipeline.schedule.isnot(None),
                     Pipeline.next_scheduled_run <= now + timedelta(minutes=1)
                 )
@@ -162,8 +162,6 @@ class PipelineScheduler:
         # Trigger pipeline execution via Prefect (async)
         try:
             # Import here to avoid circular dependencies
-            from prefect import get_client
-            from prefect.deployments import run_deployment
 
             # Note: In production, you would use Prefect's deployment system
             # For now, we'll call execute_pipeline_flow directly
@@ -239,8 +237,8 @@ class PipelineScheduler:
             pipelines = (
                 self.db.query(Pipeline)
                 .filter(
-                    Pipeline.is_active == True,
-                    Pipeline.schedule_enabled == True,
+                    Pipeline.is_active,
+                    Pipeline.schedule_enabled,
                     Pipeline.schedule.isnot(None)
                 )
                 .all()

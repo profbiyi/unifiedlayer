@@ -6,7 +6,7 @@ for programmatic access to the UnifiedLayer API.
 """
 import secrets
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, status

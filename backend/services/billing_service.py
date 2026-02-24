@@ -231,7 +231,7 @@ class BillingService:
             from backend.models.pipeline import Pipeline
             current = db.query(Pipeline).filter(
                 Pipeline.organization_id == organization_id,
-                Pipeline.is_active == True,
+                Pipeline.is_active,
             ).count()
         else:
             return {"allowed": True, "current": 0, "limit": -1}

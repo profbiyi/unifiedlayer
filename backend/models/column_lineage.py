@@ -5,7 +5,6 @@ Defines database models for tracking column-level data lineage,
 enabling fine-grained impact analysis and data governance.
 """
 from datetime import datetime, timezone
-from typing import Optional
 import uuid
 import enum
 

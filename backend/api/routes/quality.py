@@ -15,7 +15,6 @@ from backend.models.quality import (
     PipelineQualityCheck,
     QualityCheckResult,
     QualityCheckType,
-    QualityCheckSeverity,
 )
 from backend.models.pipeline import Pipeline
 from backend.api.schemas.quality import (

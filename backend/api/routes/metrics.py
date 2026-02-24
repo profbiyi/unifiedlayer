@@ -3,7 +3,7 @@ Metrics API Routes
 
 Provides aggregated metrics and analytics for pipelines and platform health.
 """
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -86,7 +86,7 @@ async def get_overview_metrics(
     pipeline_stats = (
         db.query(
             func.count(Pipeline.id).label("total"),
-            func.sum(case((Pipeline.is_active == True, 1), else_=0)).label("active"),
+            func.sum(case((Pipeline.is_active, 1), else_=0)).label("active"),
         )
         .filter(Pipeline.organization_id == org_id)
         .first()
@@ -223,7 +223,7 @@ async def get_pipeline_performance(
     # Calculate stats
     total_runs = len(runs)
     completed = sum(1 for r in runs if r.status == "completed")
-    failed = sum(1 for r in runs if r.status == "failed")
+    sum(1 for r in runs if r.status == "failed")
     success_rate = (completed / total_runs * 100) if total_runs > 0 else 0
 
     # Average duration
@@ -277,7 +277,7 @@ async def get_system_health(
         db_status = "unhealthy"
 
     # OPTIMIZED: Single query for all counts
-    counts = (
+    (
         db.query(
             func.count(func.distinct(DataSource.id)).label("sources"),
             func.count(func.distinct(Destination.id)).label("destinations"),
@@ -292,7 +292,7 @@ async def get_system_health(
     pipeline_counts = (
         db.query(
             func.count(Pipeline.id).label("total"),
-            func.sum(case((Pipeline.is_active == True, 1), else_=0)).label("active"),
+            func.sum(case((Pipeline.is_active, 1), else_=0)).label("active"),
         )
         .filter(Pipeline.organization_id == org_id)
         .first()

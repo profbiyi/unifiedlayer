@@ -9,14 +9,12 @@ No other data integration platform (Fivetran, Airbyte, Stitch) offers a
 GoCardless connector. Direct Debit powers 80%+ of UK recurring payments.
 """
 import logging
-from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
 
 import requests
 
 from backend.connectors.sdk import (
     BaseConnector,
-    ConnectorConfig,
     ConnectorCapabilities,
     ConnectorMetadata,
     AuthType,

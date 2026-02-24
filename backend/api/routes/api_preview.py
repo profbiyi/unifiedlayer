@@ -4,7 +4,7 @@ API Source Preview Endpoints.
 Enhanced endpoints for previewing API data with full pagination support.
 """
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import logging
@@ -260,7 +260,6 @@ async def quick_test_api(
 
         # Parse URL to separate base and path
         parsed = urlparse(request.url)
-        base_url = f"{parsed.scheme}://{parsed.netloc}"
         endpoint_path = parsed.path
         if parsed.query:
             endpoint_path += f"?{parsed.query}"

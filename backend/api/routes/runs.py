@@ -316,7 +316,7 @@ async def get_run_logs(
             logs.append({
                 "timestamp": run.started_at.isoformat(),
                 "level": "INFO",
-                "message": f"Pipeline run started",
+                "message": "Pipeline run started",
             })
 
         if run.status.value == "failed" and run.error_message:

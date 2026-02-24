@@ -6,7 +6,7 @@ Manages notification channels, alert rules, and alert history for pipeline monit
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from datetime import datetime
 import uuid as uuid_mod
 

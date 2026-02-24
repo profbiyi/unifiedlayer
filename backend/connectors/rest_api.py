@@ -8,7 +8,7 @@ Supports both synchronous and asynchronous (parallel) data fetching:
 - Sync mode: Traditional sequential requests
 - Async mode: Concurrent requests using httpx for better I/O performance
 """
-from typing import Iterator, Dict, Any, Optional, List, Literal, Union, Tuple, AsyncIterator
+from typing import Iterator, Dict, Any, Optional, List, Union, Tuple, AsyncIterator
 from datetime import datetime, timedelta
 from enum import Enum
 import requests

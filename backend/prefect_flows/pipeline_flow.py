@@ -3,13 +3,12 @@ Prefect flows for pipeline execution.
 
 Provides orchestration for data pipeline runs using Prefect.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import dlt
 from prefect import flow, task
 import logging
 import traceback
-import json
 
 from backend.database import get_db_session
 from backend.models.pipeline import Pipeline, PipelineRun, PipelineStatus
@@ -199,7 +198,7 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
         # If so, disable async mode to avoid nested event loop issues
         import asyncio
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're in an async context, use sync mode to avoid nested loop issues
             in_async_context = True
             logger.info("Detected async context (Prefect), using sync mode for REST API")
@@ -823,8 +822,8 @@ def run_quality_checks(
             db.query(PipelineQualityCheck)
             .filter(
                 PipelineQualityCheck.pipeline_id == pipeline_id,
-                PipelineQualityCheck.is_active == True,
-                PipelineQualityCheck.run_on_success == True,
+                PipelineQualityCheck.is_active,
+                PipelineQualityCheck.run_on_success,
             )
             .all()
         )

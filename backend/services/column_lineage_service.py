@@ -17,10 +17,9 @@ from backend.models.column_lineage import (
 )
 from backend.models.transformation import SQLTransformation
 from backend.models.pipeline import Pipeline
-from backend.models.dbt import DbtRun, DbtProject
+from backend.models.dbt import DbtRun
 from backend.services.column_lineage_parser import (
     SQLColumnLineageParser,
-    ColumnLineageMapping,
 )
 from backend.services.dbt_manifest_parser import DbtManifestParser
 

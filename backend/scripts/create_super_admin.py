@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy.orm import Session
 from backend.database import get_db_session
-from backend.models import User, Organization, Role, UserRole
+from backend.models import User, Organization, Role
 from backend.auth import get_password_hash
 import getpass
 
@@ -63,15 +63,15 @@ def create_super_admin(
         print(f"   🔐 Hash verification test: {'PASSED' if verification_ok else 'FAILED'}")
 
         if not verification_ok:
-            print(f"   ⚠️  Hash verification failed - bcrypt issue detected!")
-            print(f"   🔄 Attempting to recreate user with fresh credentials...")
+            print("   ⚠️  Hash verification failed - bcrypt issue detected!")
+            print("   🔄 Attempting to recreate user with fresh credentials...")
 
             # Delete the user and their roles, then recreate
             from backend.models import UserRole
             db.query(UserRole).filter(UserRole.user_id == existing_user.id).delete()
             db.delete(existing_user)
             db.commit()
-            print(f"   🗑️  Deleted corrupted user record")
+            print("   🗑️  Deleted corrupted user record")
 
             # Return None to trigger fresh user creation below
             existing_user = None
@@ -118,7 +118,7 @@ def create_super_admin(
         print(f"\n📋 Using existing Super Admin organization: {super_admin_org.name}")
 
     # Create super admin user
-    print(f"\n📋 Creating Super Admin user...")
+    print("\n📋 Creating Super Admin user...")
 
     # Generate and verify hash before creating user
     from backend.auth import verify_password
@@ -127,8 +127,8 @@ def create_super_admin(
     print(f"   🔐 New hash verification: {'PASSED' if hash_ok else 'FAILED'}")
 
     if not hash_ok:
-        print(f"   ❌ CRITICAL: Cannot create valid password hash!")
-        print(f"   ❌ Check bcrypt/passlib versions in requirements.txt")
+        print("   ❌ CRITICAL: Cannot create valid password hash!")
+        print("   ❌ Check bcrypt/passlib versions in requirements.txt")
         return None
 
     super_admin_user = User(
@@ -155,7 +155,7 @@ def create_super_admin(
         db.rollback()
         return None
 
-    print(f"\n📋 Assigning SUPER_ADMIN role...")
+    print("\n📋 Assigning SUPER_ADMIN role...")
     user_role = UserRole(
         user_id=super_admin_user.id,
         role_id=super_admin_role.id,
@@ -168,7 +168,7 @@ def create_super_admin(
     db.commit()
     db.refresh(super_admin_user)
 
-    print(f"   ✅ Assigned SUPER_ADMIN role")
+    print("   ✅ Assigned SUPER_ADMIN role")
 
     return super_admin_user
 
@@ -209,7 +209,7 @@ def interactive_mode(db: Session):
         break
 
     # Confirm
-    print(f"\n📋 Creating Super Admin with:")
+    print("\n📋 Creating Super Admin with:")
     print(f"   Email: {email}")
     print(f"   Username: {username}")
     print(f"   Full Name: {full_name}")
@@ -226,13 +226,13 @@ def interactive_mode(db: Session):
         print("\n" + "="*60)
         print("✅ SUPER ADMIN CREATED SUCCESSFULLY!")
         print("="*60)
-        print(f"\nCredentials:")
+        print("\nCredentials:")
         print(f"  Email/Username: {email} or {username}")
-        print(f"  Password: (as entered)")
-        print(f"\nYou can now:")
-        print(f"  1. Login at: http://localhost:3000/login")
-        print(f"  2. Access Admin Dashboard: http://localhost:3000/admin")
-        print(f"  3. Create organizations and invite users")
+        print("  Password: (as entered)")
+        print("\nYou can now:")
+        print("  1. Login at: http://localhost:3000/login")
+        print("  2. Access Admin Dashboard: http://localhost:3000/admin")
+        print("  3. Create organizations and invite users")
         print("\n⚠️  IMPORTANT: Change the password after first login!")
         print("="*60 + "\n")
 
@@ -258,7 +258,7 @@ def env_mode(db: Session):
 
     # Debug: show password length and first/last chars
     masked_pwd = password[0] + "*" * (len(password) - 2) + password[-1] if len(password) > 2 else "***"
-    print(f"Creating Super Admin:")
+    print("Creating Super Admin:")
     print(f"  Email: {email}")
     print(f"  Username: {username}")
     print(f"  Full Name: {full_name}")
@@ -270,7 +270,7 @@ def env_mode(db: Session):
         print("\n" + "="*60)
         print("✅ SUPER ADMIN CREATED SUCCESSFULLY!")
         print("="*60)
-        print(f"\nCredentials:")
+        print("\nCredentials:")
         print(f"  Email: {email}")
         print(f"  Username: {username}")
         print(f"  Password: {password}")

@@ -17,10 +17,9 @@ An SME owner sees this and thinks: "I couldn't do this with spreadsheets."
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, desc, and_, case, text
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -89,7 +88,7 @@ async def get_sme_dashboard(
         func.count(DataSource.id).label("count"),
     ).filter(
         DataSource.organization_id == org_id,
-        DataSource.is_active == True,
+        DataSource.is_active,
     ).group_by(DataSource.source_type).all()
 
     connected_sources = {str(s.source_type.value): s.count for s in sources}
@@ -97,7 +96,7 @@ async def get_sme_dashboard(
     # --- Data freshness (last successful sync per pipeline) ---
     pipelines = db.query(Pipeline).filter(
         Pipeline.organization_id == org_id,
-        Pipeline.is_active == True,
+        Pipeline.is_active,
     ).all()
 
     stale_pipelines = []
@@ -355,8 +354,8 @@ async def get_roi_summary(
 
     active_pipelines = db.query(func.count(Pipeline.id)).filter(
         Pipeline.organization_id == org_id,
-        Pipeline.is_active == True,
-        Pipeline.schedule_enabled == True,
+        Pipeline.is_active,
+        Pipeline.schedule_enabled,
     ).scalar() or 0
 
     return {

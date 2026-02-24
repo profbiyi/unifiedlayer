@@ -7,7 +7,7 @@ import pytest
 from fastapi import status
 from sqlalchemy.orm import Session
 
-from backend.models.pipeline import Organization, User, Pipeline, DataSource, Destination, PipelineStatus
+from backend.models.pipeline import Organization, User, Pipeline, DataSource, Destination
 from backend.auth import create_access_token, get_password_hash
 
 

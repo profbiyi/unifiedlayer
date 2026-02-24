@@ -10,20 +10,18 @@ This enables rich analytics like:
 """
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 import uuid
 
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from backend.config import settings
-from backend.database import get_db_session
-from backend.models.pipeline import DataSource, Destination, Pipeline
+from backend.models.pipeline import Pipeline
 from backend.models.data_model import GeneratedModel, ModelLayer, ModelStatus
-from backend.services.schema_analyzer import SchemaAnalyzer, SchemaContext, TableSchema, get_schema_analyzer
-from backend.services.ai_modeler import AIModeler, ModelDefinition, ColumnDefinition
+from backend.services.schema_analyzer import SchemaContext, TableSchema, get_schema_analyzer
+from backend.services.ai_modeler import AIModeler
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +122,7 @@ class CrossSourceModeler:
         # Get all pipelines for the org (to find destinations with data)
         query = db.query(Pipeline).filter(
             Pipeline.organization_id == org_id,
-            Pipeline.is_active == True,
+            Pipeline.is_active,
         )
 
         pipelines = query.all()

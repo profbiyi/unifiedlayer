@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.auth import get_current_user
 from backend.models.pipeline import (
-    DataSource, Destination, Pipeline, User, SourceType, DestinationType,
+    DataSource, Destination, Pipeline, User,
 )
 from backend.schemas.templates import (
     TemplateInfo, TemplateDetail, TemplateDeployRequest, TemplateDeployResponse,

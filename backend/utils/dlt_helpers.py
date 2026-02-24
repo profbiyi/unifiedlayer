@@ -5,7 +5,7 @@ Provides clean extraction of metrics and statistics from dlt load operations.
 """
 import re
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 

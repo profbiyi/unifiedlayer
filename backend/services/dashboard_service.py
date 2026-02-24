@@ -10,10 +10,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from backend.models.pipeline import DataSource, Organization
+from backend.models.pipeline import DataSource
 from backend.templates.dashboard_templates import (
-    DASHBOARD_TEMPLATES,
-    get_all_dashboard_templates,
     get_available_templates_for_sources,
     get_dashboard_template_by_id,
 )
@@ -40,7 +38,7 @@ class DashboardService:
         # Get connected source types for this org
         sources = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).all()
 
         source_types = [s.source_type for s in sources]
@@ -81,7 +79,7 @@ class DashboardService:
         # Get connected sources
         sources = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).all()
 
         connected_types = {s.source_type.lower() for s in sources}
@@ -202,7 +200,7 @@ class DashboardService:
             # Get first connected source that matches template requirements
             sources = self.db.query(DataSource).filter(
                 DataSource.organization_id == org_id,
-                DataSource.is_active == True,
+                DataSource.is_active,
                 DataSource.source_type.in_(template["required_sources"]),
             ).first()
 

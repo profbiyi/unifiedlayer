@@ -7,11 +7,10 @@ request validation middleware, and request correlation IDs.
 import time
 import uuid
 import ipaddress
-from typing import Dict, Optional, Tuple, Set, Union
+from typing import Dict, Optional, Set, Union
 from collections import defaultdict
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
 import logging
 
 from backend.config import settings
@@ -413,7 +412,7 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
             )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Too many attempts. Please wait before trying again.",
+                detail="Too many attempts. Please wait before trying again.",
                 headers={"Retry-After": str(self.window_size)},
             )
 

@@ -5,7 +5,6 @@ Defines database models for quality checks, rules, and results.
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
 import uuid
 import enum
 

@@ -11,7 +11,6 @@ When ENCRYPTION_KEY is set, values are encrypted before storage and
 decrypted on read. When ENCRYPTION_KEY is not set (dev/testing),
 values pass through as plain JSON.
 """
-import json
 import logging
 
 from sqlalchemy import JSON

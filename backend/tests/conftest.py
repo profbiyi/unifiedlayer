@@ -4,7 +4,6 @@ Pytest configuration and fixtures.
 Provides comprehensive fixtures for testing the UnifiedLayer platform.
 """
 import os
-import uuid
 import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Generator, Dict, Any

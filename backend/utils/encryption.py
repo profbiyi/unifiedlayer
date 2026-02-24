@@ -6,7 +6,7 @@ DataSource and Destination config fields at rest.
 """
 import json
 import logging
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
 

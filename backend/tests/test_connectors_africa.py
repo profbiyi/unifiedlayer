@@ -1,9 +1,8 @@
 """Tests for African payment connectors and MongoDB connector."""
 from unittest.mock import MagicMock, patch
 
-import pytest
 
-from backend.connectors.sdk.base import AuthType, PaginationType
+from backend.connectors.sdk.base import AuthType
 
 
 # ---------------------------------------------------------------------------

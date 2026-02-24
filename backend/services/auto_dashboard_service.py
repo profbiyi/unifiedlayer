@@ -11,9 +11,8 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from backend.models.pipeline import DataSource, Organization
+from backend.models.pipeline import DataSource
 from backend.templates.dashboard_templates import (
-    DASHBOARD_TEMPLATES,
     get_dashboard_template_by_id,
 )
 
@@ -65,7 +64,7 @@ class AutoDashboardService:
         """
         source_count = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).count()
 
         # Return True if this is the first source (count is 0 or 1 - since the
@@ -238,7 +237,7 @@ class AutoDashboardService:
         source_type_lower = source_type.lower()
         existing_sources = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).all()
 
         # Check if any existing source matches the same template set

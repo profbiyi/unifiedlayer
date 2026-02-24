@@ -12,7 +12,7 @@ from uuid import UUID
 
 from backend.database import get_db
 from backend.models.pipeline import User, DataSource, Pipeline, Destination
-from backend.models.health import ResourceHealth, HealthStatus, ResourceType, HealthCheckLog
+from backend.models.health import ResourceHealth, ResourceType, HealthCheckLog
 from backend.auth import get_current_user
 from backend.services.health_monitor import (
     get_source_health,

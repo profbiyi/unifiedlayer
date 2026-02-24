@@ -191,7 +191,7 @@ async def delete_my_account(
             .join(Role, Role.id == UserRole.role_id)
             .filter(
                 User.organization_id == current_user.organization_id,
-                User.is_active == True,
+                User.is_active,
                 Role.slug == "org_admin",
                 User.id != current_user.id,
             )

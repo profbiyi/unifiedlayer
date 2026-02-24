@@ -12,7 +12,6 @@ import csv
 import io
 import logging
 import os
-import tempfile
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
@@ -23,7 +22,6 @@ from backend.connectors.sdk import (
     AuthType,
     BaseConnector,
     ConnectorCapabilities,
-    ConnectorConfig,
     ConnectorMetadata,
     PaginationType,
     register_connector,

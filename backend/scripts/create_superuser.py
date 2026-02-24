@@ -117,7 +117,7 @@ def create_superuser(
     db.add(user_role)
     db.commit()
 
-    print(f"✅ Assigned SUPER_ADMIN role to user")
+    print("✅ Assigned SUPER_ADMIN role to user")
 
     return user
 
@@ -178,7 +178,7 @@ def main():
         print(f"👤 Username: {user.username}")
         print(f"🆔 User ID: {user.public_id}")
         print(f"🏢 Organization: {user.organization.name}")
-        print(f"🔑 Role: SUPER_ADMIN (global access)")
+        print("🔑 Role: SUPER_ADMIN (global access)")
         print("\n💡 You can now login with these credentials!")
         print("   Frontend: http://localhost")
         print("   API Docs: http://localhost/docs")

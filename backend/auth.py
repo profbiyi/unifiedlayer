@@ -293,7 +293,7 @@ async def get_current_user_or_api_key(
         key_hash = hashlib.sha256(api_key_header.encode()).hexdigest()
         api_key_record = db.query(APIKey).filter(
             APIKey.key_hash == key_hash,
-            APIKey.is_active == True,
+            APIKey.is_active,
         ).first()
 
         if not api_key_record:

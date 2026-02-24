@@ -5,7 +5,7 @@ Handles subscription management, checkout, usage tracking, and Stripe webhooks.
 """
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -173,7 +173,7 @@ async def get_usage_history(
 ):
     """Return the last N months of usage records for the organization."""
     from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
+    datetime.now(timezone.utc)
 
     # Cap months to a reasonable range
     months = min(max(months, 1), 24)

@@ -118,7 +118,6 @@ class TestRecordUsageWarnsNearLimit:
 class TestGetUsageEndpoint:
     @patch("backend.api.routes.billing.BillingService")
     def test_get_usage_endpoint(self, mock_bs, mock_db, mock_user):
-        from backend.models.billing import SubscriptionPlan, PLAN_LIMITS
 
         rec = _make_usage_record(rows_synced=500, api_calls=100, pipeline_runs=3, active_connectors=2)
         mock_bs.get_or_create_usage_record.return_value = rec

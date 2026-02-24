@@ -4,7 +4,6 @@ Billing ORM Models.
 Defines database models for subscriptions, usage tracking, and payment history.
 """
 from datetime import datetime, timezone
-from typing import Optional
 import uuid
 import enum
 
@@ -18,7 +17,6 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     Enum as SQLEnum,
-    Float,
     BigInteger,
     UniqueConstraint,
     Index,

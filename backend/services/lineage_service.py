@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import logging
 
 from backend.models.lineage import LineageNode, LineageEdge, NodeType, TransformationType
-from backend.models.pipeline import Pipeline, DataSource, Destination, PipelineRun
+from backend.models.pipeline import Pipeline, PipelineRun
 
 logger = logging.getLogger(__name__)
 

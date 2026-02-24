@@ -14,7 +14,7 @@ import uuid
 import logging
 
 from backend.database import get_db
-from backend.models.transformation import SQLTransformation, TransformationStatus
+from backend.models.transformation import SQLTransformation
 from backend.models.pipeline import Pipeline, User
 from backend.api.deps import get_current_user, check_permission, verify_org_access
 

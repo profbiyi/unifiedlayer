@@ -11,7 +11,6 @@ These schemas define request/response models for:
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, field_validator
-import uuid
 
 
 # ==================== ROLE SCHEMAS ====================
@@ -112,7 +111,7 @@ class CreateInvitationRequest(BaseModel):
     def validate_role_slug(cls, v):
         valid_roles = ['org_admin', 'org_user']
         if v not in valid_roles:
-            raise ValueError(f"Can only invite as org_admin or org_user")
+            raise ValueError("Can only invite as org_admin or org_user")
         return v
 
 

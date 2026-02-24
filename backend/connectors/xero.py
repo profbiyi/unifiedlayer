@@ -10,7 +10,6 @@ Uses OAuth 2.0 with PKCE for authentication.
 """
 import logging
 import time
-from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
 
 import requests

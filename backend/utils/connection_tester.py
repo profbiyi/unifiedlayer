@@ -372,7 +372,7 @@ def test_bigquery_connection(config: Dict[str, Any]) -> Tuple[bool, str]:
         client = bigquery.Client(credentials=credentials, project=credentials_json.get("project_id"))
 
         # Test by listing datasets (limited to 1)
-        datasets = list(client.list_datasets(max_results=1))
+        list(client.list_datasets(max_results=1))
 
         return True, f"Connection successful (Project: {client.project})"
 

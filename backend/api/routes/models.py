@@ -14,11 +14,11 @@ from sqlalchemy import text
 from pydantic import BaseModel, Field, computed_field
 
 from backend.database import get_db
-from backend.models.pipeline import User, Pipeline, Destination
+from backend.models.pipeline import User, Pipeline
 from backend.models.data_model import GeneratedModel, ModelGeneration, ModelLayer, ModelStatus
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
-from backend.services.ai_modeler import get_ai_modeler, AIModeler
+from backend.services.ai_modeler import get_ai_modeler
 
 logger = logging.getLogger(__name__)
 

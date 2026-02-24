@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from backend.auth import get_current_user
 from backend.database import get_db
 from backend.models.pipeline import User
-from backend.models.onboarding import UserRole, OnboardingStatus
+from backend.models.onboarding import UserRole
 from backend.services.onboarding_service import get_onboarding_service
 
 logger = logging.getLogger(__name__)

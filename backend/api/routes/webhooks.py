@@ -11,7 +11,7 @@ import hmac
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 from ipaddress import ip_address, ip_network
 
 from fastapi import APIRouter, Request, Depends, HTTPException, Query, status

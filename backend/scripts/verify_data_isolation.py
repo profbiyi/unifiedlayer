@@ -6,7 +6,6 @@ the correct pipelines and organizations.
 """
 from backend.database import get_db_session
 from backend.models.pipeline import Pipeline, PipelineRun, Organization
-from sqlalchemy import func
 
 
 def verify_isolation():
@@ -21,7 +20,7 @@ def verify_isolation():
         # Check 1: All pipeline runs have valid pipeline_id
         print("\n1. Checking pipeline_id integrity...")
         invalid_runs = db.query(PipelineRun).outerjoin(Pipeline).filter(
-            Pipeline.id == None
+            Pipeline.id is None
         ).count()
 
         if invalid_runs > 0:
@@ -29,7 +28,7 @@ def verify_isolation():
 
             # Show details
             bad_runs = db.query(PipelineRun).outerjoin(Pipeline).filter(
-                Pipeline.id == None
+                Pipeline.id is None
             ).limit(10).all()
 
             for run in bad_runs:

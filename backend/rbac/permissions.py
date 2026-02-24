@@ -10,7 +10,7 @@ from functools import wraps
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.models import User, Organization, Role, Permission, UserRole, RolePermission
+from backend.models import User, Organization, Permission, RolePermission
 
 
 def get_user_permissions(user: User, db: Session) -> List[Permission]:

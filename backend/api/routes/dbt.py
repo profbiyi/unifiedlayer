@@ -10,7 +10,7 @@ import re
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field, field_validator, computed_field
 
 from backend.database import get_db
@@ -466,7 +466,7 @@ async def delete_dbt_project(
     # Check for active pipeline configs using this project
     active_configs = db.query(PipelineDbtConfig).filter(
         PipelineDbtConfig.dbt_project_id == project.id,
-        PipelineDbtConfig.is_active == True,
+        PipelineDbtConfig.is_active,
     ).count()
 
     if active_configs > 0:
@@ -822,7 +822,6 @@ async def cancel_dbt_run(
     1. Revoke the Celery task if it's still pending or running
     2. Update the run status to CANCELLED
     """
-    from celery.result import AsyncResult
     from backend.celery_app import celery_app
 
     try:

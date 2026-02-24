@@ -5,7 +5,7 @@ Defines database models for organizations, users, data sources,
 destinations, pipelines, and pipeline runs.
 """
 from datetime import datetime, timezone
-from typing import Optional, Dict
+from typing import Optional
 import uuid
 from sqlalchemy import (
     Column,
@@ -20,7 +20,6 @@ from sqlalchemy import (
     Float,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
 

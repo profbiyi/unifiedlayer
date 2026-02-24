@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -16,9 +16,7 @@ from backend.database import get_db
 from backend.auth import get_current_user
 from backend.models.pipeline import User
 from backend.services.cross_source_modeler import (
-    CrossSourceModeler,
     get_cross_source_modeler,
-    SuggestedJoin,
     EnrichmentConfig,
 )
 
@@ -337,11 +335,11 @@ async def list_available_sources(
     """
     List all sources available for cross-source modeling.
     """
-    from backend.models.pipeline import Pipeline, DataSource
+    from backend.models.pipeline import Pipeline
 
     pipelines = db.query(Pipeline).filter(
         Pipeline.organization_id == current_user.organization_id,
-        Pipeline.is_active == True,
+        Pipeline.is_active,
     ).all()
 
     sources = {}

@@ -6,10 +6,9 @@ to get insights from their synced data.
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, desc, and_
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -43,8 +42,8 @@ async def get_overview(
 
     active_pipelines = db.query(func.count(Pipeline.id)).filter(
         Pipeline.organization_id == org_id,
-        Pipeline.is_active == True,
-        Pipeline.schedule_enabled == True,
+        Pipeline.is_active,
+        Pipeline.schedule_enabled,
     ).scalar() or 0
 
     # Run stats (last 30 days)

@@ -7,17 +7,15 @@ automatic schema detection, incremental loading, and connection pooling.
 Supports parallel table extraction via dlt's parallelized resources,
 allowing concurrent fetching of multiple tables for better performance.
 """
-from typing import Iterator, Dict, Any, Optional, List, Union
-from datetime import datetime, timedelta
+from typing import Iterator, Dict, Any, Optional, List
+from datetime import datetime
 import psycopg2
-from psycopg2 import pool, sql
+from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
 import dlt
 from dlt.sources import DltResource
 from dlt.common.typing import TDataItem
 import logging
-import concurrent.futures
-from functools import partial
 
 logger = logging.getLogger(__name__)
 

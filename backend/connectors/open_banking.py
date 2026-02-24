@@ -12,7 +12,6 @@ The UK leads the world in Open Banking with 294+ registered TPPs and
 6B+ API calls annually.
 """
 import logging
-import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, Iterator, List, Optional
 

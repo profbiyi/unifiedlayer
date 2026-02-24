@@ -9,7 +9,6 @@ import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from datetime import datetime, timezone
 import uuid
 
 from openai import OpenAI
@@ -17,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.database import get_db_session
-from backend.services.schema_analyzer import SchemaAnalyzer, SchemaContext, get_schema_analyzer
+from backend.services.schema_analyzer import SchemaContext, get_schema_analyzer
 from backend.models.data_model import GeneratedModel, ModelLayer, ModelStatus
 
 logger = logging.getLogger(__name__)
@@ -528,7 +527,7 @@ Include appropriate JOINs and aggregations in fact tables.
         Returns:
             ModelingResult with all generated content
         """
-        from backend.models.pipeline import Pipeline, Destination
+        from backend.models.pipeline import Pipeline
 
         close_db = False
         if db is None:

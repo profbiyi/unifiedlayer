@@ -19,9 +19,8 @@ import re
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import hashlib
 
@@ -524,7 +523,7 @@ class DbtExecutor:
         if self._temp_dir and os.path.exists(self._temp_dir):
             try:
                 shutil.rmtree(self._temp_dir)
-                self._log(f"Cleaned up temporary directory")
+                self._log("Cleaned up temporary directory")
             except Exception as e:
                 logger.warning(f"Failed to clean up temp dir: {e}")
 

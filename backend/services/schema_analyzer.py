@@ -7,7 +7,7 @@ table structures, samples data, and detects relationships.
 """
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
@@ -116,7 +116,7 @@ class SchemaAnalyzer:
 
         elif destination_type == "bigquery":
             project_id = config.get("project_id", "")
-            credentials_json = config.get("credentials_json", {})
+            config.get("credentials_json", {})
             # BigQuery connection via SQLAlchemy requires google-cloud-bigquery
             # Using project ID in connection string
             return f"bigquery://{project_id}"
@@ -415,7 +415,7 @@ class SchemaAnalyzer:
             Human-readable schema summary
         """
         lines = [
-            f"## Database Schema Summary",
+            "## Database Schema Summary",
             f"- Destination: {context.destination_type}",
             f"- Dataset/Schema: {context.dataset_name}",
             f"- Total Tables: {context.total_tables}",

@@ -2,17 +2,13 @@
 Tests for billing models, service, and API routes.
 """
 import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timezone
 import uuid
 
 from backend.models.billing import (
     Subscription,
-    Invoice,
     UsageRecord,
     SubscriptionPlan,
     SubscriptionStatus,
-    InvoiceStatus,
     PLAN_LIMITS,
 )
 

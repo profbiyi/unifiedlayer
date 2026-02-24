@@ -5,7 +5,6 @@ Monitors Prefect work queue and dynamically scales workers based on load.
 """
 
 import os
-import time
 import logging
 import subprocess
 from typing import Dict, Optional
@@ -262,7 +261,6 @@ class WorkerAutoScaler:
 
 async def main():
     """Main entry point."""
-    import asyncio
 
     # Get config from environment
     prefect_api_url = os.getenv("PREFECT_API_URL", "http://prefect-server:4200/api")

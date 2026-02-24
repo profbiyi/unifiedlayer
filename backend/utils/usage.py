@@ -4,14 +4,12 @@ Usage metering utility.
 Provides a convenience function for recording usage increments
 and checking plan limits.
 """
-from datetime import datetime, timezone
-from typing import Optional, Dict
+from typing import Dict
 
 from sqlalchemy.orm import Session
 
 from backend.models.billing import (
     Subscription,
-    UsageRecord,
     SubscriptionPlan,
     PLAN_LIMITS,
 )

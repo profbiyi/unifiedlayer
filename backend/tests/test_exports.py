@@ -1,6 +1,6 @@
 """Tests for data export routes."""
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI

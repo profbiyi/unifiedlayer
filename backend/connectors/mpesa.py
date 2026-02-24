@@ -366,8 +366,8 @@ class MPesaSDKConnector(BaseConnector):
 
     def test_connection(self) -> Dict[str, Any]:
         try:
-            token = self._connector._get_access_token()
-            return {"success": True, "message": f"Connected. Token obtained."}
+            self._connector._get_access_token()
+            return {"success": True, "message": "Connected. Token obtained."}
         except Exception as e:
             return {"success": False, "message": str(e)}
 

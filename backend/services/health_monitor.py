@@ -6,9 +6,8 @@ Calculates health scores and detects issues proactively.
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
 
 from backend.models.pipeline import (
     DataSource,

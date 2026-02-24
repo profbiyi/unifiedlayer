@@ -260,7 +260,7 @@ class OnboardingService:
         # Check for sources
         sources = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).count()
         if sources > 0:
             progress.first_source_connected = True
@@ -268,7 +268,7 @@ class OnboardingService:
         # Check for destinations
         destinations = self.db.query(Destination).filter(
             Destination.organization_id == org_id,
-            Destination.is_active == True,
+            Destination.is_active,
         ).count()
         if destinations > 0:
             progress.first_destination_connected = True

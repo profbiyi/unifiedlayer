@@ -5,8 +5,8 @@ Periodic tasks for checking health of sources, pipelines, and destinations.
 Runs every 15 minutes and triggers alerts for unhealthy resources.
 """
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 from celery import Task
 from celery.schedules import crontab
@@ -20,7 +20,6 @@ from backend.services.health_monitor import (
     get_pipeline_health,
     get_destination_health,
     save_health_status,
-    get_organization_health_overview,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,7 @@ def run_all_health_checks(self: Task) -> Dict[str, Any]:
 
         # Get all active organizations
         organizations = db.query(Organization).filter(
-            Organization.is_active == True
+            Organization.is_active
         ).all()
 
         for org in organizations:
@@ -149,7 +148,7 @@ def _check_organization_health(db, organization_id: int) -> Dict[str, Any]:
     # Check all sources
     sources = db.query(DataSource).filter(
         DataSource.organization_id == organization_id,
-        DataSource.is_active == True,
+        DataSource.is_active,
     ).all()
 
     for source in sources:
@@ -198,7 +197,7 @@ def _check_organization_health(db, organization_id: int) -> Dict[str, Any]:
     # Check all pipelines
     pipelines = db.query(Pipeline).filter(
         Pipeline.organization_id == organization_id,
-        Pipeline.is_active == True,
+        Pipeline.is_active,
     ).all()
 
     for pipeline in pipelines:
@@ -247,7 +246,7 @@ def _check_organization_health(db, organization_id: int) -> Dict[str, Any]:
     # Check all destinations
     destinations = db.query(Destination).filter(
         Destination.organization_id == organization_id,
-        Destination.is_active == True,
+        Destination.is_active,
     ).all()
 
     for destination in destinations:
@@ -334,7 +333,7 @@ def _trigger_health_alert(
 
         users = db.query(User).filter(
             User.organization_id == organization_id,
-            User.is_active == True,
+            User.is_active,
         ).all()
 
         for user in users:

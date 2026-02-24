@@ -5,7 +5,6 @@ Defines database models for AI-generated dimensional models,
 including canonical and dimensional layers.
 """
 from datetime import datetime, timezone
-from typing import Optional
 import uuid as uuid_module
 import enum
 

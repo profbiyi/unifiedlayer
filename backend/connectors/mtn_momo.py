@@ -5,10 +5,9 @@ Syncs collections, disbursements, transfers, and account balances from MTN MoMo 
 
 Docs: https://momodeveloper.mtn.com/api-documentation
 """
-import time
 import logging
 import base64
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, Optional
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -196,7 +195,7 @@ class MTNMoMoConnector(BaseConnector):
 
     def test_connection(self) -> Dict[str, Any]:
         try:
-            token = self._get_token("collections")
+            self._get_token("collections")
             return {"success": True, "message": "Connected to MTN MoMo API"}
         except Exception as e:
             return {"success": False, "message": str(e)}

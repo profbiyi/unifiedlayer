@@ -4,7 +4,6 @@ Resource Health ORM Model.
 Stores health check snapshots for sources and pipelines.
 """
 from datetime import datetime, timezone
-from typing import Optional, List
 import uuid
 from sqlalchemy import (
     Column,
@@ -12,13 +11,11 @@ from sqlalchemy import (
     String,
     DateTime,
     Float,
-    Text,
     ForeignKey,
     Index,
     Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
 import enum
 
 from backend.database import Base

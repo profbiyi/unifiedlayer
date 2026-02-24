@@ -1,5 +1,4 @@
 """Tests for the pipeline retry handler service."""
-import pytest
 from unittest.mock import MagicMock, patch
 import time
 
@@ -85,13 +84,13 @@ class TestCalculateRetryDelay:
 
     def test_jitter_prevents_identical_delays(self):
         """Multiple calls with jitter should produce different delays."""
-        delay1 = calculate_retry_delay(
+        calculate_retry_delay(
             base_delay=60,
             retry_count=0,
             exponential_backoff=True,
             jitter=True,
         )
-        delay2 = calculate_retry_delay(
+        calculate_retry_delay(
             base_delay=60,
             retry_count=0,
             exponential_backoff=True,
@@ -240,7 +239,7 @@ class TestNonBlockingBehavior:
 
             # Time the function call
             start_time = time.time()
-            result = schedule_pipeline_retry(
+            schedule_pipeline_retry(
                 pipeline_id=1,
                 failed_run_id=1,
                 retry_immediately=False,

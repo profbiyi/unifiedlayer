@@ -4,13 +4,12 @@ AI Schema Context Service.
 Builds schema context for the LLM to understand available tables and columns.
 """
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 from datetime import datetime, timezone, timedelta
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from backend.models.pipeline import DataSource, Destination
+from backend.models.pipeline import DataSource
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ class SchemaContextService:
         # Get connected sources
         sources = self.db.query(DataSource).filter(
             DataSource.organization_id == org_id,
-            DataSource.is_active == True,
+            DataSource.is_active,
         ).all()
 
         for source in sources:

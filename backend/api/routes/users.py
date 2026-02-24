@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.schemas import UserCreate, UserUpdate, UserResponse
+from backend.schemas import UserUpdate, UserResponse
 from backend.models.pipeline import User
-from backend.auth import get_current_user, get_current_superuser, get_password_hash
+from backend.auth import get_current_user, get_current_superuser
 import logging
 
 logger = logging.getLogger(__name__)

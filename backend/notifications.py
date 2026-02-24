@@ -65,7 +65,6 @@ class EmailNotifier:
         secondary = brand_secondary_color or "#8b5cf6"
         gradient_start = header_color_start or primary
         gradient_end = header_color_end or secondary
-        org_name = organization_name or "UnifiedLayer"
 
         subtitle_html = f'<p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 16px;">{header_subtitle}</p>' if header_subtitle else ''
 
@@ -204,7 +203,7 @@ class EmailNotifier:
                 }
             )
 
-            response = urllib.request.urlopen(req, timeout=30)
+            urllib.request.urlopen(req, timeout=30)
             logger.info(f"Email sent via SendGrid to {to_emails}: {subject}")
             return True
 
@@ -385,23 +384,6 @@ The pipeline failed. Please investigate.
         )
 
         # Plain text version as fallback
-        plain_body = f"""
-You've been invited to join {organization_name}!
-
-{invited_by_name} has invited you to join {organization_name} on UnifiedLayer.
-
-Organization: {organization_name}
-Role: {role_name}
-Invited by: {invited_by_name}
-
-Accept your invitation here:
-{invitation_link}
-
-Note: This invitation will expire in 7 days.
-
----
-{organization_name} - Modern Data Integration
-"""
 
         return self.send([to_email], subject, html_body, html=True)
 
@@ -506,24 +488,6 @@ Note: This invitation will expire in 7 days.
         )
 
         # Plain text version
-        plain_body = f"""
-Pipeline Completed Successfully ✅
-
-Pipeline: {pipeline_name}
-Status: SUCCESS
-
-Run Details:
-- Run ID: #{run_id}
-- Records Processed: {records_processed:,}
-- Duration: {duration_seconds:.1f}s
-
-View details: {pipeline_url}
-
-Great job! Your data pipeline is running smoothly.
-
----
-{organization_name or "UnifiedLayer"} - Modern Data Integration
-"""
 
         return self.send([to_email], subject, html_body, html=True)
 
@@ -562,7 +526,7 @@ Great job! Your data pipeline is running smoothly.
 
         # Truncate error messages if too long
         error_preview = error_message[:500] + "..." if len(error_message) > 500 else error_message
-        traceback_preview = error_traceback[:1000] + "..." if len(error_traceback) > 1000 else error_traceback
+        error_traceback[:1000] + "..." if len(error_traceback) > 1000 else error_traceback
 
         # Use red for error badge and box (always red for errors)
         # But use brand color for button if provided
@@ -637,23 +601,6 @@ Great job! Your data pipeline is running smoothly.
         )
 
         # Plain text version
-        plain_body = f"""
-Pipeline Failed ❌
-
-Pipeline: {pipeline_name}
-Status: FAILED
-Run ID: #{run_id}
-
-Error:
-{error_preview}
-
-View full details: {pipeline_url}
-
-Tip: Check the error logs for more details and verify your source/destination configurations.
-
----
-{organization_name or "UnifiedLayer"} - Modern Data Integration
-"""
 
         return self.send([to_email], subject, html_body, html=True)
 
@@ -671,7 +618,7 @@ Tip: Check the error logs for more details and verify your source/destination co
         """
         Send welcome email to new organization admin with login credentials.
         """
-        subject = f"Welcome to UnifiedLayer - Your account is ready"
+        subject = "Welcome to UnifiedLayer - Your account is ready"
 
         primary = brand_primary_color or "#6366f1"
 
@@ -783,30 +730,6 @@ Tip: Check the error logs for more details and verify your source/destination co
             organization_name=organization_name,
         )
 
-        plain_body = f"""
-Welcome to UnifiedLayer!
-
-Hi {user_name},
-
-Your organization {organization_name} is now live on UnifiedLayer.
-
-Your Login Credentials:
-- Email: {to_email}
-- Temporary Password: {temporary_password}
-
-Login here: {login_url}
-
-IMPORTANT: Please change your password after your first login.
-
-As the organization admin, you can:
-- Connect data sources and destinations
-- Create and manage data pipelines
-- Invite team members to your organization
-- View analytics and data quality reports
-
----
-{organization_name} - Modern Data Integration
-"""
 
         return self.send([to_email], subject, html_body, html=True)
 
@@ -886,23 +809,6 @@ As the organization admin, you can:
         )
 
         # Plain text version
-        plain_body = f"""
-Reset Your Password
-
-Hi {user_name or "there"},
-
-We received a request to reset your password for your {org_name} account.
-
-Reset your password here:
-{reset_link}
-
-⏰ This link will expire in 1 hour.
-
-If you didn't request a password reset, you can safely ignore this email.
-
----
-{org_name} - Modern Data Integration
-"""
 
         return self.send([to_email], subject, html_body, html=True)
 
@@ -996,7 +902,7 @@ If you didn't request a password reset, you can safely ignore this email.
         )
 
         # Plain text version
-        plain_body = f"""
+        f"""
 Security Alert: Two-Factor Authentication Disabled
 
 Hi {user_name or "there"},
