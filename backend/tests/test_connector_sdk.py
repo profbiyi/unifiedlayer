@@ -3,7 +3,7 @@ Tests for the Connector SDK (base class and registry).
 """
 from typing import Iterator, Dict, Any, List, Optional
 
-from backend.connectors.sdk.base import BaseConnector, ConnectorMetadata, ConnectorCapabilities
+from backend.connectors.sdk.base import BaseConnector, ConnectorMetadata
 from backend.connectors.sdk.registry import ConnectorRegistry, register_connector
 
 
