@@ -105,6 +105,7 @@ class TestRegisterSendsVerificationEmail:
             obj.created_at = "2025-01-01"
             obj.updated_at = "2025-01-01"
             obj.last_login = None
+            obj.two_factor_enabled = False
 
         mock_db.refresh = _refresh
 

@@ -89,7 +89,7 @@ class TestBillingAPI:
         assert "plans" in data
         plans = data["plans"]
         assert len(plans) == 3
-        plan_names = [p["name"] for p in plans]
+        plan_names = [p["plan"] for p in plans]
         assert "starter" in plan_names
         assert "professional" in plan_names
         assert "enterprise" in plan_names
