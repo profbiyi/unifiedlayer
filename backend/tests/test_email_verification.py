@@ -8,16 +8,18 @@ from fastapi.testclient import TestClient
 from backend.api.routes.auth import router
 
 
-def _make_app(db_session, current_user=None):
+def _make_app(db_session, current_user=None, super_admin=None):
     app = FastAPI()
     app.include_router(router)
 
     from backend.database import get_db
-    from backend.auth import get_current_user
+    from backend.auth import get_current_user, require_super_admin
 
     app.dependency_overrides[get_db] = lambda: db_session
     if current_user is not None:
         app.dependency_overrides[get_current_user] = lambda: current_user
+    if super_admin is not None:
+        app.dependency_overrides[require_super_admin] = lambda: super_admin
 
     return app
 
@@ -106,7 +108,10 @@ class TestRegisterSendsVerificationEmail:
 
         mock_db.refresh = _refresh
 
-        app = _make_app(mock_db)
+        # Provide a mock super_admin so require_super_admin dependency is satisfied
+        mock_admin = MagicMock()
+        mock_admin.id = 1
+        app = _make_app(mock_db, super_admin=mock_admin)
         client = TestClient(app)
 
         resp = client.post("/auth/register", json={

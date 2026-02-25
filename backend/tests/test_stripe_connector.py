@@ -177,10 +177,10 @@ class TestStripeSource:
             mock_instance = MagicMock()
             MockConnector.return_value = mock_instance
 
-            resources = stripe_source(api_key="sk_test_123")
+            source = stripe_source(api_key="sk_test_123")
 
-        # Should return 8 resources (all tables)
-        assert len(resources) == 8
+        # DltSource.resources is a dict of {name: DltResource}
+        assert len(source.resources) == 8
 
     def test_stripe_source_with_table_filter(self):
         from backend.connectors.stripe_connector import stripe_source
@@ -189,10 +189,10 @@ class TestStripeSource:
             mock_instance = MagicMock()
             MockConnector.return_value = mock_instance
 
-            resources = stripe_source(
+            source = stripe_source(
                 api_key="sk_test_123",
                 tables=["charges", "customers"]
             )
 
         # Should return only 2 resources
-        assert len(resources) == 2
+        assert len(source.resources) == 2

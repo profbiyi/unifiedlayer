@@ -183,7 +183,9 @@ class TestShouldRetryPipeline:
 
     def test_handles_missing_max_retries(self):
         """Should handle missing max_retries attribute."""
-        pipeline = MagicMock(spec=[])  # No max_retries attribute
+        # spec=['id'] gives us an id attribute but no max_retries
+        pipeline = MagicMock(spec=["id"])
+        pipeline.id = 99
 
         run = MagicMock()
         run.retry_count = 0

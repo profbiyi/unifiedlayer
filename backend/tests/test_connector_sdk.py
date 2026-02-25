@@ -1,23 +1,22 @@
 """
 Tests for the Connector SDK (base class and registry).
 """
-from typing import Iterator, Dict, Any
+from typing import Iterator, Dict, Any, List, Optional
 
-from backend.connectors.sdk.base import BaseConnector, ConnectorMetadata
+from backend.connectors.sdk.base import BaseConnector, ConnectorMetadata, ConnectorCapabilities
 from backend.connectors.sdk.registry import ConnectorRegistry, register_connector
 
 
 class DummyConnector(BaseConnector):
     """A minimal connector for testing the SDK."""
 
-    def get_metadata(self) -> ConnectorMetadata:
-        return ConnectorMetadata(
-            name="dummy",
-            display_name="Dummy Connector",
-            description="A test connector",
-            category="test",
-            supported_tables=["items", "orders"],
-        )
+    metadata = ConnectorMetadata(
+        name="dummy",
+        display_name="Dummy Connector",
+        description="A test connector",
+        category="test",
+        supported_tables=["items", "orders"],
+    )
 
     def get_config_schema(self) -> Dict[str, Any]:
         return {
@@ -28,27 +27,32 @@ class DummyConnector(BaseConnector):
             },
         }
 
-    def test_connection(self) -> Dict[str, Any]:
-        return {"success": True, "message": "Connected"}
+    def test_connection(self) -> bool:
+        return True
 
-    def discover_schema(self) -> Dict[str, Any]:
-        return {
-            "items": {"id": "string", "name": "string"},
-            "orders": {"id": "string", "total": "number"},
-        }
+    def discover_schema(self) -> List[Dict[str, Any]]:
+        return [
+            {"name": "items", "columns": {"id": "string", "name": "string"}},
+            {"name": "orders", "columns": {"id": "string", "total": "number"}},
+        ]
 
-    def extract(self, table_name: str, **kwargs) -> Iterator[Dict[str, Any]]:
-        if table_name == "items":
+    def extract(
+        self,
+        tables: Optional[List[str]] = None,
+        incremental_key: Optional[str] = None,
+        last_value: Optional[Any] = None,
+    ) -> Iterator[Dict[str, Any]]:
+        target = tables or ["items", "orders"]
+        if "items" in target:
             yield {"id": "1", "name": "Widget"}
             yield {"id": "2", "name": "Gadget"}
-        elif table_name == "orders":
+        if "orders" in target:
             yield {"id": "O1", "total": 99.99}
 
 
 class TestBaseConnector:
     def test_metadata(self):
-        c = DummyConnector({"api_key": "test"})
-        meta = c.get_metadata()
+        meta = DummyConnector.metadata
         assert meta.name == "dummy"
         assert "items" in meta.supported_tables
 
@@ -60,16 +64,17 @@ class TestBaseConnector:
     def test_test_connection(self):
         c = DummyConnector({"api_key": "test"})
         result = c.test_connection()
-        assert result["success"] is True
+        assert result is True
 
     def test_discover_schema(self):
         c = DummyConnector({"api_key": "test"})
         schema = c.discover_schema()
-        assert "items" in schema
+        names = [t["name"] for t in schema]
+        assert "items" in names
 
     def test_extract(self):
         c = DummyConnector({"api_key": "test"})
-        rows = list(c.extract("items"))
+        rows = list(c.extract(tables=["items"]))
         assert len(rows) == 2
         assert rows[0]["name"] == "Widget"
 
@@ -80,37 +85,52 @@ class TestBaseConnector:
 
     def test_context_manager(self):
         with DummyConnector({"api_key": "test"}) as c:
-            assert c.test_connection()["success"] is True
+            assert c.test_connection() is True
 
 
 class TestConnectorRegistry:
     def test_register_and_get(self):
-        registry = ConnectorRegistry()
-        registry.register("dummy", DummyConnector)
-        assert registry.get("dummy") == DummyConnector
+        # Register using the class itself (metadata.name = "dummy")
+        ConnectorRegistry.register(DummyConnector)
+        assert ConnectorRegistry.get("dummy") == DummyConnector
 
     def test_get_nonexistent(self):
         registry = ConnectorRegistry()
-        assert registry.get("nonexistent") is None
+        assert registry.get("nonexistent_xyz_123") is None
 
     def test_list_all(self):
-        registry = ConnectorRegistry()
-        registry.register("dummy", DummyConnector)
-        all_connectors = registry.list_all()
-        assert "dummy" in all_connectors
+        ConnectorRegistry.register(DummyConnector)
+        all_metadata = ConnectorRegistry.list_all()
+        # list_all() returns ConnectorMetadata objects
+        names = [m.name for m in all_metadata]
+        assert "dummy" in names
 
     def test_instantiate(self):
-        registry = ConnectorRegistry()
-        registry.register("dummy", DummyConnector)
-        instance = registry.instantiate("dummy", {"api_key": "test"})
+        ConnectorRegistry.register(DummyConnector)
+        instance = ConnectorRegistry.instantiate("dummy", {"api_key": "test"})
         assert isinstance(instance, DummyConnector)
-        assert instance.test_connection()["success"] is True
+        assert instance.test_connection() is True
 
     def test_decorator(self):
-        registry = ConnectorRegistry()
+        @register_connector
+        class DecoratedConnector(BaseConnector):
+            metadata = ConnectorMetadata(
+                name="decorated_test",
+                display_name="Decorated Test",
+                description="Decorator test connector",
+                category="test",
+            )
 
-        @register_connector("decorated", registry=registry)
-        class DecoratedConnector(DummyConnector):
-            pass
+            def get_config_schema(self) -> Dict[str, Any]:
+                return {}
 
-        assert registry.get("decorated") == DecoratedConnector
+            def test_connection(self) -> bool:
+                return True
+
+            def discover_schema(self) -> List[Dict[str, Any]]:
+                return []
+
+            def extract(self, tables=None, incremental_key=None, last_value=None):
+                return iter([])
+
+        assert ConnectorRegistry.get("decorated_test") == DecoratedConnector

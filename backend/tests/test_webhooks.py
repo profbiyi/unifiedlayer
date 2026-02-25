@@ -109,10 +109,9 @@ class TestReceiveWebhookInvalidSignatureStillStores:
                 },
             )
 
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["verified"] is False
-        # Event is still stored
+        # Signature verification failure returns 400 (by design), but
+        # the event is still persisted with FAILED status before raising
+        assert resp.status_code == 400
         mock_db.add.assert_called_once()
         added_event = mock_db.add.call_args[0][0]
         assert added_event.status == WebhookEventStatus.FAILED

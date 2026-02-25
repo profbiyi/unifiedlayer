@@ -757,7 +757,7 @@ def expired_api_key(db: Session, test_user: User, test_org: Organization) -> API
 def client(db: Session, setup_rbac: Dict) -> Generator[TestClient, None, None]:
     """Create test client with database override."""
     app.dependency_overrides[get_db] = lambda: db
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://testserver/api/v1") as test_client:
         yield test_client
     app.dependency_overrides.clear()
 

@@ -415,9 +415,10 @@ class TestRESTAPISource:
             pagination_config={"page_size": 50},
         )
 
-        assert len(source) == 2
-        assert source[0].name == "users"
-        assert source[1].name == "orders"
+        # DltSource.resources is a dict of {name: DltResource}
+        assert len(source.resources) == 2
+        assert "users" in source.resources
+        assert "orders" in source.resources
 
 
 if __name__ == "__main__":

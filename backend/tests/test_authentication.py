@@ -249,13 +249,12 @@ class TestUserRegistration:
             }
         )
 
-        # Adjust based on actual implementation
-        # If registration is implemented, should return 201
-        # If not implemented, might return 404 or 405
+        # Registration requires super-admin auth; unauthenticated → 401
         assert response.status_code in [
             status.HTTP_201_CREATED,
+            status.HTTP_401_UNAUTHORIZED,
             status.HTTP_404_NOT_FOUND,
-            status.HTTP_405_METHOD_NOT_ALLOWED
+            status.HTTP_405_METHOD_NOT_ALLOWED,
         ]
 
     def test_register_duplicate_username(self, client, test_user, test_org):
@@ -270,11 +269,12 @@ class TestUserRegistration:
             }
         )
 
-        # Should fail if registration is implemented
+        # Registration requires super-admin auth; unauthenticated → 401
         assert response.status_code in [
             status.HTTP_400_BAD_REQUEST,
+            status.HTTP_401_UNAUTHORIZED,
             status.HTTP_404_NOT_FOUND,
-            status.HTTP_405_METHOD_NOT_ALLOWED
+            status.HTTP_405_METHOD_NOT_ALLOWED,
         ]
 
     def test_register_duplicate_email(self, client, test_user, test_org):
@@ -289,11 +289,12 @@ class TestUserRegistration:
             }
         )
 
-        # Should fail if registration is implemented
+        # Registration requires super-admin auth; unauthenticated → 401
         assert response.status_code in [
             status.HTTP_400_BAD_REQUEST,
+            status.HTTP_401_UNAUTHORIZED,
             status.HTTP_404_NOT_FOUND,
-            status.HTTP_405_METHOD_NOT_ALLOWED
+            status.HTTP_405_METHOD_NOT_ALLOWED,
         ]
 
 

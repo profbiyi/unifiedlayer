@@ -1,7 +1,9 @@
 """
 Tests for UK connectors (GoCardless, Xero, Open Banking, HMRC MTD).
 """
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+
+import pytest
 
 from backend.connectors.gocardless import GoCardlessConnector
 from backend.connectors.xero import XeroConnector
@@ -18,56 +20,74 @@ class TestGoCardlessConnector:
         return GoCardlessConnector(config)
 
     def test_metadata(self):
-        c = self._make_connector()
-        meta = c.get_metadata()
+        # metadata is a class attribute, not an instance method
+        meta = GoCardlessConnector.metadata
         assert meta.name == "gocardless"
-        assert "payments" in meta.supported_tables
+        assert meta.category == "payment"
 
     def test_config_schema(self):
         c = self._make_connector()
         schema = c.get_config_schema()
-        assert "access_token" in schema["required"]
-        assert "environment" in schema["properties"]
+        # Returns flat dict: {"access_token": {"required": True, ...}, ...}
+        assert "access_token" in schema
+        assert schema["access_token"]["required"] is True
+        assert "environment" in schema
 
-    @patch("backend.connectors.gocardless.requests.get")
-    def test_test_connection_success(self, mock_get):
-        mock_get.return_value = MagicMock(status_code=200, json=lambda: {"creditors": [{"id": "CR123"}]})
+    def test_test_connection_success(self):
         c = self._make_connector()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"creditors": [{"id": "CR123"}]}
+        c._session.get = MagicMock(return_value=mock_resp)
         result = c.test_connection()
-        assert result["success"] is True
+        assert result is True
 
-    @patch("backend.connectors.gocardless.requests.get")
-    def test_test_connection_failure(self, mock_get):
-        mock_get.return_value = MagicMock(status_code=401, text="Unauthorized")
+    def test_test_connection_failure(self):
         c = self._make_connector()
-        result = c.test_connection()
-        assert result["success"] is False
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = "Unauthorized"
+        c._session.get = MagicMock(return_value=mock_resp)
+        with pytest.raises(ConnectionError):
+            c.test_connection()
 
     def test_discover_schema(self):
         c = self._make_connector()
         schema = c.discover_schema()
-        assert "payments" in schema
-        assert "id" in schema["payments"]
+        # Returns list of dicts with "name" key
+        names = [t["name"] for t in schema]
+        assert "payments" in names
+        # Verify payments entry has an "id" column
+        payments = next(t for t in schema if t["name"] == "payments")
+        assert any(col["name"] == "id" for col in payments["columns"])
 
-    @patch("backend.connectors.gocardless.requests.get")
-    def test_extract_payments(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "payments": [
-                    {"id": "PM001", "amount": 1000, "currency": "GBP", "status": "confirmed", "links": {"mandate": "MD001"}},
-                ],
-                "meta": {"cursors": {"after": None}, "limit": 50},
-            },
-        )
+    def test_extract_payments(self):
         c = self._make_connector()
-        rows = list(c.extract("payments"))
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "payments": [
+                {
+                    "id": "PM001",
+                    "amount": 1000,
+                    "currency": "GBP",
+                    "status": "confirmed",
+                    "links": {"mandate": "MD001"},
+                },
+            ],
+            "meta": {"cursors": {"after": None}, "limit": 50},
+        }
+        c._session.get = MagicMock(return_value=mock_resp)
+        # extract() takes tables as a list, not a string
+        rows = list(c.extract(tables=["payments"]))
         assert len(rows) == 1
         assert rows[0]["id"] == "PM001"
-        assert rows[0]["mandate_id"] == "MD001"
+        # _flatten_record converts links.mandate -> links_mandate (not mandate_id)
+        assert rows[0]["links_mandate"] == "MD001"
 
     def test_to_dlt_resource(self):
         c = self._make_connector()
+        # to_dlt_resource creates a lazy DltResource; extract is not called yet
         resource = c.to_dlt_resource(table_name="payments")
         assert resource is not None
 
@@ -87,45 +107,46 @@ class TestXeroConnector:
         return XeroConnector(config)
 
     def test_metadata(self):
-        c = self._make_connector()
-        meta = c.get_metadata()
+        meta = XeroConnector.metadata
         assert meta.name == "xero"
-        assert "invoices" in meta.supported_tables
+        assert meta.category == "accounting"
 
     def test_config_schema(self):
         c = self._make_connector()
         schema = c.get_config_schema()
-        assert "access_token" in schema["required"]
-        assert "tenant_id" in schema["required"]
+        assert "access_token" in schema
+        assert schema["access_token"]["required"] is True
+        assert "tenant_id" in schema
+        assert schema["tenant_id"]["required"] is True
 
-    @patch("backend.connectors.xero.requests.get")
-    def test_test_connection_success(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {"Organisations": [{"Name": "Test Org"}]},
-        )
+    def test_test_connection_success(self):
         c = self._make_connector()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"Organisations": [{"Name": "Test Org"}]}
+        c._session.get = MagicMock(return_value=mock_resp)
         result = c.test_connection()
-        assert result["success"] is True
+        assert result is True
 
     def test_discover_schema(self):
         c = self._make_connector()
         schema = c.discover_schema()
-        assert "invoices" in schema
-        assert "contacts" in schema
+        names = [t["name"] for t in schema]
+        assert "invoices" in names
+        assert "contacts" in names
 
-    @patch("backend.connectors.xero.requests.get")
-    def test_extract_invoices(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "Invoices": [
-                    {"InvoiceID": "INV001", "Type": "ACCREC", "Total": 500.00, "Status": "AUTHORISED"},
-                ],
-            },
-        )
+    def test_extract_invoices(self):
         c = self._make_connector()
-        rows = list(c.extract("invoices"))
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "Invoices": [
+                {"InvoiceID": "INV001", "Type": "ACCREC", "Total": 500.00, "Status": "AUTHORISED"},
+            ],
+        }
+        mock_resp.raise_for_status = MagicMock()
+        c._session.get = MagicMock(return_value=mock_resp)
+        rows = list(c.extract(tables=["invoices"]))
         assert len(rows) == 1
         assert rows[0]["InvoiceID"] == "INV001"
 
@@ -144,44 +165,44 @@ class TestOpenBankingConnector:
         return OpenBankingConnector(config)
 
     def test_metadata(self):
-        c = self._make_connector()
-        meta = c.get_metadata()
+        meta = OpenBankingConnector.metadata
         assert meta.name == "open_banking"
-        assert "transactions" in meta.supported_tables
+        assert meta.category == "banking"
 
     def test_config_schema(self):
         c = self._make_connector()
         schema = c.get_config_schema()
-        assert "access_token" in schema["required"]
+        assert "access_token" in schema
+        assert schema["access_token"]["required"] is True
 
-    @patch("backend.connectors.open_banking.requests.get")
-    def test_test_connection_success(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {"results": [{"account_id": "acc123"}]},
-        )
+    def test_test_connection_success(self):
         c = self._make_connector()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"results": [{"account_id": "acc123"}]}
+        c._session.get = MagicMock(return_value=mock_resp)
         result = c.test_connection()
-        assert result["success"] is True
+        assert result is True
 
     def test_discover_schema(self):
         c = self._make_connector()
         schema = c.discover_schema()
-        assert "accounts" in schema
-        assert "transactions" in schema
+        names = [t["name"] for t in schema]
+        assert "accounts" in names
+        assert "transactions" in names
 
-    @patch("backend.connectors.open_banking.requests.get")
-    def test_extract_accounts(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "results": [
-                    {"account_id": "acc001", "display_name": "Current Account", "currency": "GBP"},
-                ],
-            },
-        )
+    def test_extract_accounts(self):
         c = self._make_connector()
-        rows = list(c.extract("accounts"))
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {
+            "results": [
+                {"account_id": "acc001", "display_name": "Current Account", "currency": "GBP"},
+            ],
+        }
+        c._session.get = MagicMock(return_value=mock_resp)
+        rows = list(c.extract(tables=["accounts"]))
         assert len(rows) == 1
         assert rows[0]["account_id"] == "acc001"
 
@@ -201,44 +222,51 @@ class TestHMRCMTDConnector:
         return HMRCMTDConnector(config)
 
     def test_metadata(self):
-        c = self._make_connector()
-        meta = c.get_metadata()
+        meta = HMRCMTDConnector.metadata
         assert meta.name == "hmrc_mtd"
-        assert "vat_obligations" in meta.supported_tables
+        assert meta.category == "tax"
 
     def test_config_schema(self):
         c = self._make_connector()
         schema = c.get_config_schema()
-        assert "access_token" in schema["required"]
-        assert "vrn" in schema["required"]
+        assert "access_token" in schema
+        assert schema["access_token"]["required"] is True
+        assert "vrn" in schema
+        assert schema["vrn"]["required"] is True
 
-    @patch("backend.connectors.hmrc_mtd.requests.get")
-    def test_test_connection_success(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {"obligations": [{"periodKey": "#001"}]},
-        )
+    def test_test_connection_success(self):
         c = self._make_connector()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"obligations": [{"periodKey": "#001"}]}
+        c._session.get = MagicMock(return_value=mock_resp)
         result = c.test_connection()
-        assert result["success"] is True
+        assert result is True
 
     def test_discover_schema(self):
         c = self._make_connector()
         schema = c.discover_schema()
-        assert "vat_obligations" in schema
-        assert "vat_returns" in schema
+        names = [t["name"] for t in schema]
+        assert "vat_obligations" in names
+        assert "vat_returns" in names
 
-    @patch("backend.connectors.hmrc_mtd.requests.get")
-    def test_extract_vat_obligations(self, mock_get):
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=lambda: {
-                "obligations": [
-                    {"periodKey": "#001", "start": "2025-01-01", "end": "2025-03-31", "status": "F", "due": "2025-05-07"},
-                ],
-            },
-        )
-        c = self._make_connector()
-        rows = list(c.extract("vat_obligations"))
+    def test_extract_vat_obligations(self):
+        # Use lookback_months=1 to produce a single date chunk (one API call)
+        c = self._make_connector(lookback_months=1)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "obligations": [
+                {
+                    "periodKey": "#001",
+                    "start": "2025-01-01",
+                    "end": "2025-03-31",
+                    "status": "F",
+                    "due": "2025-05-07",
+                },
+            ],
+        }
+        c._session.get = MagicMock(return_value=mock_resp)
+        rows = list(c.extract(tables=["vat_obligations"]))
         assert len(rows) == 1
         assert rows[0]["periodKey"] == "#001"

@@ -147,7 +147,7 @@ class RESTAPIConnector:
 
         elif self.pagination_type == PaginationType.OFFSET:
             limit = config.get("limit")
-            if limit and (not isinstance(limit, int) or limit <= 0):
+            if limit is not None and (not isinstance(limit, int) or limit <= 0):
                 raise RESTAPIError("limit must be a positive integer")
 
         elif self.pagination_type == PaginationType.CURSOR:
@@ -393,12 +393,14 @@ class RESTAPIConnector:
                 # For LINK_HEADER, we need response headers
                 return_headers = self.pagination_type == PaginationType.LINK_HEADER
 
+                # Pass a copy of params so each call records its own snapshot
+                request_params = dict(params)
                 if return_headers:
                     response, headers = self._make_request(
-                        method, current_endpoint, params=params, return_headers=True
+                        method, current_endpoint, params=request_params, return_headers=True
                     )
                 else:
-                    response = self._make_request(method, current_endpoint, params=params)
+                    response = self._make_request(method, current_endpoint, params=request_params)
 
                 # Extract data from response
                 if data_path:
@@ -410,8 +412,14 @@ class RESTAPIConnector:
                     if isinstance(response, list):
                         data = response
                     elif isinstance(response, dict):
-                        # Try common data keys
-                        data = response.get("data") or response.get("results") or response.get("items") or response
+                        # Try common data keys — use key existence, not truthiness,
+                        # so an empty list doesn't fall through to the whole response
+                        for _key in ("data", "results", "items"):
+                            if _key in response:
+                                data = response[_key]
+                                break
+                        else:
+                            data = response
                     else:
                         data = response
 
