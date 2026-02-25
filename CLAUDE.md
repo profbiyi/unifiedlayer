@@ -314,6 +314,20 @@ Railway handles:
 3. Create Pydantic schemas in `backend/schemas/`
 4. Add TanStack Query hook in `frontend/hooks/queries/`
 
+### Adding a new database column or table (schema change)
+Always use Alembic — never edit models without a migration:
+```bash
+# 1. Make your changes to the SQLAlchemy model in backend/models/
+# 2. Generate the migration (run from repo root)
+alembic revision --autogenerate -m "add_column_foo_to_pipelines"
+# 3. Review the generated file in alembic/versions/ — check it looks right
+# 4. Commit both the model change and the migration file together
+# 5. On next deploy, startup.sh runs `alembic upgrade head` automatically
+```
+**Rule**: If you add a model to `backend/models/`, also import it in
+`backend/models/__init__.py` or `Base.metadata.create_all()` / Alembic will fail
+with `NoReferencedTableError` at startup.
+
 ### Running locally
 ```bash
 # Backend
@@ -346,6 +360,53 @@ npm run dev
 15. Added AI Conversation tables (migrations: 2026021701/2026021702)
 16. Added Onboarding progress table (migration: 2026021702)
 17. Added Generated Models table (migration: 2026022001)
+
+## Engineering Fixes (Feb 2026 — commits 577b17a → cb74f98)
+
+### CI Pipeline (all 193 tests now green)
+- Rewrote `backend/tests/test_uk_connectors.py` to match actual connector implementations
+  (class-level `metadata`, `_session.get` mocking, flat config schema, list-style `tables` arg)
+- Fixed `test_connector_sdk.py`: removed unused `ConnectorCapabilities` import (Ruff F401)
+- Fixed `test_billing.py`: `p["name"]` → `p["plan"]` (field is `plan` in `PlanDetailsResponse`)
+- Fixed `test_email_verification.py`: mock `_refresh()` sets `obj.two_factor_enabled = False`
+  (Pydantic v2 rejects `None` for a `bool` field even when the column default is `False`)
+- Removed `docker-build` job from `.github/workflows/ci.yml` — Railway builds from source
+  directly; DockerHub credentials were never configured and the job was always failing
+
+### Railway Deployment Crash (NoReferencedTableError)
+- **Root cause**: `startup.sh` runs `Base.metadata.create_all()` which failed because
+  `ColumnLineage` has `ForeignKey("dbt_runs.id")` but `DbtRun`/`DbtProject` from
+  `backend/models/dbt.py` were never imported into `backend/models/__init__.py`.
+  SQLAlchemy couldn't resolve the FK → `NoReferencedTableError` → exit 1 → uvicorn
+  never started → Railway healthcheck always timed out.
+- **Fix**: Added to `backend/models/__init__.py`:
+  - `DbtProject`, `PipelineDbtConfig`, `DbtRun`, `DbtRunStatus` from `models/dbt.py`
+  - `OnboardingProgress`, `OnboardingStatus` from `models/onboarding.py`
+  - `OnboardingUserRole` alias (avoids name clash with RBAC `UserRole`)
+- **Rule**: Any SQLAlchemy model that is referenced by a ForeignKey in another model
+  **must** be imported in `models/__init__.py` or `create_all()` / Alembic will fail.
+
+### Super Admin Password Preservation
+- `create_super_admin.py` previously overwrote the super admin password on **every** deploy
+  (back to `SUPER_ADMIN_PASSWORD` env var or the `Admin123!` default), reverting any
+  password change made in the app.
+- **Fix**: Script now skips existing users entirely and only ensures `is_active`,
+  `is_superuser`, and `email_verified` are `True`. Password is only set on first creation.
+
+### Deployment Strategy: Switched from `create_all()` to Alembic
+- **Old behaviour**: `startup.sh` called `Base.metadata.create_all()` on every deploy.
+  This is `CREATE TABLE IF NOT EXISTS` — safe for existing rows but **cannot add new
+  columns to existing tables**. Any schema change (new column, index, constraint) would
+  silently be missing in production and cause 500 errors.
+- **New behaviour** (`backend/scripts/startup.sh`):
+  1. Detect whether the DB was previously managed by `create_all()` (has app tables but
+     no `alembic_version` row). If so: call `create_all()` once to fill any missing tables,
+     then `alembic stamp head` to mark the schema as fully migrated.
+  2. On a fresh DB: `alembic upgrade head` runs all migrations to create tables.
+  3. On an already-migrated DB: `alembic upgrade head` applies only pending migrations.
+- **Customer data safety**: existing rows are **never** touched by this process.
+  `RESET_DATABASE=true` env var is the only way to wipe data — it must be set explicitly
+  in Railway and should never be set in production.
 
 ## New Features Added (Routes, Models, Services)
 
@@ -392,46 +453,29 @@ npm run dev
 - `backend/tasks/dbt_tasks.py` — Async dbt job execution
 - `backend/tasks/health_checks.py` — Periodic health check tasks
 
-## Known Issues / Open Bugs (as of 2026-02-24)
+## Known Issues / Open Bugs (as of 2026-02-25)
 
-### Critical
-1. **Missing Alembic migration for health tables** — `ResourceHealth` and `HealthCheckLog`
-   models exist (`backend/models/health.py`) but have NO migration file. Health endpoints
-   will 500 on first use in production unless tables are manually created.
-
-2. **Broken Alembic migration chain** — Several recent migrations have `down_revision = None`
-   instead of pointing to their predecessor:
-   - `celery_task_id_dbt_runs` → should point to `add_oauth_columns`
-   - `2026021701` (AI tables) → should point to `add_column_lineage` or `celery_task_id_dbt_runs`
-   - `2026022001` (generated_models) → should point to `2026021702`
-   This creates multiple migration heads; `alembic upgrade head` may fail or leave gaps.
-
-3. **API key prefix mismatch** — `auth.py:create_api_key()` generates keys with `dpk_` prefix,
-   but `auth.py:get_current_user_or_api_key()` validates keys with `dp_live_` prefix. The
-   `api_keys.py` route correctly uses `dp_live_`. The `create_api_key()` / `verify_api_key()`
-   functions in `auth.py` are dead/broken code. All API key logic should go through the route.
-
-### High
-4. **`.env.local` has wrong API URL** — `NEXT_PUBLIC_API_URL=http://localhost:4200` (Prefect)
-   instead of `http://localhost:8000` (backend). Breaks local development.
-
-5. **`NEXT_PUBLIC_API_URL` must include `/api/v1`** — The frontend hooks call paths like
-   `/sources`, `/ai/ask`, etc. The backend serves these at `/api/v1/sources`, `/api/v1/ai/ask`.
-   For this to work, `NEXT_PUBLIC_API_URL` in production must be set to
-   `https://api.unifiedlayer.io/api/v1` (NOT just the domain). `.env.example` is misleading.
+### Fixed ✅ (all resolved in commits 577b17a → cb74f98)
+- ~~Broken Alembic migration chain~~ — fixed, all `down_revision` values corrected
+- ~~Missing health tables migration~~ — migration `2026_02_24_0001-add_health_tables.py` added
+- ~~API key prefix mismatch (`dpk_` vs `dp_live_`)~~ — dead `create_api_key`/`verify_api_key` removed from `auth.py`
+- ~~`.env.local` pointing to Prefect (4200)~~ — fixed to `http://localhost:8000/api/v1`
+- ~~`__import__` hack in `cross_source.py`~~ — replaced with top-level import
+- ~~OAuth columns added via raw SQL in startup~~ — removed from startup; lives only in migration
+- ~~`models/__init__.py` missing `DbtRun`, `DbtProject`, `OnboardingProgress`~~ — fixed (caused Railway crash)
+- ~~Super admin password reset on every deploy~~ — fixed; existing users are left untouched
+- ~~`create_all()` used in production~~ — replaced with `alembic upgrade head` (with stamp fallback)
 
 ### Medium
-6. **Hacky `__import__` in cross_source.py:301** — Should use a top-level `from datetime import datetime, timezone`
-7. **No Celery beat schedule for health checks** — Health tasks run on-demand only, not periodically
-8. **Unauthenticated `/config` endpoint** — Exposes CORS config, rate limit settings, etc.
-9. **`/stats` and `/metrics` are unauthenticated** — Prometheus metrics and DB stats exposed publicly
-10. **OAuth columns added via raw SQL in startup** — Should be purely in the alembic migration
+1. **No Celery beat schedule for health checks** — Health tasks run on-demand only, not periodically
+2. **Unauthenticated `/config` endpoint** — Exposes CORS config, rate limit settings, etc.
+3. **`/stats` and `/metrics` are unauthenticated** — Prometheus metrics and DB stats exposed publicly
 
 ### Low
-11. **`ScrollArea` ref may not work for auto-scroll in `/ask` page** — shadcn ScrollArea doesn't
-    always forward refs; auto-scroll on new messages may silently fail.
-12. **No tests for new features** — AI assistant, health, onboarding, cross-source, column lineage
-    have zero test coverage.
+4. **`ScrollArea` ref may not work for auto-scroll in `/ask` page** — shadcn ScrollArea doesn't
+   always forward refs; auto-scroll on new messages may silently fail.
+5. **No tests for new features** — AI assistant, health, onboarding, cross-source, column lineage
+   have zero test coverage.
 
 ## API URL Convention (IMPORTANT)
 - Backend routes are ALL under `/api/v1` prefix
@@ -448,6 +492,12 @@ npm run dev
 ## Environment Variables (Additional)
 - `OPENAI_API_KEY` — Required for AI Assistant (/ask) feature; gracefully degrades if missing
 - `REDIS_URL` — Required for Celery task queue (dbt tasks, health checks)
+- `SUPER_ADMIN_EMAIL` — Super admin email (default: `admin@unifiedlayer.io`)
+- `SUPER_ADMIN_PASSWORD` — Super admin password set on **first deploy only** (default: `Admin123!`).
+  After first creation the password is never overwritten by deploys. Set this in Railway before
+  first deploy, then change the password in-app afterwards.
+- `RESET_DATABASE` — Set to `true` to wipe the entire DB schema on next deploy.
+  **NEVER set this in production.** Only for dev environment resets.
 
 ---
 
