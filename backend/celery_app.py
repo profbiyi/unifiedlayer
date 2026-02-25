@@ -15,6 +15,7 @@ celery_app = Celery(
     include=[
         "backend.tasks.dbt_tasks",
         "backend.tasks.health_checks",
+        "backend.tasks.pipeline_scheduler",
     ],
 )
 
@@ -42,13 +43,22 @@ celery_app.conf.update(
     task_routes={
         "backend.tasks.dbt_tasks.*": {"queue": "dbt"},
         "backend.tasks.health_checks.*": {"queue": "health"},
+        "backend.tasks.pipeline_scheduler.*": {"queue": "default"},
     },
 
     # Default queue
     task_default_queue="default",
 
-    # Beat schedule (for periodic tasks, if needed)
-    beat_schedule={},
+    # Beat schedule for periodic tasks.
+    # health_checks.py appends its own entry at import time; we define the
+    # pipeline scheduler here so it lives alongside the celery_app config.
+    beat_schedule={
+        "check-scheduled-pipelines": {
+            "task": "backend.tasks.pipeline_scheduler.check_and_run_scheduled_pipelines",
+            "schedule": 60.0,  # every 60 seconds
+            "options": {"queue": "default"},
+        },
+    },
 )
 
 

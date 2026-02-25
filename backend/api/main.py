@@ -23,6 +23,8 @@ from backend.config import settings
 from backend.database import get_db, init_db, DatabaseHealthCheck
 from backend.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, AuthRateLimitMiddleware, RequestIDMiddleware
 from backend.utils.errors import ErrorResponse, ErrorCodes, get_request_id
+from backend.auth import get_current_user
+from backend.models.pipeline import User
 
 # Import API routes
 from backend.api.routes import (
@@ -397,7 +399,10 @@ async def startup_event():
                 "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
             )
         else:
-            logger.warning("ENCRYPTION_KEY is not set — credentials will be stored as plain JSON (not encrypted)")
+            logger.error(
+                "SECURITY WARNING: ENCRYPTION_KEY not set - "
+                "connector credentials stored in plaintext!"
+            )
     if not getattr(settings, 'STRIPE_SECRET_KEY', None):
         logger.warning("STRIPE_SECRET_KEY is not set — Stripe billing features will be unavailable")
     if not getattr(settings, 'PAYSTACK_SECRET_KEY', None):
@@ -486,12 +491,19 @@ async def liveness_check() -> Dict[str, Any]:
 
 
 @app.get("/metrics", tags=["Monitoring"])
-async def metrics():
+async def metrics(current_user: User = Depends(get_current_user)):
     """
     Prometheus metrics endpoint.
 
     Returns metrics in Prometheus format.
+    Restricted to super admins only.
     """
+    from fastapi import HTTPException
+    if not (current_user.is_superuser or current_user.is_super_admin()):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Metrics endpoint is restricted to super admins.",
+        )
     return Response(
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST,
@@ -499,11 +511,12 @@ async def metrics():
 
 
 @app.get("/stats", tags=["Monitoring"])
-async def stats() -> Dict[str, Any]:
+async def stats(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """
     Application statistics endpoint.
 
     Returns various statistics about the application.
+    Requires authentication.
     """
     db_stats = DatabaseHealthCheck.get_stats()
 
@@ -516,11 +529,12 @@ async def stats() -> Dict[str, Any]:
 
 
 @app.get("/config", tags=["System"])
-async def config() -> Dict[str, Any]:
+async def config(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """
     Configuration endpoint (non-sensitive values only).
 
     Returns non-sensitive configuration values.
+    Requires authentication.
     """
     return {
         "app_name": settings.APP_NAME,
