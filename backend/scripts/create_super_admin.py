@@ -54,35 +54,17 @@ def create_super_admin(
     ).first()
 
     if existing_user:
-        print(f"\n📋 User '{email}' already exists. Updating password...")
-        new_hash = get_password_hash(password)
-
-        # Debug: Verify password hash immediately BEFORE saving
-        from backend.auth import verify_password
-        verification_ok = verify_password(password, new_hash)
-        print(f"   🔐 Hash verification test: {'PASSED' if verification_ok else 'FAILED'}")
-
-        if not verification_ok:
-            print("   ⚠️  Hash verification failed - bcrypt issue detected!")
-            print("   🔄 Attempting to recreate user with fresh credentials...")
-
-            # Delete the user and their roles, then recreate
-            from backend.models import UserRole
-            db.query(UserRole).filter(UserRole.user_id == existing_user.id).delete()
-            db.delete(existing_user)
-            db.commit()
-            print("   🗑️  Deleted corrupted user record")
-
-            # Return None to trigger fresh user creation below
-            existing_user = None
-        else:
-            existing_user.hashed_password = new_hash
+        # User already exists — leave their password alone so changes made in
+        # the app are not overwritten on every deploy.  Just ensure the account
+        # is active and has the superuser flag set.
+        print(f"\n📋 Super admin '{email}' already exists — skipping (preserving existing password).")
+        if not existing_user.is_active or not existing_user.is_superuser or not existing_user.email_verified:
             existing_user.is_active = True
             existing_user.is_superuser = True
             existing_user.email_verified = True
             db.commit()
-            print(f"   ✅ Password updated for: {email}")
-            return existing_user
+            print("   ✅ Ensured account is active and verified.")
+        return existing_user
 
     # If existing_user was set to None due to hash failure, we fall through to create new user
     if existing_user is None:
