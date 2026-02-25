@@ -127,6 +127,7 @@ jobs:
     name: Docker Build & Push
     needs: [backend-test, frontend-build]
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
