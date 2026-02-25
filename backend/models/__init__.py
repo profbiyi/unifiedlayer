@@ -57,6 +57,17 @@ from backend.models.data_model import (
     ModelLayer,
     ModelStatus,
 )
+from backend.models.dbt import (
+    DbtProject,
+    PipelineDbtConfig,
+    DbtRun,
+    DbtRunStatus,
+)
+from backend.models.onboarding import (
+    OnboardingProgress,
+    OnboardingStatus,
+    UserRole as OnboardingUserRole,
+)
 
 __all__ = [
     "Organization",
@@ -103,4 +114,11 @@ __all__ = [
     "ModelGeneration",
     "ModelLayer",
     "ModelStatus",
+    "DbtProject",
+    "PipelineDbtConfig",
+    "DbtRun",
+    "DbtRunStatus",
+    "OnboardingProgress",
+    "OnboardingStatus",
+    "OnboardingUserRole",
 ]
