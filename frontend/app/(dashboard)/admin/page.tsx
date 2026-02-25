@@ -159,6 +159,10 @@ export default function AdminDashboard() {
   const [expandedOrgs, setExpandedOrgs] = useState<Set<number>>(new Set());
   const [orgDetails, setOrgDetails] = useState<Record<number, OrgDetails>>({});
   const [orgPipelines, setOrgPipelines] = useState<Record<number, RecentPipeline[]>>({});
+  const [deleteDialogOrg, setDeleteDialogOrg] = useState<Organization | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -352,6 +356,39 @@ export default function AdminDashboard() {
         description: error.response?.data?.detail || "Failed to delete organization",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleForceDeleteOrg = async () => {
+    if (!deleteDialogOrg) return;
+    if (deleteConfirmName !== deleteDialogOrg.name) return;
+    if (!deleteReason.trim()) return;
+
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/admin/organizations/${deleteDialogOrg.id}/force`, {
+        data: { reason: deleteReason.trim() },
+      });
+
+      toast({
+        title: "Organization Deleted",
+        description: `"${deleteDialogOrg.name}" and all its data have been permanently deleted.`,
+        variant: "destructive",
+      });
+
+      setDeleteDialogOrg(null);
+      setDeleteConfirmName("");
+      setDeleteReason("");
+      fetchOrganizations();
+      fetchStats();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to delete organization",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -679,6 +716,78 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* Force Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deleteDialogOrg}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogOrg(null);
+            setDeleteConfirmName("");
+            setDeleteReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              Permanently Delete Organization
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete <strong>{deleteDialogOrg?.name}</strong> and
+              all its data including users, pipelines, sources, destinations, and billing
+              records. <strong>This cannot be undone.</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason for deletion</Label>
+              <Textarea
+                placeholder="e.g. Customer requested account closure, fraud, etc."
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                Type <strong>{deleteDialogOrg?.name}</strong> to confirm
+              </Label>
+              <Input
+                placeholder={deleteDialogOrg?.name}
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOrg(null);
+                setDeleteConfirmName("");
+                setDeleteReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                deleteConfirmName !== deleteDialogOrg?.name ||
+                !deleteReason.trim() ||
+                deleteLoading
+              }
+              onClick={handleForceDeleteOrg}
+            >
+              {deleteLoading ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Organizations Table */}
       <Card>
         <CardHeader>
@@ -837,18 +946,28 @@ export default function AdminDashboard() {
                               </DropdownMenuItem>
                             )}
 
-                            {/* Delete Pending Organization */}
-                            {!org.admin_onboarded && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleDeletePendingOrg(org.id, org.name)}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete Pending Organization
-                                </DropdownMenuItem>
-                              </>
+                            {/* Delete Organization */}
+                            <DropdownMenuSeparator />
+                            {!org.admin_onboarded ? (
+                              <DropdownMenuItem
+                                onClick={() => handleDeletePendingOrg(org.id, org.name)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Pending Organization
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setDeleteDialogOrg(org);
+                                  setDeleteConfirmName("");
+                                  setDeleteReason("");
+                                }}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Permanently Delete
+                              </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>

@@ -830,6 +830,76 @@ async def delete_pending_organization(
     }
 
 
+class ForceDeleteRequest(BaseModel):
+    reason: str
+
+
+@router.delete("/organizations/{org_id}/force")
+async def force_delete_organization(
+    request: Request,
+    org_id: int,
+    body: ForceDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Permanently delete any organization, including fully onboarded ones.
+
+    **Super Admin Only**
+
+    All associated data (users, pipelines, sources, destinations, runs,
+    billing records, audit logs) is deleted via database cascade.
+    This action is irreversible. A reason must be provided for audit purposes.
+    """
+    request_info = get_request_info(request)
+
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    if org.slug in ["platform", "platform-admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete the platform administration organization"
+        )
+
+    org_name = org.name
+    org_id_val = org.id
+    user_count = db.query(User).filter(User.organization_id == org_id).count()
+    pipeline_count = db.query(Pipeline).filter(Pipeline.organization_id == org_id).count()
+
+    log_organization_action(
+        db=db,
+        user=current_user,
+        action="organization.force_deleted",
+        organization_id=org.id,
+        details={
+            "organization_name": org.name,
+            "slug": org.slug,
+            "subscription_plan": org.subscription_plan,
+            "admin_onboarded": org.admin_onboarded,
+            "user_count": user_count,
+            "pipeline_count": pipeline_count,
+            "reason": body.reason,
+            "deleted_by": current_user.email,
+        },
+        ip_address=request_info["ip_address"],
+    )
+
+    db.delete(org)
+    db.commit()
+
+    return {
+        "message": f"Organization '{org_name}' permanently deleted",
+        "organization_id": org_id_val,
+        "users_deleted": user_count,
+        "pipelines_deleted": pipeline_count,
+    }
+
+
 @router.delete("/organizations/by-slug/{slug}")
 async def force_delete_organization_by_slug(
     request: Request,
