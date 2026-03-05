@@ -465,6 +465,8 @@ npm run dev
 - ~~`models/__init__.py` missing `DbtRun`, `DbtProject`, `OnboardingProgress`~~ — fixed (caused Railway crash)
 - ~~Super admin password reset on every deploy~~ — fixed; existing users are left untouched
 - ~~`create_all()` used in production~~ — replaced with `alembic upgrade head` (with stamp fallback)
+- ~~Railway crash: `weasyprint` import raises `OSError` on `python:3.11-slim`~~ — fixed; `except (ImportError, OSError)` in `pdf_service.py`
+- ~~Railway crash: migrations `2026022503` + `2026030501` not idempotent~~ — fixed; `DO $$ BEGIN...EXCEPTION WHEN duplicate_object` + `IF NOT EXISTS` throughout
 - ~~PostgreSQL enum DDL error in CI tests~~ — `writemodeEnum`/`schemaContractEnum` renamed to
   `write_mode_enum`/`schema_contract_enum` (snake_case); `server_default` removed from model
   columns so `create_all()` generates no `DEFAULT` clause (Python-side `default=` handles it);
