@@ -16,11 +16,17 @@ logger = logging.getLogger(__name__)
 try:
     import weasyprint
     WEASYPRINT_AVAILABLE = True
-except ImportError:
+except (ImportError, OSError):
+    # ImportError  — weasyprint package not installed.
+    # OSError      — package is installed but a native system library (e.g.
+    #                libgobject-2.0.so.0, libcairo.so.2) is missing from the
+    #                OS.  This happens on python:3.11-slim images that lack
+    #                the gobject-introspection runtime packages.
     WEASYPRINT_AVAILABLE = False
     logger.warning(
-        "weasyprint is not installed. PDF generation will fall back to HTML. "
-        "Install with: pip install weasyprint>=60.0"
+        "weasyprint is unavailable (not installed or missing native libs). "
+        "PDF generation will fall back to HTML. "
+        "Install weasyprint + libcairo2, libpangocairo-1.0-0 for PDF support."
     )
 
 
