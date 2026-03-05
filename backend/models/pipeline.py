@@ -330,7 +330,7 @@ class Pipeline(Base):
 
     # Write mode: controls how new data is merged with existing data
     write_mode = Column(
-        SQLEnum(WriteModeEnum, name="writemodeEnum"),
+        SQLEnum(WriteModeEnum, name="write_mode_enum"),
         nullable=False,
         default=WriteModeEnum.MERGE,
         server_default="merge",
@@ -338,7 +338,7 @@ class Pipeline(Base):
 
     # Schema contract: controls how schema changes from the source are handled
     schema_contract = Column(
-        SQLEnum(SchemaContractEnum, name="schemaContractEnum"),
+        SQLEnum(SchemaContractEnum, name="schema_contract_enum"),
         nullable=False,
         default=SchemaContractEnum.EVOLVE,
         server_default="evolve",

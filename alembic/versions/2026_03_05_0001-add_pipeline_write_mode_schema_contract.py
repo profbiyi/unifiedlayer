@@ -17,12 +17,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create enum types first
+    # Create enum types first (snake_case names — unquoted identifiers avoid
+    # the PostgreSQL InvalidTextRepresentation bug with quoted camelCase names
+    # when a DEFAULT value is validated at CREATE TABLE time).
     op.execute(
-        "CREATE TYPE \"writemodeEnum\" AS ENUM ('append', 'merge', 'scd2', 'replace')"
+        "CREATE TYPE write_mode_enum AS ENUM ('append', 'merge', 'scd2', 'replace')"
     )
     op.execute(
-        "CREATE TYPE \"schemaContractEnum\" AS ENUM ('evolve', 'freeze', 'discard_columns', 'discard_rows')"
+        "CREATE TYPE schema_contract_enum AS ENUM ('evolve', 'freeze', 'discard_columns', 'discard_rows')"
     )
 
     op.add_column(
@@ -31,7 +33,7 @@ def upgrade() -> None:
             'write_mode',
             postgresql.ENUM(
                 'append', 'merge', 'scd2', 'replace',
-                name='writemodeEnum',
+                name='write_mode_enum',
                 create_type=False,
             ),
             nullable=False,
@@ -44,7 +46,7 @@ def upgrade() -> None:
             'schema_contract',
             postgresql.ENUM(
                 'evolve', 'freeze', 'discard_columns', 'discard_rows',
-                name='schemaContractEnum',
+                name='schema_contract_enum',
                 create_type=False,
             ),
             nullable=False,
@@ -56,5 +58,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_column('pipelines', 'schema_contract')
     op.drop_column('pipelines', 'write_mode')
-    op.execute('DROP TYPE IF EXISTS "writemodeEnum"')
-    op.execute('DROP TYPE IF EXISTS "schemaContractEnum"')
+    op.execute('DROP TYPE IF EXISTS write_mode_enum')
+    op.execute('DROP TYPE IF EXISTS schema_contract_enum')
