@@ -453,9 +453,9 @@ npm run dev
 - `backend/tasks/dbt_tasks.py` — Async dbt job execution
 - `backend/tasks/health_checks.py` — Periodic health check tasks
 
-## Known Issues / Open Bugs (as of 2026-02-25)
+## Known Issues / Open Bugs (as of 2026-03-05)
 
-### Fixed ✅ (all resolved in commits 577b17a → cb74f98)
+### Fixed ✅ (all resolved in commits 577b17a → bc3e1ac)
 - ~~Broken Alembic migration chain~~ — fixed, all `down_revision` values corrected
 - ~~Missing health tables migration~~ — migration `2026_02_24_0001-add_health_tables.py` added
 - ~~API key prefix mismatch (`dpk_` vs `dp_live_`)~~ — dead `create_api_key`/`verify_api_key` removed from `auth.py`
@@ -465,6 +465,10 @@ npm run dev
 - ~~`models/__init__.py` missing `DbtRun`, `DbtProject`, `OnboardingProgress`~~ — fixed (caused Railway crash)
 - ~~Super admin password reset on every deploy~~ — fixed; existing users are left untouched
 - ~~`create_all()` used in production~~ — replaced with `alembic upgrade head` (with stamp fallback)
+- ~~PostgreSQL enum DDL error in CI tests~~ — `writemodeEnum`/`schemaContractEnum` renamed to
+  `write_mode_enum`/`schema_contract_enum` (snake_case); `server_default` removed from model
+  columns so `create_all()` generates no `DEFAULT` clause (Python-side `default=` handles it);
+  migration retains `server_default` for the `ADD COLUMN` on production tables (commits 0bce68f/bc3e1ac)
 
 ### Medium
 1. **No Celery beat schedule for health checks** — Health tasks run on-demand only, not periodically
