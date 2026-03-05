@@ -14,6 +14,8 @@ import { SourceWizardData } from "@/app/(dashboard)/sources/new/page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Info, ExternalLink } from "lucide-react";
+import HttpFileForm from "@/components/source-wizard/forms/HttpFileForm";
+import RestApiDeclarativeForm from "@/components/source-wizard/forms/RestApiDeclarativeForm";
 
 interface ConnectionDetailsStepProps {
   data: SourceWizardData;
@@ -24,7 +26,7 @@ export default function ConnectionDetailsStep({
   data,
   onUpdate,
 }: ConnectionDetailsStepProps) {
-  const updateConfig = (key: string, value: any) => {
+  const updateConfig = (key: string, value: unknown) => {
     onUpdate({
       config: {
         ...data.config,
@@ -883,6 +885,10 @@ export default function ConnectionDetailsStep({
         return renderMPesaForm();
       case "whatsapp":
         return renderWhatsAppForm();
+      case "http_file":
+        return <HttpFileForm data={data} onUpdate={onUpdate} />;
+      case "rest_api_declarative":
+        return <RestApiDeclarativeForm data={data} onUpdate={onUpdate} />;
       default:
         return (
           <Alert>

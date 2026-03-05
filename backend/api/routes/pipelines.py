@@ -259,6 +259,8 @@ async def create_pipeline(
         destination_id=destination.id,  # Use integer ID from resolved destination
         schedule=pipeline_data.schedule,
         config=pipeline_data.config,
+        write_mode=pipeline_data.write_mode or "merge",
+        schema_contract=pipeline_data.schema_contract or "evolve",
         is_active=True,
     )
 

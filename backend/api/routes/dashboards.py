@@ -1,13 +1,18 @@
 """
 Dashboard API routes.
 
-Provides endpoints for dashboard templates and widget data.
+Provides endpoints for dashboard templates, widget data, and
+industry-specific pre-built dashboards (Feature B).
+
+Register in main.py:
+    from backend.api.routes.dashboards import router as dashboards_router
+    app.include_router(dashboards_router, prefix="/api/v1")
 """
 import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.auth import get_current_user
@@ -21,7 +26,7 @@ router = APIRouter(prefix="/dashboards", tags=["Dashboards"])
 
 
 # ============================================================
-# Schemas
+# Schemas — existing
 # ============================================================
 
 class WidgetConfig(BaseModel):
@@ -65,7 +70,51 @@ class DashboardDataRequest(BaseModel):
 
 
 # ============================================================
-# Endpoints
+# Schemas — Feature B: industry templates
+# ============================================================
+
+class IndustryTemplateSummary(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str
+    industry: str
+    target_connectors: List[str]
+    recommended_for_source_types: List[str]
+    widget_count: int
+
+
+class IndustryDashboardCreateRequest(BaseModel):
+    template_id: str = Field(
+        description='Industry template ID, e.g. "ecommerce", "saas_startup"'
+    )
+    data_source_id: int = Field(
+        description="ID of the connected DataSource whose connector type drives table name resolution"
+    )
+
+
+class IndustryDashboardResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    industry: str
+    org_id: int
+    data_source_id: int
+    source_type: str
+    widget_count: int
+    instantiated_at: str
+    widgets: list
+
+
+class TemplateRecommendationResponse(BaseModel):
+    recommended_template_id: Optional[str] = Field(
+        description="Best-matching industry template ID, or null if no match"
+    )
+    reason: str
+
+
+# ============================================================
+# Existing endpoints
 # ============================================================
 
 @router.get("/templates", response_model=List[TemplateSummary])
@@ -205,4 +254,135 @@ async def refresh_dashboard_data(
         source_type=request.source_type,
         current_user=current_user,
         db=db,
+    )
+
+
+# ============================================================
+# Feature B: Industry-specific dashboard template endpoints
+# ============================================================
+
+@router.get("/industry-templates", response_model=List[IndustryTemplateSummary])
+async def list_industry_templates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List all available industry-specific pre-built dashboard templates.
+
+    Returns five templates covering:
+    - **ecommerce** — E-commerce & Retail
+    - **food_beverage** — Food & Beverage (Restaurant)
+    - **fintech_payments** — Fintech & Payments
+    - **professional_services** — Professional Services (Agency/Consulting)
+    - **saas_startup** — SaaS & Tech Startup
+
+    Each template defines widgets (KPIs, charts, tables) with SQL templates
+    that are resolved to your actual destination table names when you call
+    `POST /dashboards/from-industry-template`.
+    """
+    service = get_dashboard_service(db)
+    return service.get_industry_templates()
+
+
+@router.post("/from-industry-template", response_model=IndustryDashboardResponse)
+async def create_from_industry_template(
+    request: IndustryDashboardCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Instantiate an industry dashboard template for this organization.
+
+    Takes a template ID and a connected data source ID, then resolves all
+    SQL placeholder table names (e.g. `{transactions_table}`) to the actual
+    destination table names used by the source's connector.
+
+    Body:
+    - **template_id**: e.g. `"ecommerce"`, `"saas_startup"`
+    - **data_source_id**: ID of the DataSource (must belong to this org)
+
+    Returns the fully-instantiated dashboard object including all widget
+    SQL queries ready to be executed. The dashboard is **not** persisted
+    to the database by this call — it is returned for the client to display
+    or further store as needed.
+    """
+    service = get_dashboard_service(db)
+
+    try:
+        dashboard = service.create_dashboard_from_industry_template(
+            org_id=current_user.organization_id,
+            template_id=request.template_id,
+            data_source_id=request.data_source_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        logger.error(
+            f"Failed to create industry dashboard for org {current_user.organization_id}: {exc}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to instantiate industry dashboard template.",
+        )
+
+    return IndustryDashboardResponse(
+        id=dashboard["id"],
+        name=dashboard["name"],
+        description=dashboard["description"],
+        industry=dashboard.get("industry", ""),
+        org_id=dashboard["org_id"],
+        data_source_id=dashboard["data_source_id"],
+        source_type=dashboard["source_type"],
+        widget_count=len(dashboard.get("widgets", [])),
+        instantiated_at=dashboard.get("instantiated_at", ""),
+        widgets=dashboard.get("widgets", []),
+    )
+
+
+@router.get("/recommend-template", response_model=TemplateRecommendationResponse)
+async def recommend_industry_template(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Recommend the best-matching industry dashboard template for this organization.
+
+    Examines the org's connected data sources and scores each industry template
+    based on how many of its preferred connector types match. Returns the
+    top-scoring template ID (or null if no sources are connected).
+
+    Example response:
+    ```json
+    {
+      "recommended_template_id": "ecommerce",
+      "reason": "Your connected sources (Stripe, Paystack) match the E-commerce & Retail template."
+    }
+    ```
+    """
+    service = get_dashboard_service(db)
+    template_id = service.recommend_industry_template(current_user.organization_id)
+
+    if template_id is None:
+        return TemplateRecommendationResponse(
+            recommended_template_id=None,
+            reason=(
+                "No connected sources found. Connect a data source and we will "
+                "recommend the best dashboard template for your business."
+            ),
+        )
+
+    # Look up the template name for a friendly reason string
+    from backend.templates.dashboard_templates import get_industry_template_by_id
+    tmpl = get_industry_template_by_id(template_id)
+    name = tmpl["name"] if tmpl else template_id
+
+    return TemplateRecommendationResponse(
+        recommended_template_id=template_id,
+        reason=(
+            f"Based on your connected data sources, the '{name}' template "
+            "is the best match for your business."
+        ),
     )

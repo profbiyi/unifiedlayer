@@ -9,6 +9,8 @@ export interface Pipeline {
   retry_delay_seconds?: number;
   exponential_backoff_enabled?: boolean;
   is_active: boolean;
+  write_mode?: 'append' | 'merge' | 'scd2' | 'replace';
+  schema_contract?: 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
   created_at: string;
   updated_at: string;
   source?: Source;
@@ -81,6 +83,8 @@ export interface CreatePipelineRequest {
   destination_id: string;
   schedule?: string;
   is_active: boolean;
+  write_mode?: 'append' | 'merge' | 'scd2' | 'replace';
+  schema_contract?: 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
   config?: {
     transformations?: TransformationConfig;
   };
@@ -93,4 +97,6 @@ export interface UpdatePipelineRequest {
   destination_id?: string;
   schedule?: string;
   is_active?: boolean;
+  write_mode?: 'append' | 'merge' | 'scd2' | 'replace';
+  schema_contract?: 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
 }

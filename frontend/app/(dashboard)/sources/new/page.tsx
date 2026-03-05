@@ -73,7 +73,7 @@ export default function NewSourceWizardPage() {
   const handleNext = () => {
     if (currentStep < steps.length) {
       // Skip schema discovery and sync config for file-based sources only
-      const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd"].includes(wizardData.source_type);
+      const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd", "http_file", "rest_api_declarative"].includes(wizardData.source_type);
 
       if (skipSchemaDiscovery && currentStep === 3) {
         // Jump directly to review after connection test
@@ -90,7 +90,7 @@ export default function NewSourceWizardPage() {
   const handleBack = () => {
     if (currentStep > 1) {
       // Skip schema discovery and sync config for file-based sources only
-      const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd"].includes(wizardData.source_type);
+      const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd", "http_file", "rest_api_declarative"].includes(wizardData.source_type);
 
       if (skipSchemaDiscovery && currentStep === 6) {
         // Jump back to connection test
@@ -105,7 +105,7 @@ export default function NewSourceWizardPage() {
   };
 
   const canProceed = () => {
-    const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd"].includes(wizardData.source_type);
+    const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd", "http_file", "rest_api_declarative"].includes(wizardData.source_type);
 
     switch (currentStep) {
       case 1:
@@ -131,7 +131,7 @@ export default function NewSourceWizardPage() {
       return;
     }
 
-    const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd"].includes(wizardData.source_type);
+    const skipSchemaDiscovery = ["csv", "local", "xero", "open_banking", "hmrc_mtd", "http_file", "rest_api_declarative"].includes(wizardData.source_type);
 
     // Build final config with table selections (only for sources that support it)
     const finalConfig = skipSchemaDiscovery

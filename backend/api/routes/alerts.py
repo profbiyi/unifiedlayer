@@ -29,9 +29,15 @@ class EmailChannelConfig(BaseModel):
     recipients: List[str] = []
 
 
+class WhatsAppChannelConfig(BaseModel):
+    enabled: bool = False
+    number: Optional[str] = None  # E.164 format, e.g. "+2348012345678"
+
+
 class NotificationChannelsConfig(BaseModel):
     slack: SlackChannelConfig = SlackChannelConfig()
     email: EmailChannelConfig = EmailChannelConfig()
+    whatsapp: WhatsAppChannelConfig = WhatsAppChannelConfig()
 
 
 class NotificationChannelsResponse(BaseModel):
@@ -39,6 +45,7 @@ class NotificationChannelsResponse(BaseModel):
     organization_id: Optional[str] = None
     slack: SlackChannelConfig
     email: EmailChannelConfig
+    whatsapp: WhatsAppChannelConfig = WhatsAppChannelConfig()
     updated_at: datetime
 
     class Config:
@@ -191,6 +198,7 @@ async def get_notification_channels(
             "organization_id": org_key,
             "slack": SlackChannelConfig(),
             "email": EmailChannelConfig(),
+            "whatsapp": WhatsAppChannelConfig(),
             "updated_at": datetime.utcnow(),
         }
 
@@ -200,6 +208,7 @@ async def get_notification_channels(
         organization_id=config["organization_id"],
         slack=config["slack"],
         email=config["email"],
+        whatsapp=config.get("whatsapp", WhatsAppChannelConfig()),
         updated_at=config["updated_at"],
     )
 
@@ -220,6 +229,7 @@ async def update_notification_channels(
         "organization_id": org_key,
         "slack": config.slack,
         "email": config.email,
+        "whatsapp": config.whatsapp,
         "updated_at": datetime.utcnow(),
     }
 
@@ -229,6 +239,7 @@ async def update_notification_channels(
         organization_id=updated["organization_id"],
         slack=updated["slack"],
         email=updated["email"],
+        whatsapp=updated.get("whatsapp", WhatsAppChannelConfig()),
         updated_at=updated["updated_at"],
     )
 

@@ -50,7 +50,7 @@ export default function PipelinesPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">Pipelines</h1>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Pipelines</h1>
               <PipelineHelp />
             </div>
             <p className="text-muted-foreground">
@@ -83,7 +83,7 @@ export default function PipelinesPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">Pipelines</h1>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Pipelines</h1>
               <PipelineHelp />
             </div>
             <p className="text-muted-foreground">
@@ -151,7 +151,7 @@ export default function PipelinesPage() {
                       {pipeline.description && (
                         <CardDescription>{pipeline.description}</CardDescription>
                       )}
-                      <div className="flex gap-4 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                         <span>Source: {pipeline.source?.name || pipeline.source_id}</span>
                         <span>→</span>
                         <span>Destination: {pipeline.destination?.name || pipeline.destination_id}</span>
@@ -160,7 +160,7 @@ export default function PipelinesPage() {
                         Created on {format(new Date(pipeline.created_at), "PPP")} ({formatDistanceToNow(new Date(pipeline.created_at), { addSuffix: true })})
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         variant="outline"
                         size="sm"

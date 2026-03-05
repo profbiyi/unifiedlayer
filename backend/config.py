@@ -175,6 +175,15 @@ class Settings(BaseSettings):
     SLACK_WEBHOOK_URL: Optional[str] = None
     SLACK_CHANNEL: Optional[str] = None
 
+    # Twilio (WhatsApp Notifications via Twilio Sandbox / Business API)
+    TWILIO_ACCOUNT_SID: Optional[str] = None
+    TWILIO_AUTH_TOKEN: Optional[str] = None
+    TWILIO_WHATSAPP_FROM: Optional[str] = None  # e.g. "whatsapp:+14155238886" (Twilio sandbox number)
+
+    # Anomaly Detection — comma-separated E.164 phone numbers to notify via WhatsApp
+    # e.g. "+2348012345678,+447911123456"
+    ANOMALY_WHATSAPP_NUMBERS: Optional[str] = None
+
     # Trino/Presto
     TRINO_HOST: str = "trino"
     TRINO_PORT: int = 8080

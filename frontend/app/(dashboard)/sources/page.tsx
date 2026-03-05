@@ -68,7 +68,7 @@ export default function SourcesPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight">Data Sources</h1>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Data Sources</h1>
               <SourceHelp />
             </div>
             <p className="text-muted-foreground">
@@ -106,14 +106,14 @@ export default function SourcesPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Data Sources</h1>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Data Sources</h1>
                 <SourceHelp />
               </div>
               <p className="text-muted-foreground">
                 Manage your data source connections
               </p>
             </div>
-            <Button onClick={() => router.push("/sources/new")}>
+            <Button onClick={() => router.push("/sources/new")} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               Add Source
             </Button>
@@ -126,7 +126,7 @@ export default function SourcesPage() {
           </Card>
         ) : (
           <motion.div
-            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
             initial="hidden"
             animate="visible"
             variants={{

@@ -54,6 +54,27 @@ def sanitize_for_logging(config: dict) -> dict:
     return sanitized
 
 
+def _get_write_disposition(write_mode: str) -> Any:
+    """Convert Pipeline write_mode to dlt write_disposition."""
+    if write_mode == "scd2":
+        return {"disposition": "merge", "strategy": "scd2"}
+    if write_mode == "merge":
+        return "merge"
+    if write_mode == "replace":
+        return "replace"
+    return "append"  # default for "append" and unknown values
+
+
+def _get_schema_contract(schema_contract: str) -> dict:
+    """Convert Pipeline schema_contract to dlt schema_contract config."""
+    return {
+        "tables": "evolve",       # always allow new tables
+        "columns": schema_contract,   # user-controlled column policy
+        "data_type": "discard_rows" if schema_contract == "freeze" else "evolve",
+    }
+
+
+
 @task(retries=3, retry_delay_seconds=60)
 def fetch_source_data(source_config: Dict[str, Any], source_type: str):
     """
@@ -71,6 +92,17 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
 
     # Import appropriate connector
     if source_type == "postgres":
+        # Attempt to use ConnectorX backend for 5-10x faster extraction.
+        # ConnectorX reads via Arrow zero-copy, so it's significantly faster than
+        # the default sqlalchemy row-by-row path. Falls back gracefully if not installed.
+        try:
+            import connectorx as _cx  # noqa: F401 — just checking availability
+            _connectorx_backend = "connectorx"
+            logger.info("Using ConnectorX backend for fast postgres extraction")
+        except ImportError:
+            _connectorx_backend = "sqlalchemy"
+            logger.info("ConnectorX not installed, using sqlalchemy backend for postgres")
+
         from backend.connectors.postgres import postgres_source
         # Transform config: username -> user (for compatibility with dlt connector)
         config = source_config.copy()
@@ -102,14 +134,74 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
             connector_params["options"] = f"endpoint={endpoint_id}"
             logger.info(f"Detected Neon database, using endpoint: {endpoint_id}")
 
-        # Get tables list separately
-        tables = config.get("tables", [])
-
-        source = postgres_source(**connector_params)
+        # If ConnectorX is available, try using dlt sql_database with connectorx backend
+        # for Arrow-accelerated extraction. Fall back to the custom postgres_source on error.
+        if _connectorx_backend == "connectorx":
+            try:
+                from dlt.sources.sql_database import sql_database as _sql_db
+                _sslmode = connector_params.get("sslmode", "prefer")
+                _port = connector_params.get("port", 5432)
+                _schema = connector_params.get("schema", "public")
+                _cx_conn = (
+                    f"postgresql://{connector_params['user']}:{connector_params['password']}"
+                    f"@{connector_params['host']}:{_port}/{connector_params['database']}"
+                    f"?sslmode={_sslmode}"
+                )
+                source = _sql_db(
+                    credentials=_cx_conn,
+                    schema=_schema,
+                    backend="connectorx",
+                )
+                logger.info("ConnectorX sql_database source created successfully for postgres")
+            except Exception as _cx_err:
+                logger.warning(
+                    "ConnectorX sql_database source creation failed (%s), "
+                    "falling back to custom postgres_source", _cx_err
+                )
+                # Get tables list separately
+                tables = config.get("tables", [])
+                source = postgres_source(**connector_params)
+        else:
+            # Get tables list separately
+            tables = config.get("tables", [])
+            source = postgres_source(**connector_params)
 
     elif source_type == "mysql":
-        from backend.connectors.mysql import mysql_source
-        source = mysql_source(**source_config)
+        # Attempt to use ConnectorX backend for 5-10x faster extraction.
+        try:
+            import connectorx as _cx  # noqa: F401 — just checking availability
+            _connectorx_backend = "connectorx"
+            logger.info("Using ConnectorX backend for fast mysql extraction")
+        except ImportError:
+            _connectorx_backend = "sqlalchemy"
+            logger.info("ConnectorX not installed, using sqlalchemy backend for mysql")
+
+        if _connectorx_backend == "connectorx":
+            try:
+                from dlt.sources.sql_database import sql_database as _sql_db
+                _port = source_config.get("port", 3306)
+                _user = source_config.get("user") or source_config.get("username") or source_config.get("user")
+                _password = source_config.get("password", "")
+                _host = source_config.get("host", "localhost")
+                _database = source_config.get("database", "")
+                _cx_conn = (
+                    f"mysql://{_user}:{_password}@{_host}:{_port}/{_database}"
+                )
+                source = _sql_db(
+                    credentials=_cx_conn,
+                    backend="connectorx",
+                )
+                logger.info("ConnectorX sql_database source created successfully for mysql")
+            except Exception as _cx_err:
+                logger.warning(
+                    "ConnectorX sql_database source creation failed (%s), "
+                    "falling back to custom mysql_source", _cx_err
+                )
+                from backend.connectors.mysql import mysql_source
+                source = mysql_source(**source_config)
+        else:
+            from backend.connectors.mysql import mysql_source
+            source = mysql_source(**source_config)
 
     elif source_type == "mpesa":
         from backend.connectors.mpesa import mpesa_source
@@ -281,6 +373,15 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
         source = connector.to_dlt_resource(
             table_name=config.get("collection", config.get("table", "documents"))
         )
+
+    elif source_type == "http_file":
+        from backend.connectors.http_file_connector import create_http_file_source
+        source, table_name = create_http_file_source(source_config)
+        # http_file always uses replace (full reload each sync)
+
+    elif source_type == "rest_api_declarative":
+        from backend.connectors.rest_api_declarative import create_rest_api_source
+        source = create_rest_api_source(source_config)
 
     else:
         raise ValueError(f"Unsupported source type: {source_type}")
@@ -536,6 +637,48 @@ def load_to_destination(
                 dataset_name=destination_config.get("dataset_name", "default"),
             )
 
+        elif destination_type == "fabric":
+            # Microsoft Fabric (OneLake / Lakehouse) via dlt filesystem destination
+            # Credentials: workspace_id, lakehouse_name, and Azure credentials
+            workspace_id = destination_config.get("workspace_id")
+            lakehouse_name = destination_config.get("lakehouse_name", "UnifiedLayer")
+
+            if not workspace_id:
+                raise ValueError("Microsoft Fabric destination requires 'workspace_id' credential")
+
+            # Build the OneLake ADLS Gen2 URL.
+            # Format: abfss://<workspace_id>@onelake.dfs.fabric.microsoft.com/<lakehouse_name>.Lakehouse/Files/
+            onelake_url = (
+                f"abfss://{workspace_id}@onelake.dfs.fabric.microsoft.com"
+                f"/{lakehouse_name}.Lakehouse/Files/"
+            )
+            logger.info(f"Configuring Microsoft Fabric destination at: {onelake_url}")
+
+            azure_credentials = {
+                "azure_storage_account_name": destination_config.get("account_name", "onelake"),
+                "azure_storage_account_key": destination_config.get("account_key"),
+                "azure_client_id": destination_config.get("client_id"),
+                "azure_client_secret": destination_config.get("client_secret"),
+                "azure_tenant_id": destination_config.get("tenant_id"),
+            }
+            # Remove None values so dlt can pick up env var fallbacks
+            azure_credentials = {k: v for k, v in azure_credentials.items() if v is not None}
+
+            file_format = destination_config.get("file_format", "parquet")
+
+            try:
+                pipeline = dlt.pipeline(
+                    pipeline_name=safe_pipeline_name,
+                    destination=dlt.destinations.filesystem(
+                        bucket_url=onelake_url,
+                        credentials=azure_credentials,
+                    ),
+                    dataset_name=destination_config.get("dataset_name", "default"),
+                )
+            except Exception as e:
+                logger.error("Microsoft Fabric destination config failed: %s", e)
+                raise
+
         else:
             # Fallback for other destinations (will try to use env vars)
             logger.warning(f"Using default destination setup for {destination_type} - may need environment variables")
@@ -545,8 +688,22 @@ def load_to_destination(
                 dataset_name=destination_config.get("dataset_name", "default"),
             )
 
-        # Load data
-        load_info = pipeline.run(source)
+        # Load data with write_disposition and schema_contract
+        # These are passed in via destination_config["_dlt_options"] if present.
+        # The execute_pipeline_flow injects _dlt_options into the destination_config dict.
+        _dlt_opts = destination_config.get("_dlt_options", {})
+        _write_disposition = _dlt_opts.get("write_disposition", "merge")
+        _schema_contract = _dlt_opts.get("schema_contract")
+
+        if destination_type == "fabric":
+            _run_kwargs: Dict[str, Any] = {"loader_file_format": file_format}
+        else:
+            _run_kwargs = {}
+
+        if _schema_contract:
+            _run_kwargs["schema_contract"] = _schema_contract
+
+        load_info = pipeline.run(source, write_disposition=_write_disposition, **_run_kwargs)
 
     # Extract statistics from dlt load_info using helper
     from backend.utils.dlt_helpers import extract_load_stats
@@ -1126,9 +1283,27 @@ def execute_pipeline_flow(pipeline_id: int, run_id: int) -> Dict[str, Any]:
                 }
             )
 
+            # Build dlt execution options from pipeline write_mode and schema_contract.
+            # These are passed through destination_config so load_to_destination
+            # can forward them to pipeline.run() without changing its signature.
+            _dest_config = dict(pipeline.destination.config)
+            _dest_config["_dlt_options"] = {
+                "write_disposition": _get_write_disposition(
+                    getattr(pipeline, "write_mode", None) or "merge"
+                ),
+                "schema_contract": _get_schema_contract(
+                    getattr(pipeline, "schema_contract", None) or "evolve"
+                ),
+            }
+            logger.info(
+                "Pipeline write_mode=%s schema_contract=%s",
+                getattr(pipeline, "write_mode", "merge"),
+                getattr(pipeline, "schema_contract", "evolve"),
+            )
+
             stats = load_to_destination(
                 source,
-                pipeline.destination.config,
+                _dest_config,
                 pipeline.destination.destination_type.value,
                 pipeline.name,
             )

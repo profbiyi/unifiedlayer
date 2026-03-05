@@ -1083,3 +1083,168 @@ def send_notification(
             slack_notifier.send(message)
         except SlackNotificationError as e:
             logger.error(f"Slack notification failed: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# WhatsApp Notification (Twilio)
+# ---------------------------------------------------------------------------
+
+# Guard the Twilio import — it's optional. If the package is not installed,
+# WhatsApp notifications will be disabled and a warning will be logged once.
+try:
+    from twilio.rest import Client as TwilioClient
+    _TWILIO_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _TWILIO_AVAILABLE = False
+
+
+class WhatsAppNotificationError(Exception):
+    """Raised when a WhatsApp notification cannot be delivered."""
+    pass
+
+
+class WhatsAppNotifier:
+    """
+    WhatsApp notification service powered by the Twilio API.
+
+    Requires the following environment variables (all optional — the notifier
+    degrades gracefully when they are absent):
+
+        TWILIO_ACCOUNT_SID      — Twilio account SID
+        TWILIO_AUTH_TOKEN       — Twilio auth token
+        TWILIO_WHATSAPP_FROM    — Sender number in Twilio format,
+                                   e.g. "whatsapp:+14155238886"
+    """
+
+    def __init__(self) -> None:
+        """Initialise the notifier from application settings."""
+        self.account_sid: Optional[str] = settings.TWILIO_ACCOUNT_SID
+        self.auth_token: Optional[str] = settings.TWILIO_AUTH_TOKEN
+        self.from_number: Optional[str] = settings.TWILIO_WHATSAPP_FROM
+        self._client: Optional[Any] = None  # Lazy-initialised Twilio client
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _is_configured(self) -> bool:
+        """Return True when all required Twilio credentials are present."""
+        return bool(self.account_sid and self.auth_token and self.from_number)
+
+    def _get_client(self):
+        """Return a (cached) Twilio REST client, or None if unavailable."""
+        if not _TWILIO_AVAILABLE:
+            logger.warning(
+                "twilio package is not installed. "
+                "Install it with: pip install 'twilio>=9.0.0'"
+            )
+            return None
+
+        if not self._is_configured():
+            logger.warning(
+                "Twilio credentials not configured. "
+                "Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and "
+                "TWILIO_WHATSAPP_FROM to enable WhatsApp notifications."
+            )
+            return None
+
+        if self._client is None:
+            self._client = TwilioClient(self.account_sid, self.auth_token)
+
+        return self._client
+
+    @staticmethod
+    def _normalise_number(to_number: str) -> str:
+        """
+        Ensure the destination number carries the ``whatsapp:`` scheme prefix.
+
+        Twilio requires recipients to be expressed as ``whatsapp:+<digits>``.
+        This helper accepts either the raw E.164 number or the prefixed form.
+        """
+        if not to_number.startswith("whatsapp:"):
+            # Strip any stray whitespace and ensure a leading "+"
+            number = to_number.strip()
+            if not number.startswith("+"):
+                number = f"+{number}"
+            return f"whatsapp:{number}"
+        return to_number
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def send_whatsapp(self, to_number: str, message: str) -> bool:
+        """
+        Send a plain-text WhatsApp message via Twilio.
+
+        Args:
+            to_number: Recipient phone number in E.164 format (``+2348012345678``)
+                       or already prefixed with ``whatsapp:+``.
+            message:   Text body of the WhatsApp message.
+
+        Returns:
+            ``True`` when the message was accepted by Twilio, ``False``
+            when credentials are missing / the package is not installed.
+
+        Raises:
+            WhatsAppNotificationError: When Twilio returns an error.
+        """
+        client = self._get_client()
+        if client is None:
+            return False
+
+        recipient = self._normalise_number(to_number)
+
+        try:
+            msg = client.messages.create(
+                body=message,
+                from_=self.from_number,
+                to=recipient,
+            )
+            logger.info(
+                "WhatsApp message sent to %s (SID: %s)",
+                recipient,
+                msg.sid,
+            )
+            return True
+        except Exception as exc:
+            logger.error(
+                "Failed to send WhatsApp message to %s: %s",
+                recipient,
+                str(exc),
+            )
+            raise WhatsAppNotificationError(
+                f"Failed to send WhatsApp message: {exc}"
+            ) from exc
+
+
+# Global instance — mirrors the pattern used by EmailNotifier / SlackNotifier
+whatsapp_notifier = WhatsAppNotifier()
+
+
+def send_whatsapp_notification(
+    to_number: str,
+    title: str,
+    message: str,
+) -> bool:
+    """
+    Module-level helper to send a WhatsApp notification.
+
+    Formats the title and message into a single body string and dispatches
+    it via the global ``WhatsAppNotifier`` instance. Errors are logged as
+    warnings so callers do not need to handle them.
+
+    Args:
+        to_number: Recipient phone number (E.164 or ``whatsapp:+`` prefixed).
+        title:     Short heading for the notification (e.g. "Pipeline Failed").
+        message:   Longer description / detail.
+
+    Returns:
+        ``True`` if the message was delivered, ``False`` otherwise.
+    """
+    body = f"*{title}*\n\n{message}\n\n— UnifiedLayer"
+    try:
+        return whatsapp_notifier.send_whatsapp(to_number, body)
+    except WhatsAppNotificationError as exc:
+        logger.warning("WhatsApp notification skipped: %s", str(exc))
+        return False

@@ -395,6 +395,8 @@ class PipelineBase(BaseModel):
     max_retries: Optional[int] = 0
     retry_delay_seconds: Optional[int] = 60
     exponential_backoff_enabled: Optional[bool] = False
+    write_mode: Optional[str] = "merge"        # "append", "merge", "scd2", "replace"
+    schema_contract: Optional[str] = "evolve"  # "evolve", "freeze", "discard_columns", "discard_rows"
 
 
 class PipelineCreate(PipelineBase):
@@ -411,6 +413,8 @@ class PipelineUpdate(BaseModel):
     schedule: Optional[str] = None
     config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
+    write_mode: Optional[str] = None        # "append", "merge", "scd2", "replace"
+    schema_contract: Optional[str] = None   # "evolve", "freeze", "discard_columns", "discard_rows"
 
 
 class PipelineResponse(UTCDatetimeMixin, PipelineBase):

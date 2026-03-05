@@ -16,6 +16,9 @@ celery_app = Celery(
         "backend.tasks.dbt_tasks",
         "backend.tasks.health_checks",
         "backend.tasks.pipeline_scheduler",
+        "backend.tasks.anomaly_tasks",
+        "backend.tasks.report_tasks",
+        "backend.tasks.summary_tasks",
     ],
 )
 

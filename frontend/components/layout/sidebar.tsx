@@ -21,6 +21,7 @@ import {
   MessageSquareText,
   Rocket,
   Boxes,
+  X,
 } from "lucide-react";
 
 const navItems = [
@@ -93,7 +94,7 @@ const navItems = [
     title: "Admin",
     href: "/admin",
     icon: Shield,
-    superAdminOnly: true, // Only show to super admins
+    superAdminOnly: true,
   },
   {
     title: "Settings",
@@ -102,7 +103,14 @@ const navItems = [
   },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  /** Whether the mobile drawer is open (controlled by the parent layout). */
+  isOpen?: boolean;
+  /** Called when the user dismisses the mobile drawer (close button or overlay click). */
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { data: user } = useCurrentUser();
 
@@ -114,10 +122,23 @@ export default function Sidebar() {
     (item) => !(item as any).superAdminOnly || isSuperAdmin
   );
 
-  return (
+  const handleLinkClick = () => {
+    // Close the mobile drawer when navigating
+    if (onClose) onClose();
+  };
+
+  const sidebarContent = (
     <div className="flex h-full w-64 flex-col border-r bg-card">
-      <div className="flex h-16 items-center border-b px-6">
+      <div className="flex h-16 items-center justify-between border-b px-6">
         <h1 className="text-xl font-bold">UnifiedLayer</h1>
+        {/* Close button — only visible on mobile */}
+        <button
+          onClick={onClose}
+          className="md:hidden p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+          aria-label="Close menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
       <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {visibleItems.map((item) => {
@@ -128,6 +149,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleLinkClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -146,5 +168,33 @@ export default function Sidebar() {
         <OnboardingWidget />
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {/*
+       * Desktop: always-visible fixed sidebar (md and above).
+       * Mobile: hidden by default, rendered off-screen.
+       */}
+      <div className="hidden md:flex h-full w-64 flex-shrink-0">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile drawer overlay + panel */}
+      {isOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Semi-transparent backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          {/* Sidebar panel slides in from the left */}
+          <div className="relative z-50 flex h-full w-64 flex-shrink-0 shadow-xl">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

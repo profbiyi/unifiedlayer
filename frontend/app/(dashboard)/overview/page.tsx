@@ -102,7 +102,7 @@ export default function OverviewPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Overview</h1>
         <p className="text-muted-foreground">
           Welcome to your data integration platform
         </p>
@@ -110,7 +110,7 @@ export default function OverviewPage() {
 
       {/* Quick Start Banner */}
       <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
-        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-6">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
               <Sparkles className="h-6 w-6 text-primary" />
@@ -214,7 +214,7 @@ export default function OverviewPage() {
       {metricsLoading ? (
         <StatsCardSkeleton count={4} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
@@ -281,7 +281,7 @@ export default function OverviewPage() {
       {resourceCountsLoading ? (
         <StatsCardSkeleton count={4} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
@@ -328,7 +328,7 @@ export default function OverviewPage() {
                 <p className="text-sm text-muted-foreground">No pipeline runs yet</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={typeof window !== "undefined" && window.innerWidth < 640 ? 220 : 300}>
                 <LineChart data={runsOverTime}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />

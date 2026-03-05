@@ -68,6 +68,11 @@ from backend.models.onboarding import (
     OnboardingStatus,
     UserRole as OnboardingUserRole,
 )
+from backend.models.scheduled_report import (
+    ScheduledReport,
+    ReportFrequency,
+)
+
 
 __all__ = [
     "Organization",
@@ -121,4 +126,6 @@ __all__ = [
     "OnboardingProgress",
     "OnboardingStatus",
     "OnboardingUserRole",
+    "ScheduledReport",
+    "ReportFrequency",
 ]

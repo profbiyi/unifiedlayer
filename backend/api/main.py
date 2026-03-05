@@ -68,6 +68,10 @@ from backend.api.routes import (
     models,
     cross_source,
 )
+from backend.api.routes.anomaly import router as anomaly_router
+from backend.api.routes.summaries import router as summaries_router
+from backend.api.routes.reports import router as reports_router
+from backend.api.routes.whatsapp_test import router as whatsapp_test_router
 
 class CustomJSONResponse(JSONResponse):
     """Custom JSON response that properly serializes datetimes with timezone."""
@@ -273,6 +277,10 @@ api_v1_router.include_router(onboarding.router)
 api_v1_router.include_router(health.router)
 api_v1_router.include_router(models.router)
 api_v1_router.include_router(cross_source.router)
+api_v1_router.include_router(anomaly_router)
+api_v1_router.include_router(summaries_router)
+api_v1_router.include_router(reports_router)
+api_v1_router.include_router(whatsapp_test_router)
 
 # RBAC routers
 api_v1_router.include_router(admin.router)

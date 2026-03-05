@@ -23,6 +23,10 @@ from backend.connectors.mongodb import MongoDBConnector
 from backend.connectors.csv_connector import CSVConnector
 from backend.connectors.local_file import LocalFileConnector, local_files_source
 
+# Generic / open connectors
+from backend.connectors.http_file_connector import HttpFileConnector, create_http_file_source
+from backend.connectors.rest_api_declarative import RestApiDeclarativeConnector, create_rest_api_source
+
 __all__ = [
     "mpesa_source",
     "MPesaConnector",
@@ -51,4 +55,8 @@ __all__ = [
     "CSVConnector",
     "LocalFileConnector",
     "local_files_source",
+    "HttpFileConnector",
+    "create_http_file_source",
+    "RestApiDeclarativeConnector",
+    "create_rest_api_source",
 ]

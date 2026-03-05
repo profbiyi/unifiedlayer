@@ -71,6 +71,23 @@ class DestinationType(str, enum.Enum):
     GCS = "gcs"
     AZURE_BLOB = "azure_blob"
     GOOGLE_SHEETS = "google_sheets"
+    FABRIC = "fabric"         # Microsoft Fabric (OneLake / Lakehouse)
+
+
+class WriteModeEnum(str, enum.Enum):
+    """How new data is combined with existing data in the destination."""
+    APPEND = "append"      # Always add new rows (default for event data)
+    MERGE = "merge"        # Upsert — update existing rows, insert new (default for most)
+    SCD2 = "scd2"          # Slowly Changing Dimension Type 2 — track full history
+    REPLACE = "replace"    # Full reload every sync (for small lookup tables)
+
+
+class SchemaContractEnum(str, enum.Enum):
+    """How to handle schema changes from the source."""
+    EVOLVE = "evolve"                    # Auto-add new columns (default, safest)
+    FREEZE = "freeze"                    # Reject any new columns — alert on change
+    DISCARD_COLUMNS = "discard_columns"  # Ignore new columns, load rest
+    DISCARD_ROWS = "discard_rows"        # Drop rows that contain unknown fields
 
 
 class Organization(Base):
@@ -310,6 +327,22 @@ class Pipeline(Base):
     max_retries = Column(Integer, nullable=False, default=0, server_default='0')  # Number of retry attempts (0 = no retries)
     retry_delay_seconds = Column(Integer, nullable=False, default=60, server_default='60')  # Delay between retries in seconds
     exponential_backoff_enabled = Column(Boolean, default=False, nullable=False, server_default='false')  # Use exponential backoff for retries
+
+    # Write mode: controls how new data is merged with existing data
+    write_mode = Column(
+        SQLEnum(WriteModeEnum, name="writemodeEnum"),
+        nullable=False,
+        default=WriteModeEnum.MERGE,
+        server_default="merge",
+    )
+
+    # Schema contract: controls how schema changes from the source are handled
+    schema_contract = Column(
+        SQLEnum(SchemaContractEnum, name="schemaContractEnum"),
+        nullable=False,
+        default=SchemaContractEnum.EVOLVE,
+        server_default="evolve",
+    )
 
     # JSON field for pipeline configuration (transformations, mappings, etc.)
     config = Column(JSON, nullable=True)

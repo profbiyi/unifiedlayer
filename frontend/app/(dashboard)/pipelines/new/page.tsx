@@ -32,10 +32,25 @@ const steps = [
   { id: 1, name: "Basic Info", description: "Name and description" },
   { id: 2, name: "Source", description: "Select data source" },
   { id: 3, name: "Destination", description: "Select destination" },
-  { id: 4, name: "Schedule", description: "Configure schedule" },
+  { id: 4, name: "Settings", description: "Schedule & data handling" },
   { id: 5, name: "Transform", description: "Data transformations" },
   { id: 6, name: "Review", description: "Review and create" },
 ];
+
+// Human-readable labels for write_mode and schema_contract
+const WRITE_MODE_LABELS: Record<string, string> = {
+  merge: "Merge (Upsert)",
+  append: "Append",
+  scd2: "SCD2 — Historical Tracking",
+  replace: "Replace (Full Reload)",
+};
+
+const SCHEMA_CONTRACT_LABELS: Record<string, string> = {
+  evolve: "Evolve — Auto-adapt",
+  freeze: "Freeze — Alert on change",
+  discard_columns: "Discard New Columns",
+  discard_rows: "Discard Rows with Unknown Fields",
+};
 
 export default function NewPipelinePage() {
   const router = useRouter();
@@ -47,6 +62,8 @@ export default function NewPipelinePage() {
     destination_id: "",
     schedule: "",
     is_active: true,
+    write_mode: "merge",
+    schema_contract: "evolve",
     config: {},
   });
   const [transformations, setTransformations] = useState<TransformationConfig>({});
@@ -101,7 +118,7 @@ export default function NewPipelinePage() {
       case 3:
         return formData.destination_id !== "";
       case 4:
-        return true; // Schedule is optional
+        return true; // Schedule + settings are optional / have defaults
       case 5:
         return true; // Transformations are optional
       case 6:
@@ -306,9 +323,10 @@ export default function NewPipelinePage() {
             </div>
           )}
 
-          {/* Step 4: Schedule */}
+          {/* Step 4: Settings (Schedule + Write Mode + Schema Contract) */}
           {currentStep === 4 && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Run Frequency */}
               <div className="space-y-2">
                 <Label htmlFor="frequency">Run Frequency</Label>
                 <Select
@@ -394,6 +412,124 @@ export default function NewPipelinePage() {
                   Activate pipeline immediately
                 </Label>
               </div>
+
+              {/* Divider */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-muted-foreground mb-4">Data Handling</p>
+
+                {/* Write Mode */}
+                <div className="space-y-2">
+                  <Label htmlFor="write_mode">Write Mode</Label>
+                  <Select
+                    value={formData.write_mode || "merge"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        write_mode: value as CreatePipelineRequest["write_mode"],
+                      })
+                    }
+                  >
+                    <SelectTrigger id="write_mode">
+                      <SelectValue placeholder="Select write mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="merge">
+                        <div>
+                          <div className="font-medium">Merge (Upsert) — Recommended</div>
+                          <div className="text-xs text-muted-foreground">
+                            Update existing rows, insert new ones. Best for most data.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="append">
+                        <div>
+                          <div className="font-medium">Append</div>
+                          <div className="text-xs text-muted-foreground">
+                            Always add new rows. Best for event logs and transactions.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="scd2">
+                        <div>
+                          <div className="font-medium">SCD2 — Historical Tracking</div>
+                          <div className="text-xs text-muted-foreground">
+                            Track all changes over time with valid_from/valid_to dates.
+                            Great for compliance and auditing.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="replace">
+                        <div>
+                          <div className="font-medium">Replace (Full Reload)</div>
+                          <div className="text-xs text-muted-foreground">
+                            Delete all data and reload fresh each sync. Best for small
+                            reference tables.
+                          </div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Controls how new data is combined with existing data in your warehouse.
+                  </p>
+                </div>
+
+                {/* Schema Contract */}
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="schema_contract">Schema Contract</Label>
+                  <Select
+                    value={formData.schema_contract || "evolve"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        schema_contract: value as CreatePipelineRequest["schema_contract"],
+                      })
+                    }
+                  >
+                    <SelectTrigger id="schema_contract">
+                      <SelectValue placeholder="Select schema contract" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="evolve">
+                        <div>
+                          <div className="font-medium">Evolve — Auto-adapt (Default)</div>
+                          <div className="text-xs text-muted-foreground">
+                            New columns from the source are automatically added.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="freeze">
+                        <div>
+                          <div className="font-medium">Freeze — Alert on change</div>
+                          <div className="text-xs text-muted-foreground">
+                            Reject syncs if the source adds unexpected columns. Keeps your
+                            schema stable.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="discard_columns">
+                        <div>
+                          <div className="font-medium">Discard New Columns</div>
+                          <div className="text-xs text-muted-foreground">
+                            Ignore new columns from the source, load everything else.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="discard_rows">
+                        <div>
+                          <div className="font-medium">Discard Rows with Unknown Fields</div>
+                          <div className="text-xs text-muted-foreground">
+                            Drop any rows that contain unexpected data types or fields.
+                          </div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Controls how schema changes from your source are handled.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -417,32 +553,24 @@ export default function NewPipelinePage() {
             <div className="space-y-4">
               <div className="rounded-lg border p-4 space-y-3">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Name
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Name</p>
                   <p className="text-base">{formData.name}</p>
                 </div>
                 {formData.description && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Description
-                    </p>
+                    <p className="text-sm font-medium text-muted-foreground">Description</p>
                     <p className="text-base">{formData.description}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Source
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Source</p>
                   <p className="text-base">
                     {sources?.find((s) => s.id === formData.source_id)?.name ||
                       formData.source_id}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Destination
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">Destination</p>
                   <p className="text-base">
                     {destinations?.find((d) => d.id === formData.destination_id)
                       ?.name || formData.destination_id}
@@ -450,16 +578,24 @@ export default function NewPipelinePage() {
                 </div>
                 {formData.schedule && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Schedule
-                    </p>
+                    <p className="text-sm font-medium text-muted-foreground">Schedule</p>
                     <p className="text-base">{formData.schedule}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Status
+                  <p className="text-sm font-medium text-muted-foreground">Write Mode</p>
+                  <p className="text-base">
+                    {WRITE_MODE_LABELS[formData.write_mode || "merge"]}
                   </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Schema Contract</p>
+                  <p className="text-base">
+                    {SCHEMA_CONTRACT_LABELS[formData.schema_contract || "evolve"]}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Status</p>
                   <p className="text-base">
                     {formData.is_active ? "Active" : "Inactive"}
                   </p>
@@ -469,9 +605,7 @@ export default function NewPipelinePage() {
                   (transformations.type_casts && Object.keys(transformations.type_casts).length > 0) ||
                   (transformations.filters && transformations.filters.length > 0)) && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      Transformations
-                    </p>
+                    <p className="text-sm font-medium text-muted-foreground">Transformations</p>
                     <ul className="text-sm list-disc list-inside space-y-1 mt-1">
                       {transformations.excluded_columns && transformations.excluded_columns.length > 0 && (
                         <li>{transformations.excluded_columns.length} column(s) excluded</li>

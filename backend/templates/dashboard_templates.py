@@ -733,3 +733,779 @@ def get_available_templates_for_sources(source_types: List[str]) -> List[Dict[st
             available.append(template_copy)
 
     return available
+
+
+# ============================================================
+# Industry-Specific Dashboard Templates
+# ============================================================
+# These are opinionated, pre-built dashboards tailored to common
+# African/UK SME business types.  SQL templates use
+# {transactions_table} / {orders_table} etc. as placeholders;
+# DashboardService.create_dashboard_from_industry_template()
+# resolves them against the org's actual destination schema.
+#
+# Widget types mirror WIDGET_TYPES above:
+#   "kpi"        → single big number   (alias for "big_number")
+#   "line_chart" → time-series line chart
+#   "bar_chart"  → categorical bar chart
+#   "pie_chart"  → proportion/donut
+#   "table"      → tabular list
+# ============================================================
+
+INDUSTRY_DASHBOARD_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    # ----------------------------------------------------------
+    # 1. E-commerce / Retail
+    # ----------------------------------------------------------
+    "ecommerce": {
+        "id": "ecommerce",
+        "name": "E-commerce & Retail",
+        "description": (
+            "Track sales, revenue, GMV, and customer behaviour for online "
+            "and physical retail businesses."
+        ),
+        "icon": "shopping-bag",
+        "industry": "ecommerce",
+        "target_connectors": ["stripe", "paystack", "shopify", "woocommerce"],
+        "recommended_for_source_types": ["stripe", "paystack", "shopify"],
+        "widgets": [
+            {
+                "id": "total_revenue_30d",
+                "type": "kpi",
+                "title": "Total Revenue (Last 30 Days)",
+                "description": "Gross revenue from all completed orders",
+                "position": {"x": 0, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(SUM(amount), 0) / 100.0 AS value
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "order_count_30d",
+                "type": "kpi",
+                "title": "Orders This Month",
+                "description": "Number of completed orders in the last 30 days",
+                "position": {"x": 3, "y": 0, "w": 3, "h": 2},
+                "format": "number",
+                "sql_template": """
+                    SELECT COUNT(*) AS value
+                    FROM {orders_table}
+                    WHERE status IN ('completed', 'delivered', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "average_order_value",
+                "type": "kpi",
+                "title": "Average Order Value",
+                "description": "Mean order amount over the last 30 days",
+                "position": {"x": 6, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(AVG(amount), 0) / 100.0 AS value
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "revenue_trend",
+                "type": "line_chart",
+                "title": "Daily Revenue — Last 30 Days",
+                "position": {"x": 0, "y": 2, "w": 8, "h": 4},
+                "x_axis": "date",
+                "y_axis": "revenue",
+                "format": "currency",
+                "sql_template": """
+                    SELECT
+                        DATE(created_at)                     AS date,
+                        COALESCE(SUM(amount), 0) / 100.0     AS revenue
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date
+                """,
+            },
+            {
+                "id": "top_products",
+                "type": "bar_chart",
+                "title": "Top 10 Products by Revenue",
+                "position": {"x": 0, "y": 6, "w": 6, "h": 4},
+                "x_axis": "product_name",
+                "y_axis": "revenue",
+                "sql_template": """
+                    SELECT
+                        COALESCE(product_name, description, 'Unknown') AS product_name,
+                        COALESCE(SUM(amount), 0) / 100.0               AS revenue
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                    GROUP BY 1
+                    ORDER BY revenue DESC
+                    LIMIT 10
+                """,
+            },
+            {
+                "id": "payment_method_split",
+                "type": "pie_chart",
+                "title": "Payment Method Breakdown",
+                "position": {"x": 6, "y": 6, "w": 6, "h": 4},
+                "sql_template": """
+                    SELECT
+                        COALESCE(payment_method_type, payment_method, 'Other') AS method,
+                        COUNT(*) AS count
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY 1
+                    ORDER BY count DESC
+                """,
+            },
+            {
+                "id": "recent_orders",
+                "type": "table",
+                "title": "Recent Orders",
+                "position": {"x": 0, "y": 10, "w": 12, "h": 4},
+                "sql_template": """
+                    SELECT
+                        id                                       AS order_id,
+                        COALESCE(customer_email, customer_id, 'Guest') AS customer,
+                        COALESCE(amount, 0) / 100.0              AS amount,
+                        status,
+                        created_at
+                    FROM {transactions_table}
+                    ORDER BY created_at DESC
+                    LIMIT 20
+                """,
+            },
+        ],
+    },
+
+    # ----------------------------------------------------------
+    # 2. Food & Beverage / Restaurant
+    # ----------------------------------------------------------
+    "food_beverage": {
+        "id": "food_beverage",
+        "name": "Food & Beverage (Restaurant)",
+        "description": (
+            "Monitor daily sales, peak trading hours, menu performance, "
+            "and staff metrics for restaurants and food businesses."
+        ),
+        "icon": "utensils",
+        "industry": "food_beverage",
+        "target_connectors": ["stripe", "paystack", "square", "lightspeed"],
+        "recommended_for_source_types": ["stripe", "paystack", "square"],
+        "widgets": [
+            {
+                "id": "daily_revenue",
+                "type": "kpi",
+                "title": "Today's Revenue",
+                "description": "Total sales taken today",
+                "position": {"x": 0, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(SUM(amount), 0) / 100.0 AS value
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND DATE(created_at) = CURRENT_DATE
+                """,
+            },
+            {
+                "id": "covers_today",
+                "type": "kpi",
+                "title": "Covers Today",
+                "description": "Number of transactions (proxy for table covers) today",
+                "position": {"x": 3, "y": 0, "w": 3, "h": 2},
+                "format": "number",
+                "sql_template": """
+                    SELECT COUNT(*) AS value
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND DATE(created_at) = CURRENT_DATE
+                """,
+            },
+            {
+                "id": "avg_spend_per_cover",
+                "type": "kpi",
+                "title": "Avg Spend / Cover",
+                "description": "Average transaction amount today",
+                "position": {"x": 6, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(AVG(amount), 0) / 100.0 AS value
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND DATE(created_at) = CURRENT_DATE
+                """,
+            },
+            {
+                "id": "weekly_revenue_trend",
+                "type": "line_chart",
+                "title": "Daily Revenue — Last 14 Days",
+                "position": {"x": 0, "y": 2, "w": 8, "h": 4},
+                "x_axis": "date",
+                "y_axis": "revenue",
+                "sql_template": """
+                    SELECT
+                        DATE(created_at)                     AS date,
+                        COALESCE(SUM(amount), 0) / 100.0     AS revenue
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '14 days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date
+                """,
+            },
+            {
+                "id": "peak_hours",
+                "type": "bar_chart",
+                "title": "Peak Trading Hours (Last 7 Days)",
+                "position": {"x": 0, "y": 6, "w": 6, "h": 4},
+                "x_axis": "hour_of_day",
+                "y_axis": "transaction_count",
+                "sql_template": """
+                    SELECT
+                        EXTRACT(HOUR FROM created_at)::int  AS hour_of_day,
+                        COUNT(*)                             AS transaction_count,
+                        COALESCE(SUM(amount), 0) / 100.0    AS revenue
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '7 days'
+                    GROUP BY 1
+                    ORDER BY hour_of_day
+                """,
+            },
+            {
+                "id": "top_menu_items",
+                "type": "bar_chart",
+                "title": "Top 10 Menu Items by Revenue",
+                "position": {"x": 6, "y": 6, "w": 6, "h": 4},
+                "x_axis": "item_name",
+                "y_axis": "revenue",
+                "sql_template": """
+                    SELECT
+                        COALESCE(product_name, description, item_name, 'Unknown') AS item_name,
+                        COALESCE(SUM(amount), 0) / 100.0                          AS revenue,
+                        COUNT(*)                                                   AS quantity_sold
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY 1
+                    ORDER BY revenue DESC
+                    LIMIT 10
+                """,
+            },
+            {
+                "id": "day_of_week_performance",
+                "type": "bar_chart",
+                "title": "Revenue by Day of Week",
+                "position": {"x": 0, "y": 10, "w": 12, "h": 4},
+                "x_axis": "day_of_week",
+                "y_axis": "revenue",
+                "sql_template": """
+                    SELECT
+                        TO_CHAR(created_at, 'Day')           AS day_of_week,
+                        EXTRACT(DOW FROM created_at)::int    AS day_num,
+                        COALESCE(SUM(amount), 0) / 100.0     AS revenue,
+                        COUNT(*)                             AS covers
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'completed', 'paid')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY 1, 2
+                    ORDER BY day_num
+                """,
+            },
+        ],
+    },
+
+    # ----------------------------------------------------------
+    # 3. Fintech / Payments
+    # ----------------------------------------------------------
+    "fintech_payments": {
+        "id": "fintech_payments",
+        "name": "Fintech & Payments",
+        "description": (
+            "Monitor transaction volume, payment success rates, fraud rates, "
+            "and daily float for payment-focused businesses."
+        ),
+        "icon": "credit-card",
+        "industry": "fintech",
+        "target_connectors": ["stripe", "paystack", "flutterwave", "mono"],
+        "recommended_for_source_types": ["stripe", "paystack", "flutterwave"],
+        "widgets": [
+            {
+                "id": "txn_volume_30d",
+                "type": "kpi",
+                "title": "Transaction Volume (30 Days)",
+                "description": "Total value of all transactions processed",
+                "position": {"x": 0, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(SUM(amount), 0) / 100.0 AS value
+                    FROM {transactions_table}
+                    WHERE created_at >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "success_rate",
+                "type": "kpi",
+                "title": "Payment Success Rate",
+                "description": "Percentage of transactions that succeeded (last 30 days)",
+                "position": {"x": 3, "y": 0, "w": 3, "h": 2},
+                "format": "percent",
+                "sql_template": """
+                    SELECT
+                        ROUND(
+                            100.0 * SUM(CASE WHEN status IN ('succeeded','paid','completed') THEN 1 ELSE 0 END)
+                            / NULLIF(COUNT(*), 0),
+                        2) AS value
+                    FROM {transactions_table}
+                    WHERE created_at >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "failed_txn_count",
+                "type": "kpi",
+                "title": "Failed Transactions (30 Days)",
+                "description": "Count of failed/declined transactions",
+                "position": {"x": 6, "y": 0, "w": 3, "h": 2},
+                "format": "number",
+                "sql_template": """
+                    SELECT COUNT(*) AS value
+                    FROM {transactions_table}
+                    WHERE status IN ('failed', 'declined', 'error', 'cancelled')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "daily_volume_trend",
+                "type": "line_chart",
+                "title": "Daily Transaction Volume — Last 30 Days",
+                "position": {"x": 0, "y": 2, "w": 8, "h": 4},
+                "x_axis": "date",
+                "y_axis": "volume",
+                "sql_template": """
+                    SELECT
+                        DATE(created_at)                     AS date,
+                        COALESCE(SUM(amount), 0) / 100.0     AS volume,
+                        COUNT(*)                             AS transaction_count
+                    FROM {transactions_table}
+                    WHERE created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date
+                """,
+            },
+            {
+                "id": "failure_reasons",
+                "type": "bar_chart",
+                "title": "Top Failure Reasons",
+                "position": {"x": 0, "y": 6, "w": 6, "h": 4},
+                "x_axis": "failure_reason",
+                "y_axis": "count",
+                "sql_template": """
+                    SELECT
+                        COALESCE(failure_code, failure_message, decline_code, 'Unknown') AS failure_reason,
+                        COUNT(*) AS count
+                    FROM {transactions_table}
+                    WHERE status IN ('failed', 'declined', 'error')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY 1
+                    ORDER BY count DESC
+                    LIMIT 10
+                """,
+            },
+            {
+                "id": "currency_breakdown",
+                "type": "pie_chart",
+                "title": "Volume by Currency",
+                "position": {"x": 6, "y": 6, "w": 6, "h": 4},
+                "sql_template": """
+                    SELECT
+                        UPPER(COALESCE(currency, 'UNKNOWN')) AS currency,
+                        COALESCE(SUM(amount), 0) / 100.0     AS volume
+                    FROM {transactions_table}
+                    WHERE status IN ('succeeded', 'paid', 'completed')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY 1
+                    ORDER BY volume DESC
+                """,
+            },
+            {
+                "id": "daily_float",
+                "type": "table",
+                "title": "Daily Float Summary (Last 7 Days)",
+                "position": {"x": 0, "y": 10, "w": 12, "h": 4},
+                "sql_template": """
+                    SELECT
+                        DATE(created_at)                                                       AS date,
+                        COUNT(*)                                                               AS total_transactions,
+                        SUM(CASE WHEN status IN ('succeeded','paid','completed') THEN 1 ELSE 0 END) AS successful,
+                        SUM(CASE WHEN status IN ('failed','declined','error')    THEN 1 ELSE 0 END) AS failed,
+                        COALESCE(SUM(CASE WHEN status IN ('succeeded','paid','completed')
+                            THEN amount ELSE 0 END), 0) / 100.0                               AS net_volume
+                    FROM {transactions_table}
+                    WHERE created_at >= NOW() - INTERVAL '7 days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date DESC
+                """,
+            },
+        ],
+    },
+
+    # ----------------------------------------------------------
+    # 4. Professional Services (Agency / Consulting)
+    # ----------------------------------------------------------
+    "professional_services": {
+        "id": "professional_services",
+        "name": "Professional Services",
+        "description": (
+            "Track project revenue, client billing, team utilisation, "
+            "and invoice ageing for agencies and consulting firms."
+        ),
+        "icon": "briefcase",
+        "industry": "professional_services",
+        "target_connectors": ["xero", "quickbooks", "freeagent", "sage", "stripe"],
+        "recommended_for_source_types": ["xero", "quickbooks", "freeagent", "sage"],
+        "widgets": [
+            {
+                "id": "revenue_30d",
+                "type": "kpi",
+                "title": "Revenue (Last 30 Days)",
+                "description": "Total invoiced / billed amount in the period",
+                "position": {"x": 0, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(SUM(total_amount), 0) AS value
+                    FROM {invoices_table}
+                    WHERE status IN ('paid', 'authorised', 'approved')
+                      AND invoice_date >= NOW() - INTERVAL '30 days'
+                """,
+            },
+            {
+                "id": "outstanding_invoices",
+                "type": "kpi",
+                "title": "Outstanding Invoices",
+                "description": "Total value of unpaid invoices",
+                "position": {"x": 3, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(SUM(amount_due), SUM(total_amount), 0) AS value
+                    FROM {invoices_table}
+                    WHERE status IN ('sent', 'overdue', 'draft', 'submitted')
+                """,
+            },
+            {
+                "id": "overdue_count",
+                "type": "kpi",
+                "title": "Overdue Invoices",
+                "description": "Number of invoices past their due date",
+                "position": {"x": 6, "y": 0, "w": 3, "h": 2},
+                "format": "number",
+                "sql_template": """
+                    SELECT COUNT(*) AS value
+                    FROM {invoices_table}
+                    WHERE status NOT IN ('paid', 'voided', 'cancelled')
+                      AND due_date < CURRENT_DATE
+                """,
+            },
+            {
+                "id": "monthly_revenue_trend",
+                "type": "line_chart",
+                "title": "Monthly Revenue Trend",
+                "position": {"x": 0, "y": 2, "w": 8, "h": 4},
+                "x_axis": "month",
+                "y_axis": "revenue",
+                "sql_template": """
+                    SELECT
+                        DATE_TRUNC('month', invoice_date)    AS month,
+                        COALESCE(SUM(total_amount), 0)       AS revenue,
+                        COUNT(*)                             AS invoice_count
+                    FROM {invoices_table}
+                    WHERE status IN ('paid', 'authorised', 'approved')
+                      AND invoice_date >= NOW() - INTERVAL '12 months'
+                    GROUP BY DATE_TRUNC('month', invoice_date)
+                    ORDER BY month
+                """,
+            },
+            {
+                "id": "top_clients",
+                "type": "bar_chart",
+                "title": "Top 10 Clients by Revenue",
+                "position": {"x": 0, "y": 6, "w": 6, "h": 4},
+                "x_axis": "client_name",
+                "y_axis": "revenue",
+                "sql_template": """
+                    SELECT
+                        COALESCE(contact_name, client_name, customer_name, 'Unknown') AS client_name,
+                        COALESCE(SUM(total_amount), 0)                                AS revenue,
+                        COUNT(*)                                                       AS invoice_count
+                    FROM {invoices_table}
+                    WHERE status IN ('paid', 'authorised', 'approved')
+                    GROUP BY 1
+                    ORDER BY revenue DESC
+                    LIMIT 10
+                """,
+            },
+            {
+                "id": "invoice_aging",
+                "type": "bar_chart",
+                "title": "Invoice Ageing (Unpaid)",
+                "position": {"x": 6, "y": 6, "w": 6, "h": 4},
+                "x_axis": "aging_bucket",
+                "y_axis": "amount",
+                "sql_template": """
+                    SELECT
+                        CASE
+                            WHEN due_date >= CURRENT_DATE                              THEN 'Current'
+                            WHEN due_date >= CURRENT_DATE - INTERVAL '30 days'         THEN '1-30 days'
+                            WHEN due_date >= CURRENT_DATE - INTERVAL '60 days'         THEN '31-60 days'
+                            WHEN due_date >= CURRENT_DATE - INTERVAL '90 days'         THEN '61-90 days'
+                            ELSE '90+ days'
+                        END                                                             AS aging_bucket,
+                        COALESCE(SUM(COALESCE(amount_due, total_amount)), 0)            AS amount,
+                        COUNT(*)                                                         AS invoice_count
+                    FROM {invoices_table}
+                    WHERE status NOT IN ('paid', 'voided', 'cancelled')
+                    GROUP BY 1
+                    ORDER BY
+                        CASE aging_bucket
+                            WHEN 'Current'    THEN 1
+                            WHEN '1-30 days'  THEN 2
+                            WHEN '31-60 days' THEN 3
+                            WHEN '61-90 days' THEN 4
+                            ELSE 5
+                        END
+                """,
+            },
+            {
+                "id": "unpaid_invoices_list",
+                "type": "table",
+                "title": "Unpaid Invoices",
+                "position": {"x": 0, "y": 10, "w": 12, "h": 4},
+                "sql_template": """
+                    SELECT
+                        invoice_number,
+                        COALESCE(contact_name, client_name, customer_name, 'Unknown') AS client,
+                        COALESCE(total_amount, 0)                                      AS amount,
+                        due_date,
+                        status,
+                        CURRENT_DATE - due_date                                        AS days_overdue
+                    FROM {invoices_table}
+                    WHERE status NOT IN ('paid', 'voided', 'cancelled')
+                    ORDER BY due_date ASC
+                    LIMIT 25
+                """,
+            },
+        ],
+    },
+
+    # ----------------------------------------------------------
+    # 5. SaaS / Tech Startup
+    # ----------------------------------------------------------
+    "saas_startup": {
+        "id": "saas_startup",
+        "name": "SaaS & Tech Startup",
+        "description": (
+            "Track MRR, churn, trial conversions, new signups, and revenue "
+            "expansion for software-as-a-service businesses."
+        ),
+        "icon": "code",
+        "industry": "saas",
+        "target_connectors": ["stripe", "paystack"],
+        "recommended_for_source_types": ["stripe", "paystack"],
+        "widgets": [
+            {
+                "id": "mrr",
+                "type": "kpi",
+                "title": "Monthly Recurring Revenue",
+                "description": "Current MRR from active subscriptions",
+                "position": {"x": 0, "y": 0, "w": 3, "h": 2},
+                "format": "currency",
+                "currency": "auto",
+                "sql_template": """
+                    SELECT COALESCE(SUM(amount), 0) / 100.0 AS value
+                    FROM {subscriptions_table}
+                    WHERE status = 'active'
+                      AND billing_interval IN ('month', 'monthly')
+                """,
+            },
+            {
+                "id": "active_subscriptions",
+                "type": "kpi",
+                "title": "Active Subscriptions",
+                "description": "Total number of currently active paying subscribers",
+                "position": {"x": 3, "y": 0, "w": 3, "h": 2},
+                "format": "number",
+                "sql_template": """
+                    SELECT COUNT(*) AS value
+                    FROM {subscriptions_table}
+                    WHERE status = 'active'
+                """,
+            },
+            {
+                "id": "churn_rate",
+                "type": "kpi",
+                "title": "Monthly Churn Rate",
+                "description": "Percentage of subscribers who cancelled last month",
+                "position": {"x": 6, "y": 0, "w": 3, "h": 2},
+                "format": "percent",
+                "sql_template": """
+                    WITH prev_month AS (
+                        SELECT COUNT(*) AS active_count
+                        FROM {subscriptions_table}
+                        WHERE status = 'active'
+                          AND created_at < DATE_TRUNC('month', CURRENT_DATE)
+                    ),
+                    churned AS (
+                        SELECT COUNT(*) AS churned_count
+                        FROM {subscriptions_table}
+                        WHERE status IN ('canceled', 'cancelled', 'expired')
+                          AND canceled_at >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
+                          AND canceled_at <  DATE_TRUNC('month', NOW())
+                    )
+                    SELECT
+                        ROUND(
+                            100.0 * churned.churned_count / NULLIF(prev_month.active_count, 0),
+                        2) AS value
+                    FROM prev_month, churned
+                """,
+            },
+            {
+                "id": "mrr_growth_trend",
+                "type": "line_chart",
+                "title": "MRR Growth — Last 12 Months",
+                "position": {"x": 0, "y": 2, "w": 8, "h": 4},
+                "x_axis": "month",
+                "y_axis": "mrr",
+                "sql_template": """
+                    SELECT
+                        DATE_TRUNC('month', created_at)      AS month,
+                        COALESCE(SUM(amount), 0) / 100.0     AS mrr,
+                        COUNT(*)                             AS new_subscriptions
+                    FROM {subscriptions_table}
+                    WHERE status IN ('active', 'canceled', 'cancelled')
+                      AND created_at >= NOW() - INTERVAL '12 months'
+                    GROUP BY DATE_TRUNC('month', created_at)
+                    ORDER BY month
+                """,
+            },
+            {
+                "id": "plan_distribution",
+                "type": "pie_chart",
+                "title": "Subscribers by Plan",
+                "position": {"x": 0, "y": 6, "w": 5, "h": 4},
+                "sql_template": """
+                    SELECT
+                        COALESCE(plan_id, plan_name, price_id, 'Unknown') AS plan,
+                        COUNT(*) AS subscriber_count
+                    FROM {subscriptions_table}
+                    WHERE status = 'active'
+                    GROUP BY 1
+                    ORDER BY subscriber_count DESC
+                """,
+            },
+            {
+                "id": "new_trials",
+                "type": "bar_chart",
+                "title": "New Trials Started (Daily — Last 30 Days)",
+                "position": {"x": 5, "y": 6, "w": 7, "h": 4},
+                "x_axis": "date",
+                "y_axis": "trials",
+                "sql_template": """
+                    SELECT
+                        DATE(created_at) AS date,
+                        COUNT(*)         AS trials
+                    FROM {subscriptions_table}
+                    WHERE status IN ('trialing', 'trial')
+                      AND created_at >= NOW() - INTERVAL '30 days'
+                    GROUP BY DATE(created_at)
+                    ORDER BY date
+                """,
+            },
+            {
+                "id": "recent_cancellations",
+                "type": "table",
+                "title": "Recent Cancellations",
+                "position": {"x": 0, "y": 10, "w": 12, "h": 4},
+                "sql_template": """
+                    SELECT
+                        id                                                         AS subscription_id,
+                        COALESCE(customer_email, customer_id, 'Unknown')           AS customer,
+                        COALESCE(plan_id, plan_name, price_id, 'Unknown')          AS plan,
+                        canceled_at,
+                        COALESCE(cancellation_reason, cancel_at_period_end::text, '') AS reason
+                    FROM {subscriptions_table}
+                    WHERE status IN ('canceled', 'cancelled', 'expired')
+                      AND canceled_at >= NOW() - INTERVAL '30 days'
+                    ORDER BY canceled_at DESC
+                    LIMIT 20
+                """,
+            },
+        ],
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Helper functions for industry templates
+# ---------------------------------------------------------------------------
+
+def get_all_industry_templates() -> List[Dict[str, Any]]:
+    """
+    Return a summary list of all industry-specific dashboard templates.
+
+    Each item contains metadata but not the full widget definitions.
+    """
+    return [
+        {
+            "id": t["id"],
+            "name": t["name"],
+            "description": t["description"],
+            "icon": t["icon"],
+            "industry": t["industry"],
+            "target_connectors": t["target_connectors"],
+            "recommended_for_source_types": t["recommended_for_source_types"],
+            "widget_count": len(t["widgets"]),
+        }
+        for t in INDUSTRY_DASHBOARD_TEMPLATES.values()
+    ]
+
+
+def get_industry_template_by_id(template_id: str) -> Dict[str, Any]:
+    """Return the full industry template dict (including widgets) or None."""
+    return INDUSTRY_DASHBOARD_TEMPLATES.get(template_id)
+
+
+def recommend_industry_template(source_types: List[str]) -> Any:
+    """
+    Given a list of connected source types, return the ID of the most
+    relevant industry dashboard template.
+
+    Scoring: count how many of the template's recommended_for_source_types
+    match the org's connected sources; return the highest-scoring template ID.
+    Returns None if no sources are connected.
+    """
+    if not source_types:
+        return None
+
+    source_set = {s.lower() for s in source_types}
+    best_id = None
+    best_score: int = -1
+
+    for tmpl_id, tmpl in INDUSTRY_DASHBOARD_TEMPLATES.items():
+        recommended = {s.lower() for s in tmpl.get("recommended_for_source_types", [])}
+        score = len(recommended & source_set)
+        if score > best_score:
+            best_score = score
+            best_id = tmpl_id
+
+    return best_id if best_score > 0 else None
