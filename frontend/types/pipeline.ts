@@ -9,13 +9,16 @@ export interface Pipeline {
   retry_delay_seconds?: number;
   exponential_backoff_enabled?: boolean;
   is_active: boolean;
-  write_mode?: 'append' | 'merge' | 'scd2' | 'replace';
-  schema_contract?: 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
+  write_mode?: WriteMode;
+  schema_contract?: SchemaContract;
   created_at: string;
   updated_at: string;
   source?: Source;
   destination?: Destination;
 }
+
+export type WriteMode = 'append' | 'merge' | 'upsert' | 'insert_only' | 'scd2' | 'replace';
+export type SchemaContract = 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
 
 export interface Source {
   id: string;
@@ -83,8 +86,8 @@ export interface CreatePipelineRequest {
   destination_id: string;
   schedule?: string;
   is_active: boolean;
-  write_mode?: 'append' | 'merge' | 'scd2' | 'replace';
-  schema_contract?: 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
+  write_mode?: WriteMode;
+  schema_contract?: SchemaContract;
   config?: {
     transformations?: TransformationConfig;
   };
@@ -97,6 +100,6 @@ export interface UpdatePipelineRequest {
   destination_id?: string;
   schedule?: string;
   is_active?: boolean;
-  write_mode?: 'append' | 'merge' | 'scd2' | 'replace';
-  schema_contract?: 'evolve' | 'freeze' | 'discard_columns' | 'discard_rows';
+  write_mode?: WriteMode;
+  schema_contract?: SchemaContract;
 }

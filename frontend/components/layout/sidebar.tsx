@@ -22,6 +22,7 @@ import {
   Rocket,
   Boxes,
   X,
+  Plug,
 } from "lucide-react";
 
 const navItems = [
@@ -29,6 +30,12 @@ const navItems = [
     title: "Overview",
     href: "/overview",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Connect",
+    href: "/connect",
+    icon: Plug,
+    highlight: true,
   },
   {
     title: "Get Started",
@@ -145,6 +152,8 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           const Icon = item.icon;
           const isActive = pathname === item.href;
 
+          const isHighlight = !isActive && (item as any).highlight;
+
           return (
             <Link
               key={item.href}
@@ -154,6 +163,8 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-primary text-primary-foreground"
+                  : isHighlight
+                  ? "text-primary bg-primary/5 hover:bg-primary/10 border border-primary/20"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >

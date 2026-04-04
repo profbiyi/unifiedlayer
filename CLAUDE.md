@@ -341,6 +341,58 @@ npm install
 npm run dev
 ```
 
+## Recent Changes (Apr 2026)
+
+### dlt Upgrade 1.22.2 → 1.24.0
+- Upgraded dlt to 1.24.0 — enables 5x faster normalizer, parallelized REST API resources,
+  Snowflake atomic table swap, ClickHouse destination support
+- Added `upsert` and `insert_only` write modes to `WriteModeEnum` in `backend/models/pipeline.py`
+- Updated `_get_write_disposition()` in `pipeline_flow.py` to map new strategies:
+  - `upsert` → `{"disposition": "merge", "strategy": "upsert"}`
+  - `insert_only` → `{"disposition": "merge", "strategy": "insert-only"}`
+- Alembic migration `2026040301` adds new enum values to PostgreSQL `write_mode_enum`
+- Frontend types updated with `WriteMode` and `SchemaContract` union types
+
+### Unified "Connect" Experience — `/connect`
+- **New page**: `/connect` — 4-step flow to go from zero to syncing in 60 seconds
+  - Step 1: Visual connector picker with categories, search, and "Popular" section
+  - Step 2: Smart credential form with auto-test (triggers after all fields filled)
+  - Step 3: Destination picker (reuse existing or create new inline)
+  - Step 4: Pipeline name + schedule + write mode → "Start Syncing" button
+  - Success: confetti animation + link to new pipeline
+- **New components** in `frontend/components/connect/`:
+  - `ConnectorCard.tsx` — Visual connector card with icon, badges, hover animation
+  - `ConnectorPicker.tsx` — Grid with search, category filters, popular section
+  - `CredentialForm.tsx` — Dynamic form from connector metadata + inline auto-test
+  - `DestinationPicker.tsx` — Existing destinations + create-new-inline
+  - `PipelineConfirm.tsx` — Visual source→dest flow, schedule buttons, write mode
+- **Connector icon registry**: `frontend/lib/connector-icons.ts` — centralized metadata
+  for all 17 source connectors and 7 destination connectors (icon, color, fields, category)
+- **Quick Connect on Dashboard**: `frontend/components/dashboard/QuickConnect.tsx`
+  — shows popular connectors on overview page for new users (< 3 sources)
+- **Sidebar**: Added "Connect" nav item with Plug icon and subtle highlight styling
+- **Pipeline creation**: Added Upsert and Deduplicated Append write mode options
+
+### Files Added
+- `frontend/app/(dashboard)/connect/page.tsx`
+- `frontend/components/connect/ConnectorCard.tsx`
+- `frontend/components/connect/ConnectorPicker.tsx`
+- `frontend/components/connect/CredentialForm.tsx`
+- `frontend/components/connect/DestinationPicker.tsx`
+- `frontend/components/connect/PipelineConfirm.tsx`
+- `frontend/components/dashboard/QuickConnect.tsx`
+- `frontend/lib/connector-icons.ts`
+- `alembic/versions/2026_04_03_0001_add_upsert_insert_only_write_modes.py`
+
+### Files Modified
+- `backend/requirements.txt` — dlt 1.22.2 → 1.24.0
+- `backend/models/pipeline.py` — UPSERT + INSERT_ONLY enum values
+- `backend/prefect_flows/pipeline_flow.py` — updated write disposition mapper
+- `frontend/types/pipeline.ts` — WriteMode + SchemaContract types
+- `frontend/components/layout/sidebar.tsx` — Connect nav item with highlight
+- `frontend/app/(dashboard)/overview/page.tsx` — QuickConnect section
+- `frontend/app/(dashboard)/pipelines/new/page.tsx` — new write mode options
+
 ## Recent Changes (Feb 2026)
 
 1. Created beautiful connectors catalog page at `/developers/connectors`

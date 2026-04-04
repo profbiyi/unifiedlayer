@@ -39,8 +39,10 @@ const steps = [
 
 // Human-readable labels for write_mode and schema_contract
 const WRITE_MODE_LABELS: Record<string, string> = {
-  merge: "Merge (Upsert)",
-  append: "Append",
+  merge: "Merge (Delete-Insert)",
+  upsert: "Upsert — Update or Insert",
+  append: "Append — Always Add Rows",
+  insert_only: "Deduplicated Append — Idempotent",
   scd2: "SCD2 — Historical Tracking",
   replace: "Replace (Full Reload)",
 };
@@ -435,17 +437,33 @@ export default function NewPipelinePage() {
                     <SelectContent>
                       <SelectItem value="merge">
                         <div>
-                          <div className="font-medium">Merge (Upsert) — Recommended</div>
+                          <div className="font-medium">Merge (Delete-Insert) — Recommended</div>
                           <div className="text-xs text-muted-foreground">
-                            Update existing rows, insert new ones. Best for most data.
+                            Delete matching rows, then insert. Safe default for most data.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="upsert">
+                        <div>
+                          <div className="font-medium">Upsert — Update or Insert</div>
+                          <div className="text-xs text-muted-foreground">
+                            True upsert: update existing rows in-place, insert new. Best for dimension tables.
                           </div>
                         </div>
                       </SelectItem>
                       <SelectItem value="append">
                         <div>
-                          <div className="font-medium">Append</div>
+                          <div className="font-medium">Append — Always Add Rows</div>
                           <div className="text-xs text-muted-foreground">
                             Always add new rows. Best for event logs and transactions.
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="insert_only">
+                        <div>
+                          <div className="font-medium">Deduplicated Append</div>
+                          <div className="text-xs text-muted-foreground">
+                            Idempotent append: only adds rows with new primary keys. Safe retries.
                           </div>
                         </div>
                       </SelectItem>
@@ -462,8 +480,7 @@ export default function NewPipelinePage() {
                         <div>
                           <div className="font-medium">Replace (Full Reload)</div>
                           <div className="text-xs text-muted-foreground">
-                            Delete all data and reload fresh each sync. Best for small
-                            reference tables.
+                            Drop and reload every sync. Best for small reference tables.
                           </div>
                         </div>
                       </SelectItem>

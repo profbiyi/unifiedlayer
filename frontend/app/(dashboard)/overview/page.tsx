@@ -10,6 +10,7 @@ import { usePipelineRuns } from "@/hooks/queries/usePipelines";
 import { useOverviewMetrics } from "@/hooks/queries/useMetrics";
 import { useTemplates } from "@/hooks/queries/useTemplates";
 import { HealthOverview } from "@/components/health/HealthOverview";
+import QuickConnect from "@/components/dashboard/QuickConnect";
 import { Badge } from "@/components/ui/badge";
 import { StatsCardSkeleton } from "@/components/skeletons/StatsCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,28 +109,10 @@ export default function OverviewPage() {
         </p>
       </div>
 
-      {/* Quick Start Banner */}
-      <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
-        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
-              <Sparkles className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold">Get Started in 60 Seconds</h2>
-              <p className="text-sm text-muted-foreground">
-                Deploy a pre-built sync pipeline with one click
-              </p>
-            </div>
-          </div>
-          <Link href="/templates">
-            <Button>
-              Browse Templates
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
+      {/* Quick Connect — show for users with fewer than 3 sources */}
+      {(sources?.length || 0) < 3 && (
+        <QuickConnect />
+      )}
 
       {/* Featured Templates */}
       {templates && templates.length > 0 && (

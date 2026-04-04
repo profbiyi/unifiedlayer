@@ -55,9 +55,22 @@ def sanitize_for_logging(config: dict) -> dict:
 
 
 def _get_write_disposition(write_mode: str) -> Any:
-    """Convert Pipeline write_mode to dlt write_disposition."""
+    """Convert Pipeline write_mode to dlt write_disposition.
+
+    Supports all dlt 1.24+ merge strategies:
+    - append: always add new rows
+    - merge: delete-insert (default merge)
+    - upsert: true upsert — update existing, insert new (dlt 1.24+)
+    - insert_only: idempotent key-based append with dedup (dlt 1.24+)
+    - scd2: slowly changing dimension type 2
+    - replace: full reload
+    """
     if write_mode == "scd2":
         return {"disposition": "merge", "strategy": "scd2"}
+    if write_mode == "upsert":
+        return {"disposition": "merge", "strategy": "upsert"}
+    if write_mode == "insert_only":
+        return {"disposition": "merge", "strategy": "insert-only"}
     if write_mode == "merge":
         return "merge"
     if write_mode == "replace":

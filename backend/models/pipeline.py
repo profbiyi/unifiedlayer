@@ -76,10 +76,12 @@ class DestinationType(str, enum.Enum):
 
 class WriteModeEnum(str, enum.Enum):
     """How new data is combined with existing data in the destination."""
-    APPEND = "append"      # Always add new rows (default for event data)
-    MERGE = "merge"        # Upsert — update existing rows, insert new (default for most)
-    SCD2 = "scd2"          # Slowly Changing Dimension Type 2 — track full history
-    REPLACE = "replace"    # Full reload every sync (for small lookup tables)
+    APPEND = "append"          # Always add new rows (default for event data)
+    MERGE = "merge"            # Delete-insert merge — delete matching rows, insert new (default)
+    UPSERT = "upsert"          # True upsert — update existing rows, insert new (dlt 1.24+)
+    INSERT_ONLY = "insert_only"  # Idempotent append — deduplicate on primary key (dlt 1.24+)
+    SCD2 = "scd2"              # Slowly Changing Dimension Type 2 — track full history
+    REPLACE = "replace"        # Full reload every sync (for small lookup tables)
 
 
 class SchemaContractEnum(str, enum.Enum):
