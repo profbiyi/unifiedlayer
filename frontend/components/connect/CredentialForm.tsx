@@ -52,29 +52,23 @@ export default function CredentialForm({
   const meta: ConnectorMeta | DestinationMeta | undefined =
     mode === "source" ? getSourceMeta(connectorId) : getDestinationMeta(connectorId);
 
-  if (!meta) return null;
-
-  const fields = meta.fields;
-  const Icon = meta.icon;
+  const fields = meta?.fields ?? [];
   const requiredFields = fields.filter((f) => f.required);
 
   const allRequiredFilled = requiredFields.every(
     (f) => values[f.key] && values[f.key].trim() !== ""
   );
 
-  const handleFieldChange = (key: string, value: string) => {
-    const next = { ...values, [key]: value };
-    onChange(next);
-    // Reset test when credentials change
-    if (testState === "success" || testState === "error") {
-      setTestState("idle");
-      setTestMessage("");
-      setTestMetadata(null);
-    }
-  };
+  const handleFieldChange = useCallback(
+    (key: string, value: string) => {
+      const next = { ...values, [key]: value };
+      onChange(next);
+    },
+    [values, onChange]
+  );
 
-  const runTest = async () => {
-    if (!allRequiredFilled) return;
+  const runTest = useCallback(async () => {
+    if (!allRequiredFilled || !meta) return;
 
     setTestState("testing");
     setTestMessage("");
@@ -110,7 +104,7 @@ export default function CredentialForm({
       );
       onTestResult?.(false);
     }
-  };
+  }, [allRequiredFilled, meta, mode, connectorId, values, onTestResult]);
 
   // Auto-test when all required fields are filled (debounced)
   useEffect(() => {
@@ -124,7 +118,22 @@ export default function CredentialForm({
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRequiredFilled, autoTest]);
+  }, [allRequiredFilled, autoTest, runTest]);
+
+  // Reset test state when credentials change
+  useEffect(() => {
+    if (testState === "success" || testState === "error") {
+      setTestState("idle");
+      setTestMessage("");
+      setTestMetadata(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
+
+  // Early return AFTER all hooks
+  if (!meta) return null;
+
+  const Icon = meta.icon;
 
   const renderField = (field: FieldDef) => {
     const value = values[field.key] || field.defaultValue?.toString() || "";
