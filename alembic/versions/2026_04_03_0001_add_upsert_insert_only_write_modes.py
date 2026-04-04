@@ -15,10 +15,38 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add new enum values to write_mode_enum idempotently.
-    # PostgreSQL enums cannot be altered inside a transaction block with
-    # ADD VALUE, so we use DO $$ blocks with exception handling to be safe
-    # on retries (e.g. Railway healthcheck timeout interrupted a prior attempt).
+    # If the prior migration (2026030501) was stamped but not actually executed
+    # (e.g. the DB was bootstrapped with create_all() before the write_mode column
+    # was in the model, then alembic stamp head was run), the enum type and columns
+    # may be missing.  Create them idempotently first, then add the new values.
+
+    # 1. Ensure the enum types exist (may have been created by 2026030501 or create_all())
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE write_mode_enum AS ENUM ('append', 'merge', 'scd2', 'replace');
+        EXCEPTION WHEN duplicate_object THEN
+            NULL;
+        END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE schema_contract_enum AS ENUM ('evolve', 'freeze', 'discard_columns', 'discard_rows');
+        EXCEPTION WHEN duplicate_object THEN
+            NULL;
+        END $$;
+    """)
+
+    # 2. Ensure the columns exist on the pipelines table
+    op.execute("""
+        ALTER TABLE pipelines
+        ADD COLUMN IF NOT EXISTS write_mode write_mode_enum NOT NULL DEFAULT 'merge'
+    """)
+    op.execute("""
+        ALTER TABLE pipelines
+        ADD COLUMN IF NOT EXISTS schema_contract schema_contract_enum NOT NULL DEFAULT 'evolve'
+    """)
+
+    # 3. Add new enum values (dlt 1.24+ write strategies)
     op.execute("""
         DO $$ BEGIN
             ALTER TYPE write_mode_enum ADD VALUE IF NOT EXISTS 'upsert';

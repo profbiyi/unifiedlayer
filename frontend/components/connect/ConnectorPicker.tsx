@@ -134,7 +134,7 @@ export default function ConnectorPicker({ mode, selected, onSelect }: ConnectorP
       <div className="space-y-3">
         {showPopular && (
           <h3 className="text-sm font-semibold text-muted-foreground">
-            {activeCategory ? CATEGORY_META[activeCategory].label.toUpperCase() : "ALL CONNECTORS"}
+            {activeCategory ? CATEGORY_META[activeCategory as ConnectorCategory].label.toUpperCase() : "ALL CONNECTORS"}
           </h3>
         )}
         <motion.div
