@@ -202,7 +202,7 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
 
   // ── Databases ──
   {
-    id: "postgres",
+    id: "postgresql",
     name: "PostgreSQL",
     description: "Connect to any PostgreSQL database with CDC support",
     icon: Database,
@@ -277,6 +277,36 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
     ],
   },
   {
+    id: "local",
+    name: "Local File",
+    description: "Import from local filesystem",
+    icon: FileUp,
+    color: "bg-gray-600",
+    textColor: "text-white",
+    category: "files",
+    fields: [
+      { key: "path", label: "Directory Path", type: "text", placeholder: "/data/exports/", required: true },
+      { key: "file_pattern", label: "File Pattern", type: "text", placeholder: "*.csv", defaultValue: "*.csv" },
+    ],
+  },
+  {
+    id: "http_file",
+    name: "HTTP / Public File",
+    description: "Sync CSV, JSONL or Parquet from any public URL",
+    icon: Globe,
+    color: "bg-indigo-500",
+    textColor: "text-white",
+    category: "files",
+    isNew: true,
+    fields: [
+      { key: "url", label: "File URL", type: "text", placeholder: "https://data.gov.uk/dataset.csv", required: true },
+      { key: "file_format", label: "Format", type: "select", defaultValue: "auto", options: [{ value: "auto", label: "Auto-detect" }, { value: "csv", label: "CSV" }, { value: "jsonl", label: "JSONL" }, { value: "parquet", label: "Parquet" }] },
+      { key: "table_name", label: "Table Name", type: "text", placeholder: "my_data" },
+    ],
+  },
+
+  // ── APIs ──
+  {
     id: "rest_api",
     name: "REST API",
     description: "Connect to any REST API with pagination support",
@@ -284,6 +314,22 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
     color: "bg-teal-600",
     textColor: "text-white",
     category: "apis",
+    fields: [
+      { key: "base_url", label: "Base URL", type: "text", placeholder: "https://api.example.com/v1", required: true },
+      { key: "auth_type", label: "Auth Type", type: "select", required: true, defaultValue: "none", options: [{ value: "none", label: "No Auth" }, { value: "bearer", label: "Bearer Token" }, { value: "api_key", label: "API Key" }, { value: "basic", label: "Basic Auth" }] },
+      { key: "auth_token", label: "Auth Token / API Key", type: "password", helpText: "Required if auth type is Bearer or API Key" },
+    ],
+  },
+
+  {
+    id: "rest_api_declarative",
+    name: "REST API (Custom)",
+    description: "Connect to any REST API — configure endpoints, auth, and pagination",
+    icon: Link2,
+    color: "bg-violet-600",
+    textColor: "text-white",
+    category: "apis",
+    isNew: true,
     fields: [
       { key: "base_url", label: "Base URL", type: "text", placeholder: "https://api.example.com/v1", required: true },
       { key: "auth_type", label: "Auth Type", type: "select", required: true, defaultValue: "none", options: [{ value: "none", label: "No Auth" }, { value: "bearer", label: "Bearer Token" }, { value: "api_key", label: "API Key" }, { value: "basic", label: "Basic Auth" }] },
