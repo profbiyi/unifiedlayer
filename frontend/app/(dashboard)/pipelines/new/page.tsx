@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { useCreatePipeline } from "@/hooks/queries/usePipelines";
 import { useSources } from "@/hooks/queries/useSources";
 import { useDestinations } from "@/hooks/queries/useDestinations";
@@ -23,10 +24,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Check, Database, HardDrive, Plus } from "lucide-react";
+import { hoverLift, tapScale } from "@/lib/animations";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Database,
+  HardDrive,
+  Plus,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { CreatePipelineRequest, TransformationConfig } from "@/types/pipeline";
 import TransformationStep from "@/components/pipeline/TransformationStep";
+import { getSourceMeta, getDestinationMeta } from "@/lib/connector-icons";
 
 const steps = [
   { id: 1, name: "Basic Info", description: "Name and description" },
@@ -40,16 +52,16 @@ const steps = [
 // Human-readable labels for write_mode and schema_contract
 const WRITE_MODE_LABELS: Record<string, string> = {
   merge: "Merge (Delete-Insert)",
-  upsert: "Upsert — Update or Insert",
-  append: "Append — Always Add Rows",
-  insert_only: "Deduplicated Append — Idempotent",
-  scd2: "SCD2 — Historical Tracking",
+  upsert: "Upsert -- Update or Insert",
+  append: "Append -- Always Add Rows",
+  insert_only: "Deduplicated Append -- Idempotent",
+  scd2: "SCD2 -- Historical Tracking",
   replace: "Replace (Full Reload)",
 };
 
 const SCHEMA_CONTRACT_LABELS: Record<string, string> = {
-  evolve: "Evolve — Auto-adapt",
-  freeze: "Freeze — Alert on change",
+  evolve: "Evolve -- Auto-adapt",
+  freeze: "Freeze -- Alert on change",
   discard_columns: "Discard New Columns",
   discard_rows: "Discard Rows with Unknown Fields",
 };
@@ -120,15 +132,21 @@ export default function NewPipelinePage() {
       case 3:
         return formData.destination_id !== "";
       case 4:
-        return true; // Schedule + settings are optional / have defaults
+        return true;
       case 5:
-        return true; // Transformations are optional
+        return true;
       case 6:
         return true;
       default:
         return false;
     }
   };
+
+  // Get selected source/destination for display
+  const selectedSource = sources?.find((s) => s.id === formData.source_id);
+  const selectedDestination = destinations?.find((d) => d.id === formData.destination_id);
+  const sourceMeta = selectedSource ? getSourceMeta(selectedSource.source_type || selectedSource.type) : null;
+  const destMeta = selectedDestination ? getDestinationMeta(selectedDestination.destination_type || selectedDestination.type) : null;
 
   return (
     <div className="space-y-6">
@@ -144,7 +162,7 @@ export default function NewPipelinePage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Create Pipeline</h1>
         <p className="text-muted-foreground">
-          Follow the steps to create a new data pipeline
+          Connect a source to a destination and start syncing data
         </p>
       </div>
 
@@ -202,7 +220,7 @@ export default function NewPipelinePage() {
                 <Label htmlFor="name">Pipeline Name *</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., MySQL to BigQuery Sync"
+                  placeholder="e.g., Stripe to BigQuery Sync"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -223,105 +241,154 @@ export default function NewPipelinePage() {
             </div>
           )}
 
-          {/* Step 2: Source */}
+          {/* Step 2: Source Selection — Visual Cards */}
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="source">Data Source *</Label>
-                {sourcesLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading sources...
-                  </p>
-                ) : sources && sources.length > 0 ? (
-                  <Select
-                    value={formData.source_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, source_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sources.map((source) => (
-                        <SelectItem key={source.id} value={source.id}>
-                          {source.name} ({source.type})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="rounded-lg border-2 border-dashed border-muted p-6 text-center space-y-3">
-                    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Database className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">No data sources yet</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        You need to connect a data source before creating a pipeline.
-                        This is where your data will come from.
-                      </p>
-                    </div>
-                    <Link href="/sources/new">
-                      <Button className="mt-2">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Your First Source
-                      </Button>
-                    </Link>
+              {sourcesLoading ? (
+                <p className="text-sm text-muted-foreground">Loading sources...</p>
+              ) : sources && sources.length > 0 ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {sources.map((source) => {
+                    const meta = getSourceMeta(source.source_type || source.type);
+                    const Icon = meta?.icon || Database;
+                    const isSelected = formData.source_id === source.id;
+
+                    return (
+                      <motion.button
+                        key={source.id}
+                        type="button"
+                        whileHover={hoverLift}
+                        whileTap={tapScale}
+                        onClick={() =>
+                          setFormData({ ...formData, source_id: source.id })
+                        }
+                        className={`group relative flex items-center gap-3 rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                            : "hover:border-primary/30 hover:bg-accent/50 hover:shadow-sm"
+                        }`}
+                      >
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm ${
+                            meta ? meta.color : "bg-gray-500"
+                          }`}
+                        >
+                          <Icon
+                            className={`h-5 w-5 ${
+                              meta ? meta.textColor : "text-white"
+                            }`}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {source.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {meta?.name || source.source_type || source.type}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-muted p-8 text-center space-y-3">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Database className="h-6 w-6 text-primary" />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <h4 className="font-medium">No data sources yet</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Connect a data source first — this is where your data comes from.
+                    </p>
+                  </div>
+                  <Link href="/sources/new">
+                    <Button className="mt-2">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Your First Source
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Step 3: Destination */}
+          {/* Step 3: Destination Selection — Visual Cards */}
           {currentStep === 3 && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="destination">Destination *</Label>
-                {destinationsLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading destinations...
-                  </p>
-                ) : destinations && destinations.length > 0 ? (
-                  <Select
-                    value={formData.destination_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, destination_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a destination" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {destinations.map((destination) => (
-                        <SelectItem key={destination.id} value={destination.id}>
-                          {destination.name} ({destination.type})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="rounded-lg border-2 border-dashed border-muted p-6 text-center space-y-3">
-                    <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <HardDrive className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium">No destinations yet</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        You need to add a destination where your synced data will be stored.
-                        We support PostgreSQL, BigQuery, Snowflake, and more.
-                      </p>
-                    </div>
-                    <Link href="/destinations/new">
-                      <Button className="mt-2">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Your First Destination
-                      </Button>
-                    </Link>
+              {destinationsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading destinations...</p>
+              ) : destinations && destinations.length > 0 ? (
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {destinations.map((destination) => {
+                    const meta = getDestinationMeta(destination.destination_type || destination.type);
+                    const Icon = meta?.icon || HardDrive;
+                    const isSelected = formData.destination_id === destination.id;
+
+                    return (
+                      <motion.button
+                        key={destination.id}
+                        type="button"
+                        whileHover={hoverLift}
+                        whileTap={tapScale}
+                        onClick={() =>
+                          setFormData({ ...formData, destination_id: destination.id })
+                        }
+                        className={`group relative flex items-center gap-3 rounded-xl border p-4 text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                            : "hover:border-primary/30 hover:bg-accent/50 hover:shadow-sm"
+                        }`}
+                      >
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm ${
+                            meta ? meta.color : "bg-gray-500"
+                          }`}
+                        >
+                          <Icon
+                            className={`h-5 w-5 ${
+                              meta ? meta.textColor : "text-white"
+                            }`}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {destination.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {meta?.name || destination.destination_type || destination.type}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-xl border-2 border-dashed border-muted p-8 text-center space-y-3">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <HardDrive className="h-6 w-6 text-primary" />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <h4 className="font-medium">No destinations yet</h4>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Add a destination where your synced data will be stored.
+                      We support PostgreSQL, BigQuery, Snowflake, and more.
+                    </p>
+                  </div>
+                  <Link href="/destinations/new">
+                    <Button className="mt-2">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Your First Destination
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
@@ -565,64 +632,106 @@ export default function NewPipelinePage() {
             </div>
           )}
 
-          {/* Step 6: Review */}
+          {/* Step 6: Review — Visual Summary */}
           {currentStep === 6 && (
-            <div className="space-y-4">
-              <div className="rounded-lg border p-4 space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Name</p>
-                  <p className="text-base">{formData.name}</p>
+            <div className="space-y-5">
+              {/* Visual flow: Source → Destination */}
+              <div className="flex items-center justify-center gap-4 py-4">
+                {/* Source card */}
+                <div className="flex items-center gap-3 rounded-xl border p-3 min-w-[140px]">
+                  {sourceMeta ? (
+                    <>
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${sourceMeta.color}`}>
+                        <sourceMeta.icon className={`h-4.5 w-4.5 ${sourceMeta.textColor}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Source</p>
+                        <p className="text-sm font-medium truncate">{selectedSource?.name}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Database className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Source</p>
+                        <p className="text-sm font-medium">{selectedSource?.name || "—"}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
+
+                {/* Destination card */}
+                <div className="flex items-center gap-3 rounded-xl border p-3 min-w-[140px]">
+                  {destMeta ? (
+                    <>
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${destMeta.color}`}>
+                        <destMeta.icon className={`h-4.5 w-4.5 ${destMeta.textColor}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">Destination</p>
+                        <p className="text-sm font-medium truncate">{selectedDestination?.name}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <HardDrive className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Destination</p>
+                        <p className="text-sm font-medium">{selectedDestination?.name || "—"}</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Details */}
+              <div className="rounded-xl border divide-y">
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Pipeline Name</span>
+                  <span className="text-sm font-medium">{formData.name}</span>
                 </div>
                 {formData.description && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Description</p>
-                    <p className="text-base">{formData.description}</p>
+                  <div className="flex justify-between items-center px-4 py-3">
+                    <span className="text-sm text-muted-foreground">Description</span>
+                    <span className="text-sm font-medium">{formData.description}</span>
                   </div>
                 )}
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Source</p>
-                  <p className="text-base">
-                    {sources?.find((s) => s.id === formData.source_id)?.name ||
-                      formData.source_id}
-                  </p>
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Schedule</span>
+                  <span className="text-sm font-medium">
+                    {formData.schedule ? (
+                      <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{formData.schedule}</code>
+                    ) : (
+                      "Manual"
+                    )}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Destination</p>
-                  <p className="text-base">
-                    {destinations?.find((d) => d.id === formData.destination_id)
-                      ?.name || formData.destination_id}
-                  </p>
-                </div>
-                {formData.schedule && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Schedule</p>
-                    <p className="text-base">{formData.schedule}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Write Mode</p>
-                  <p className="text-base">
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Write Mode</span>
+                  <span className="text-sm font-medium">
                     {WRITE_MODE_LABELS[formData.write_mode || "merge"]}
-                  </p>
+                  </span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Schema Contract</p>
-                  <p className="text-base">
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Schema Contract</span>
+                  <span className="text-sm font-medium">
                     {SCHEMA_CONTRACT_LABELS[formData.schema_contract || "evolve"]}
-                  </p>
+                  </span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Status</p>
-                  <p className="text-base">
+                <div className="flex justify-between items-center px-4 py-3">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  <span className={`text-sm font-medium ${formData.is_active ? "text-emerald-600" : "text-muted-foreground"}`}>
                     {formData.is_active ? "Active" : "Inactive"}
-                  </p>
+                  </span>
                 </div>
                 {((transformations.excluded_columns && transformations.excluded_columns.length > 0) ||
                   (transformations.column_mapping && Object.keys(transformations.column_mapping).length > 0) ||
                   (transformations.type_casts && Object.keys(transformations.type_casts).length > 0) ||
                   (transformations.filters && transformations.filters.length > 0)) && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Transformations</p>
+                  <div className="px-4 py-3">
+                    <span className="text-sm text-muted-foreground">Transformations</span>
                     <ul className="text-sm list-disc list-inside space-y-1 mt-1">
                       {transformations.excluded_columns && transformations.excluded_columns.length > 0 && (
                         <li>{transformations.excluded_columns.length} column(s) excluded</li>
@@ -663,7 +772,17 @@ export default function NewPipelinePage() {
                 onClick={handleSubmit}
                 disabled={createPipeline.isPending || !canProceed()}
               >
-                {createPipeline.isPending ? "Creating..." : "Create Pipeline"}
+                {createPipeline.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Create Pipeline
+                  </>
+                )}
               </Button>
             )}
           </div>
