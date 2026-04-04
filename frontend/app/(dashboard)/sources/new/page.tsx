@@ -42,8 +42,8 @@ export interface SourceWizardData {
 }
 
 const steps = [
-  { id: 1, name: "Basic Info", description: "Name and type" },
-  { id: 2, name: "Connection", description: "Credentials" },
+  { id: 1, name: "Pick Source", description: "Choose connector" },
+  { id: 2, name: "Credentials", description: "Connection details" },
   { id: 3, name: "Test", description: "Verify connection" },
   { id: 4, name: "Tables", description: "Select tables" },
   { id: 5, name: "Sync Mode", description: "Configure sync" },
