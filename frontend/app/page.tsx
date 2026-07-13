@@ -58,7 +58,7 @@ const solutionFeatures = [
     icon: Database,
     title: "15+ Connectors",
     description:
-      "PostgreSQL, MySQL, M-Pesa, Paystack, Flutterwave, WhatsApp, REST APIs, Google Sheets, Xero, GoCardless, Open Banking, MongoDB, and more.",
+      "Paystack, Flutterwave, M-Pesa, MTN MoMo, Mono, WhatsApp, PostgreSQL, MySQL, MongoDB, Google Sheets, REST APIs, and more.",
   },
   {
     icon: BarChart3,
@@ -82,7 +82,7 @@ const solutionFeatures = [
     icon: Globe,
     title: "Built for Africa First",
     description:
-      "Native connectors for Paystack, Flutterwave, M-Pesa, Mono, and WhatsApp — the systems African businesses actually run on. Plus Stripe, Open Banking, GoCardless, and HMRC MTD for UK and EU operations.",
+      "Native connectors for Paystack, Flutterwave, M-Pesa, MTN MoMo, Mono, and WhatsApp — the systems African businesses actually run on. Plus Stripe and bank connections for operations in France and the EU.",
   },
   {
     icon: Shield,

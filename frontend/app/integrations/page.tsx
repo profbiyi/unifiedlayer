@@ -17,7 +17,7 @@ import {
   FileSpreadsheet,
   Landmark,
   Plug,
-  Receipt,
+  Smartphone,
   Zap,
   Shield,
   RefreshCw,
@@ -27,20 +27,26 @@ const integrationCategories = [
   {
     icon: CreditCard,
     title: "Payment Processors",
-    description: "Connect Stripe, Paystack, and other payment platforms to track revenue and transactions.",
-    examples: ["Stripe", "Paystack"],
+    description: "Connect Paystack, Flutterwave, and Stripe to track revenue and transactions across all your channels.",
+    examples: ["Paystack", "Flutterwave", "Stripe"],
   },
   {
-    icon: Building2,
-    title: "Accounting Software",
-    description: "Sync your books from QuickBooks, Xero, Sage, and FreeAgent automatically.",
-    examples: ["QuickBooks", "Xero", "Sage", "FreeAgent"],
+    icon: Smartphone,
+    title: "Mobile Money",
+    description: "Sync M-Pesa and MTN MoMo wallets to reconcile mobile money alongside the rest of your business data.",
+    examples: ["M-Pesa", "MTN MoMo"],
   },
   {
     icon: Landmark,
     title: "Banking & Open Banking",
-    description: "Connect bank accounts via Mono (Africa) or TrueLayer (UK/EU) for real-time cash flow.",
+    description: "Connect bank accounts via Mono for African banks — plus TrueLayer for operations in Europe.",
     examples: ["Mono", "TrueLayer"],
+  },
+  {
+    icon: Building2,
+    title: "Accounting Software",
+    description: "Sync your books from QuickBooks and Sage automatically — no more manual exports.",
+    examples: ["QuickBooks", "Sage"],
   },
   {
     icon: Database,
@@ -53,12 +59,6 @@ const integrationCategories = [
     title: "Files & Spreadsheets",
     description: "Upload CSV files or connect to spreadsheets for quick data imports.",
     examples: ["CSV", "Excel"],
-  },
-  {
-    icon: Receipt,
-    title: "Tax & Compliance",
-    description: "Coming soon: HMRC MTD, VAT reporting, and more compliance integrations.",
-    examples: ["Coming soon"],
   },
 ];
 
