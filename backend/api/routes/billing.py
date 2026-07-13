@@ -17,6 +17,7 @@ from backend.models.billing import (
     UsageRecord,
     SubscriptionPlan,
     PLAN_LIMITS,
+    REGIONAL_PRICING,
 )
 from backend.services.billing_service import BillingService
 from backend.schemas.billing import (
@@ -27,6 +28,7 @@ from backend.schemas.billing import (
     UsageResponse,
     UsageLimitCheck,
     PlanDetailsResponse,
+    RegionalPrice,
     AllPlansResponse,
     InvoiceResponse,
     DetailedUsageResponse,
@@ -41,7 +43,22 @@ router = APIRouter(prefix="/billing", tags=["Billing"])
 
 @router.get("/plans", response_model=AllPlansResponse)
 async def list_plans():
-    """List all available subscription plans with their features and limits."""
+    """List all available subscription plans with their features and limits.
+
+    Professional carries purchasing-power prices per market — each price is
+    set against local affordability, not an FX conversion (see REGIONAL_PRICING).
+    """
+    professional_prices = [
+        RegionalPrice(
+            currency=currency,
+            country=pricing["country"],
+            symbol=pricing["symbol"],
+            provider=pricing["provider"],
+            monthly=pricing["professional_monthly"],
+        )
+        for currency, pricing in REGIONAL_PRICING.items()
+    ]
+
     plans = []
     for plan, limits in PLAN_LIMITS.items():
         plans.append(PlanDetailsResponse(
@@ -54,6 +71,7 @@ async def list_plans():
             lineage=limits["lineage"],
             analytics=limits["analytics"],
             price_gbp=limits["price_gbp"],
+            prices=professional_prices if plan == SubscriptionPlan.PROFESSIONAL else [],
         ))
     return AllPlansResponse(plans=plans)
 

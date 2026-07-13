@@ -93,6 +93,72 @@ PLAN_LIMITS = {
 }
 
 
+# Purchasing-power pricing — single source of truth for all market prices.
+#
+# Each market's Professional price is set deliberately against local SME
+# affordability, NOT an FX conversion of the GBP price (a converted £35 would
+# be ~₦70,000/month — unaffordable for the Nigerian SMEs the platform is
+# built for). Paystack checkout amounts are derived from this table.
+#
+# "professional_monthly" is in major currency units (₦, KSh, GH₵, £, €).
+REGIONAL_PRICING = {
+    "NGN": {
+        "country": "Nigeria",
+        "symbol": "₦",
+        "provider": "paystack",
+        "professional_monthly": 15_000,
+    },
+    "KES": {
+        "country": "Kenya",
+        "symbol": "KSh",
+        "provider": "paystack",
+        "professional_monthly": 2_000,
+    },
+    "GHS": {
+        "country": "Ghana",
+        "symbol": "GH₵",
+        "provider": "paystack",
+        "professional_monthly": 200,
+    },
+    "GBP": {
+        "country": "United Kingdom",
+        "symbol": "£",
+        "provider": "stripe",
+        "professional_monthly": 35,
+    },
+    "EUR": {
+        "country": "France / EU",
+        "symbol": "€",
+        "provider": "stripe",
+        "professional_monthly": 39,
+    },
+}
+
+
+# Country → billing currency for the markets we price deliberately.
+# Used when the super admin onboards an organization: the org's country
+# decides which purchasing-power price it gets. Keys are lowercase.
+COUNTRY_CURRENCY = {
+    "nigeria": "NGN",
+    "kenya": "KES",
+    "ghana": "GHS",
+    "united kingdom": "GBP",
+    "uk": "GBP",
+    "france": "EUR",
+}
+
+
+def currency_for_country(country: str | None) -> str:
+    """Map an organization's country to its billing currency.
+
+    Unknown or missing countries fall back to GBP (the platform default),
+    which the super admin can change later via the billing-currency endpoint.
+    """
+    if not country:
+        return "GBP"
+    return COUNTRY_CURRENCY.get(country.strip().lower(), "GBP")
+
+
 class Subscription(Base):
     """Tracks an organization's subscription and links to payment provider."""
     __tablename__ = "subscriptions"

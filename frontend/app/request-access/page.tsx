@@ -23,15 +23,19 @@ import {
 } from "@/components/ui/select";
 import { Database, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
 
+// Systems that actually generate data for SMEs in our target markets:
+// Nigeria, Ghana, Kenya, and francophone Africa / France
 const DIGITAL_SYSTEMS = [
   "Paystack",
   "Flutterwave",
   "M-Pesa",
-  "Mono / Open Banking",
-  "Stripe",
-  "QuickBooks / Xero / Sage",
+  "MTN Mobile Money (MoMo)",
+  "Wave / Orange Money",
+  "POS terminals (Moniepoint, OPay, Interswitch)",
+  "Mono / Okra (bank data)",
+  "Stripe (France / EU operations)",
   "WhatsApp Business",
-  "POS system",
+  "Accounting software (QuickBooks, Sage, Zoho)",
   "Custom database (PostgreSQL, MySQL, MongoDB)",
   "Spreadsheets (Excel, Google Sheets)",
   "Other",

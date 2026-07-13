@@ -85,6 +85,15 @@ class UsageLimitCheck(BaseModel):
     plan: str = "starter"
 
 
+class RegionalPrice(BaseModel):
+    """A market-specific price set against local affordability (not FX-converted)."""
+    currency: str
+    country: str
+    symbol: str
+    provider: str  # "paystack" or "stripe"
+    monthly: int  # major currency units
+
+
 class PlanDetailsResponse(BaseModel):
     plan: str
     max_connectors: int
@@ -95,6 +104,8 @@ class PlanDetailsResponse(BaseModel):
     lineage: bool
     analytics: bool
     price_gbp: Optional[int] = None
+    # Purchasing-power prices per market; empty for free/custom-priced plans
+    prices: List[RegionalPrice] = []
 
 
 class AllPlansResponse(BaseModel):

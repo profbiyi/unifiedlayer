@@ -105,6 +105,8 @@ class Organization(Base):
     name = Column(String(255), nullable=False, unique=True)
     slug = Column(String(100), nullable=False, unique=True, index=True)
     description = Column(Text, nullable=True)
+    # Country decides the billing currency at onboarding (purchasing-power pricing)
+    country = Column(String(100), nullable=True)
 
     # Organization control flags (Super Admin only)
     is_active = Column(Boolean, default=True, nullable=False)  # Hard shutdown: no login, no access
