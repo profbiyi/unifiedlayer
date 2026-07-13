@@ -21,6 +21,9 @@ import {
   DollarSign,
   FileQuestion,
   UserX,
+  Server,
+  Lock,
+  MapPin,
 } from "lucide-react";
 
 const problems = [
@@ -77,9 +80,9 @@ const solutionFeatures = [
   },
   {
     icon: Globe,
-    title: "Built for Europe",
+    title: "Built for Africa First",
     description:
-      "Native connectors for HMRC MTD, Open Banking, GoCardless, Stripe, Paystack, Flutterwave, and M-Pesa — ready for UK and EU markets.",
+      "Native connectors for Paystack, Flutterwave, M-Pesa, Mono, and WhatsApp — the systems African businesses actually run on. Plus Stripe, Open Banking, GoCardless, and HMRC MTD for UK and EU operations.",
   },
   {
     icon: Shield,
@@ -114,27 +117,28 @@ const whyUnifiedLayer = [
 
 const plans = [
   {
-    name: "Free Trial",
+    name: "Guided Trial",
     price: "Free",
     period: "",
-    description: "Try UnifiedLayer free for 30 days",
-    badge: "30-Day Trial",
+    description:
+      "A 15-day guided trial with hands-on onboarding — request access to get started",
+    badge: "15-Day Guided Trial",
     features: [
+      "15 days with onboarding support",
+      "We help you connect your first sources",
       "5,000 rows synced",
       "1 pipeline sync",
       "1 data source",
       "1 user",
-      "30-day trial",
-      "Ends at 5k rows or 30 days",
     ],
     highlighted: false,
   },
   {
     name: "Professional",
-    price: "Contact Us",
-    period: "",
+    price: "From £35",
+    period: "/month",
     description:
-      "Unlimited connectors, quality checks, lineage, and analytics",
+      "Unlimited connectors, quality checks, lineage, and analytics — billed in your local currency (NGN, KES, GHS, GBP, EUR)",
     badge: "Most Popular",
     features: [
       "Up to 3 team members",
@@ -195,9 +199,9 @@ export default function Home() {
                 Sign In
               </Button>
             </Link>
-            <a href="mailto:hello@unifiedlayer.io">
+            <Link href="/request-access">
               <Button size="sm">Request Access</Button>
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
@@ -207,7 +211,7 @@ export default function Home() {
         <div className="container relative">
           <div className="mx-auto max-w-3xl text-center">
             <Badge className="mb-6" variant="secondary">
-              The data platform for SMEs
+              The data platform for African SMEs
             </Badge>
             <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
               Turn fragmented data
@@ -217,26 +221,27 @@ export default function Home() {
             </h1>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl">
               UnifiedLayer is the data integration and analytics platform built
-              for SMEs. Connect all your data sources &mdash; conventional and
-              unconventional &mdash; into a single source of truth. No data team
-              required.
+              for African SMEs. Connect payments, mobile money, banking, and
+              accounting data &mdash; Paystack, Flutterwave, M-Pesa, and more
+              &mdash; into a single source of truth. Your data stays under your
+              control. No data team required.
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-              <Link href="/login">
+              <Link href="/request-access">
                 <Button size="lg" className="w-full sm:w-auto">
-                  Sign In
+                  Request Access
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <a href="mailto:hello@unifiedlayer.io">
+              <Link href="/login">
                 <Button
                   size="lg"
                   variant="outline"
                   className="w-full sm:w-auto"
                 >
-                  Request Access
+                  Sign In
                 </Button>
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -250,8 +255,8 @@ export default function Home() {
               The SME data challenge
             </h2>
             <p className="text-lg text-muted-foreground">
-              Small and mid-sized businesses face unique data problems that
-              enterprise tools were never designed to solve.
+              Small and mid-sized businesses across Africa face data problems
+              that enterprise tools were never designed to solve.
             </p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2">
@@ -351,6 +356,72 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Data Sovereignty Section */}
+      <section className="border-t bg-primary/5 py-20 md:py-28">
+        <div className="container">
+          <div className="mx-auto mb-16 max-w-2xl text-center">
+            <Badge className="mb-4" variant="secondary">
+              Data Sovereignty
+            </Badge>
+            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              Your data. Your country. Your control.
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              Most global data platforms move your data to servers in the US or
+              Europe. UnifiedLayer is built the other way around: you decide
+              where your data lives and who can touch it.
+            </p>
+          </div>
+          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
+            <Card className="border-2 transition-colors hover:border-primary/50">
+              <CardHeader>
+                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                  <MapPin className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>Local data residency</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Keep your data in-country. Regional hosting options mean your
+                  business data doesn&apos;t have to leave your jurisdiction to be
+                  useful.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-2 transition-colors hover:border-primary/50">
+              <CardHeader>
+                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                  <Lock className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>Regulation-ready</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Designed with NDPR (Nigeria), GDPR (EU), and local financial
+                  reporting requirements in mind &mdash; compliance is built into
+                  the platform, not bolted on.
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-2 transition-colors hover:border-primary/50">
+              <CardHeader>
+                <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                  <Server className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle>You own the pipeline</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  Credentials encrypted at rest, full audit logs, role-based
+                  access, and data export at any time. Your data is never sold,
+                  shared, or mined.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing Section */}
       <section id="pricing" className="border-t bg-muted/30 py-20 md:py-28">
         <div className="container">
@@ -359,7 +430,8 @@ export default function Home() {
               Simple, transparent pricing
             </h2>
             <p className="text-lg text-muted-foreground">
-              Start free. Upgrade when you need more. No surprises.
+              Start with a guided trial. Upgrade when you need more. No hidden
+              fees, no per-credit billing, no surprises.
             </p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-3">
@@ -403,14 +475,14 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                  <a href="mailto:hello@unifiedlayer.io" className="block">
+                  <Link href="/request-access" className="block">
                     <Button
                       className="w-full"
                       variant={plan.highlighted ? "default" : "outline"}
                     >
                       Request Access
                     </Button>
-                  </a>
+                  </Link>
                 </CardContent>
               </Card>
             ))}
