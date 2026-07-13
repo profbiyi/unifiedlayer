@@ -453,6 +453,31 @@ npm run dev
 - `backend/tasks/dbt_tasks.py` — Async dbt job execution
 - `backend/tasks/health_checks.py` — Periodic health check tasks
 
+## DBA2 Repositioning (July 2026 — branch `dba2/africa-first`, PR #1)
+
+UnifiedLayer is the prototype artefact for Ahmed's DBA Year 2 thesis (Africa-centric
+data integration for fintech SMEs, Nigeria + France). The public site must stay
+**Africa-first** — the thesis jury will visit unifiedlayer.io in December 2026.
+
+**Backup of the previous (Europe-positioned) version:** branch `backup/europe-positioning`,
+tag `backup/europe-version-2026-07-13`, archive `~/Desktop/unifiedlayer-backup-europe-2026-07-13.tar.gz`.
+
+Changes:
+- Landing page: Africa-first hero + "Built for Africa First" card, new Data Sovereignty
+  section (local residency, NDPR/GDPR), visible pricing (From £35/mo, local currencies),
+  15-day guided trial copy (was 30-day self-serve)
+- `/request-access` public form replaces all mailto Request Access / Contact Sales links.
+  Gated trial model: form → discovery call → 15-day guided trial → feedback form
+- `AccessRequest` model (`backend/models/access_request.py`) + migration `2026071301`
+  + routes (`backend/api/routes/access_requests.py`): public POST, super-admin GET/PATCH
+  with funnel statuses (new → contacted → discovery_scheduled → qualified → trial_active / declined)
+- Tests: `backend/tests/test_access_requests.py`
+- Demo scenarios: `python -m backend.scripts.seed_demo_scenarios` seeds 3 demo orgs
+  (NairaLink Payments = payment provider, KoboVault Wallet = mobile wallet,
+  SwiftCredit MFB = micro-lender) with sources, warehouse destinations, scheduled
+  pipelines, and ~45 days of run history for the demo video. Idempotent by org slug.
+  Demo admin password: `DEMO_ADMIN_PASSWORD` env (default `DemoTrial2026!`).
+
 ## Known Issues / Open Bugs (as of 2026-03-05)
 
 ### Fixed ✅ (all resolved in commits 577b17a → bc3e1ac)
