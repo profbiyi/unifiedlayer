@@ -18,7 +18,7 @@ import { Check } from "lucide-react";
 // two in sync when prices change.
 const MARKETS = [
   { currency: "NGN", country: "Nigeria", flag: "🇳🇬", symbol: "₦", monthly: 15000 },
-  { currency: "KES", country: "Kenya", flag: "🇰🇪", symbol: "KSh ", monthly: 5000 },
+  { currency: "KES", country: "Kenya", flag: "🇰🇪", symbol: "KSh ", monthly: 2000 },
   { currency: "GHS", country: "Ghana", flag: "🇬🇭", symbol: "GH₵", monthly: 200 },
   { currency: "GBP", country: "United Kingdom", flag: "🇬🇧", symbol: "£", monthly: 35 },
   { currency: "EUR", country: "France / EU", flag: "🇪🇺", symbol: "€", monthly: 39 },

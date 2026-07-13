@@ -20,6 +20,12 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Organization, User, Pipeline, PipelineRun, UserRole, Role, DataSource, Destination
 from backend.models.audit import ImpersonationSession
+from backend.models.billing import (
+    Subscription,
+    SubscriptionPlan,
+    REGIONAL_PRICING,
+    currency_for_country,
+)
 from backend.auth import require_super_admin, get_password_hash, get_request_info
 from backend.schemas.rbac import (
     CreateOrganizationRequest,
@@ -33,6 +39,26 @@ from backend.rbac.audit import log_organization_action, log_super_admin_access
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _create_org_subscription(db: Session, organization: Organization, plan_str: str, country: Optional[str]) -> Subscription:
+    """Create the org's subscription with its country's billing currency.
+
+    Purchasing-power pricing: the country decides which market price the
+    org gets (see COUNTRY_CURRENCY / REGIONAL_PRICING in models/billing.py).
+    """
+    try:
+        plan = SubscriptionPlan(plan_str)
+    except ValueError:
+        plan = SubscriptionPlan.STARTER
+
+    subscription = Subscription(
+        organization_id=organization.id,
+        plan=plan,
+        currency=currency_for_country(country),
+    )
+    db.add(subscription)
+    return subscription
 
 
 @router.post("/organizations", response_model=OrganizationCreatedResponse)
@@ -88,6 +114,7 @@ async def create_organization(
         name=org_request.name,
         slug=org_request.slug,
         description=org_request.description,
+        country=org_request.country,
         subscription_plan=org_request.subscription_plan,
         max_users=org_request.max_users,
         billing_email=org_request.billing_email,
@@ -95,6 +122,9 @@ async def create_organization(
     )
     db.add(organization)
     db.flush()  # Get organization ID
+
+    # Billing currency follows the org's country (purchasing-power pricing)
+    _create_org_subscription(db, organization, org_request.subscription_plan, org_request.country)
 
     # Create admin user
     admin_user = User(
@@ -259,6 +289,7 @@ async def onboard_organization(
         name=org_request.name,
         slug=org_request.slug,
         description=org_request.description,
+        country=org_request.country,
         subscription_plan=org_request.subscription_plan,
         max_users=org_request.max_users,
         billing_email=org_request.billing_email,
@@ -266,6 +297,9 @@ async def onboard_organization(
     )
     db.add(organization)
     db.flush()
+
+    # Billing currency follows the org's country (purchasing-power pricing)
+    _create_org_subscription(db, organization, org_request.subscription_plan, org_request.country)
 
     # Create admin user
     admin_user = User(
@@ -761,6 +795,71 @@ async def activate_organization(
         "organization_id": org.id,
         "is_active": org.is_active,
         "can_sync_data": org.can_sync_data
+    }
+
+
+class BillingCurrencyUpdate(BaseModel):
+    currency: str
+
+
+@router.patch("/organizations/{org_id}/billing-currency")
+async def update_billing_currency(
+    request: Request,
+    org_id: int,
+    payload: BillingCurrencyUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Change an organization's billing currency.
+
+    **Super Admin Only**
+
+    The currency must be one of the deliberately priced markets in
+    REGIONAL_PRICING (purchasing-power pricing — never an FX conversion).
+    """
+    request_info = get_request_info(request)
+
+    currency = payload.currency.strip().upper()
+    if currency not in REGIONAL_PRICING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported billing currency. Must be one of: {', '.join(sorted(REGIONAL_PRICING))}",
+        )
+
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    subscription = db.query(Subscription).filter(
+        Subscription.organization_id == org.id
+    ).first()
+    if not subscription:
+        subscription = _create_org_subscription(db, org, org.subscription_plan, None)
+    old_currency = subscription.currency
+    subscription.currency = currency
+    db.commit()
+
+    log_organization_action(
+        db=db,
+        user=current_user,
+        action="organization.billing_currency_changed",
+        organization_id=org.id,
+        details={
+            "organization_name": org.name,
+            "old_currency": old_currency,
+            "new_currency": currency,
+        },
+        ip_address=request_info["ip_address"],
+    )
+
+    return {
+        "message": f"Billing currency for {org.name} set to {currency}",
+        "organization_id": org.id,
+        "currency": currency,
     }
 
 

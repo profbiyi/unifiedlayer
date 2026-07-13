@@ -104,6 +104,8 @@ class TestBillingAPI:
         assert set(prices) == {"NGN", "KES", "GHS", "GBP", "EUR"}
         # Local prices are set deliberately, NOT FX conversions of the GBP price
         assert prices["NGN"]["monthly"] == 15_000
+        assert prices["KES"]["monthly"] == 2_000
+        assert prices["GHS"]["monthly"] == 200
         assert prices["GBP"]["monthly"] == 35
         assert prices["NGN"]["provider"] == "paystack"
         assert prices["GBP"]["provider"] == "stripe"

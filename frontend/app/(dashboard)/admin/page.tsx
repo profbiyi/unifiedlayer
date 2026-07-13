@@ -106,6 +106,7 @@ interface CreateOrgForm {
   name: string;
   slug: string;
   description: string;
+  country: string;
   subscription_plan: string;
   max_users: number;
   billing_email: string;
@@ -119,6 +120,7 @@ const initialFormState: CreateOrgForm = {
   name: "",
   slug: "",
   description: "",
+  country: "",
   subscription_plan: "starter",
   max_users: 5,
   billing_email: "",
@@ -127,6 +129,16 @@ const initialFormState: CreateOrgForm = {
   admin_password: "",
   admin_full_name: "",
 };
+
+// Country decides the billing currency (purchasing-power pricing) —
+// mirrors COUNTRY_CURRENCY in backend/models/billing.py
+const ORG_COUNTRIES: { name: string; currency: string }[] = [
+  { name: "Nigeria", currency: "NGN" },
+  { name: "Kenya", currency: "KES" },
+  { name: "Ghana", currency: "GHS" },
+  { name: "United Kingdom", currency: "GBP" },
+  { name: "France", currency: "EUR" },
+];
 
 const planLimits: Record<string, number> = {
   starter: 5,
@@ -220,6 +232,7 @@ export default function AdminDashboard() {
         billing_email: onboardFormData.billing_email || null,
         description: onboardFormData.description || null,
         admin_full_name: onboardFormData.admin_full_name || null,
+        country: onboardFormData.country || null,
       };
       const response = await api.post("/admin/onboard-organization", cleanedData);
 
@@ -560,6 +573,30 @@ export default function AdminDashboard() {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="onboard_country">Country</Label>
+                    <Select
+                      value={onboardFormData.country}
+                      onValueChange={(value) =>
+                        setOnboardFormData({ ...onboardFormData, country: value })
+                      }
+                    >
+                      <SelectTrigger id="onboard_country">
+                        <SelectValue placeholder="Select country (sets billing currency)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORG_COUNTRIES.map((c) => (
+                          <SelectItem key={c.name} value={c.name}>
+                            {c.name} — billed in {c.currency}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Sets the billing currency with local market pricing (not an FX conversion). Defaults to GBP if unset.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

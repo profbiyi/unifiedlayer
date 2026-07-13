@@ -79,7 +79,7 @@ function isPaystackCurrency(currency?: string): currency is PaystackCurrency {
 // local affordability, not an FX conversion.
 const PAYSTACK_PRICES: Record<PaystackCurrency, { professional: string; amount: number }> = {
   NGN: { professional: "\u20A615,000/mo", amount: 15000 },
-  KES: { professional: "KES 5,000/mo", amount: 5000 },
+  KES: { professional: "KES 2,000/mo", amount: 2000 },
   GHS: { professional: "GH\u20B5200/mo", amount: 200 },
 };
 

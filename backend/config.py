@@ -140,8 +140,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: Optional[str] = None
     STRIPE_PUBLISHABLE_KEY: Optional[str] = None
     STRIPE_WEBHOOK_SECRET: Optional[str] = None
-    STRIPE_PRICE_PROFESSIONAL: Optional[str] = None  # Stripe Price ID for Professional plan
-    STRIPE_PRICE_ENTERPRISE: Optional[str] = None  # Stripe Price ID for Enterprise plan
+    STRIPE_PRICE_PROFESSIONAL: Optional[str] = None  # Stripe Price ID for Professional plan (GBP)
+    STRIPE_PRICE_ENTERPRISE: Optional[str] = None  # Stripe Price ID for Enterprise plan (GBP)
+    STRIPE_PRICE_PROFESSIONAL_EUR: Optional[str] = None  # Stripe Price ID for Professional plan (EUR €39)
+    STRIPE_PRICE_ENTERPRISE_EUR: Optional[str] = None  # Stripe Price ID for Enterprise plan (EUR)
 
     # Paystack Billing (African payments - NGN, KES, GHS)
     PAYSTACK_SECRET_KEY: Optional[str] = None

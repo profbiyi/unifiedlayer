@@ -336,6 +336,9 @@ class CreateOrganizationRequest(BaseModel):
     admin_password: str = Field(..., min_length=8)
     admin_full_name: Optional[str] = None
     billing_email: Optional[EmailStr] = None
+    # Decides billing currency via COUNTRY_CURRENCY (purchasing-power pricing);
+    # unknown/missing country falls back to GBP
+    country: Optional[str] = Field(None, max_length=100)
 
     @field_validator('subscription_plan')
     @classmethod

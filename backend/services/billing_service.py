@@ -93,7 +93,14 @@ class BillingService:
         if not sub or not sub.stripe_customer_id:
             raise ValueError("Organization must have a Stripe customer. Call create_stripe_customer first.")
 
-        price_id = getattr(settings, f'STRIPE_PRICE_{plan.value.upper()}', None)
+        # Purchasing-power pricing: EUR orgs get the EUR price object when
+        # configured (e.g. STRIPE_PRICE_PROFESSIONAL_EUR), otherwise the
+        # default (GBP) price is used.
+        price_id = None
+        if (sub.currency or "GBP").upper() == "EUR":
+            price_id = getattr(settings, f'STRIPE_PRICE_{plan.value.upper()}_EUR', None)
+        if not price_id:
+            price_id = getattr(settings, f'STRIPE_PRICE_{plan.value.upper()}', None)
         if not price_id:
             raise ValueError(f"No Stripe price configured for plan: {plan.value}")
 

@@ -112,7 +112,7 @@ REGIONAL_PRICING = {
         "country": "Kenya",
         "symbol": "KSh",
         "provider": "paystack",
-        "professional_monthly": 5_000,
+        "professional_monthly": 2_000,
     },
     "GHS": {
         "country": "Ghana",
@@ -133,6 +133,30 @@ REGIONAL_PRICING = {
         "professional_monthly": 39,
     },
 }
+
+
+# Country → billing currency for the markets we price deliberately.
+# Used when the super admin onboards an organization: the org's country
+# decides which purchasing-power price it gets. Keys are lowercase.
+COUNTRY_CURRENCY = {
+    "nigeria": "NGN",
+    "kenya": "KES",
+    "ghana": "GHS",
+    "united kingdom": "GBP",
+    "uk": "GBP",
+    "france": "EUR",
+}
+
+
+def currency_for_country(country: str | None) -> str:
+    """Map an organization's country to its billing currency.
+
+    Unknown or missing countries fall back to GBP (the platform default),
+    which the super admin can change later via the billing-currency endpoint.
+    """
+    if not country:
+        return "GBP"
+    return COUNTRY_CURRENCY.get(country.strip().lower(), "GBP")
 
 
 class Subscription(Base):
