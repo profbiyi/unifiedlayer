@@ -67,6 +67,7 @@ from backend.api.routes import (
     health,
     models,
     cross_source,
+    access_requests,
 )
 from backend.api.routes.anomaly import router as anomaly_router
 from backend.api.routes.summaries import router as summaries_router
@@ -286,6 +287,7 @@ api_v1_router.include_router(whatsapp_test_router)
 api_v1_router.include_router(admin.router)
 api_v1_router.include_router(invitations.router)
 api_v1_router.include_router(roles.router)
+api_v1_router.include_router(access_requests.router)
 
 # Add versioned API router to app
 app.include_router(api_v1_router)

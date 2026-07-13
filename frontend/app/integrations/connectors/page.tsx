@@ -377,9 +377,9 @@ export default function ConnectorsPage() {
           <p className="text-muted-foreground mb-4">
             Ready to connect your data?
           </p>
-          <a href="mailto:hello@unifiedlayer.io">
-            <Button size="lg">Contact Sales</Button>
-          </a>
+          <Link href="/request-access">
+            <Button size="lg">Request Access</Button>
+          </Link>
         </div>
       </main>
     </div>

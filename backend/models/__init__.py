@@ -72,6 +72,10 @@ from backend.models.scheduled_report import (
     ScheduledReport,
     ReportFrequency,
 )
+from backend.models.access_request import (
+    AccessRequest,
+    AccessRequestStatus,
+)
 
 
 __all__ = [
@@ -128,4 +132,6 @@ __all__ = [
     "OnboardingUserRole",
     "ScheduledReport",
     "ReportFrequency",
+    "AccessRequest",
+    "AccessRequestStatus",
 ]

@@ -128,11 +128,11 @@ export default function IntegrationsPage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
-              <a href="mailto:hello@unifiedlayer.io">
+              <Link href="/request-access">
                 <Button size="lg" variant="outline">
-                  Contact Sales
+                  Request Access
                 </Button>
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -203,15 +203,16 @@ export default function IntegrationsPage() {
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="mb-4 text-2xl font-bold">Ready to unify your data?</h2>
             <p className="mb-6 text-muted-foreground">
-              Start your free trial today. Connect your first data source in under 5 minutes.
+              Request access to start your 15-day guided trial. Connect your
+              first data source in under 5 minutes.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <a href="mailto:hello@unifiedlayer.io">
+              <Link href="/request-access">
                 <Button size="lg">
-                  Contact Sales
+                  Request Access
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </a>
+              </Link>
               <Link href="/integrations/connectors">
                 <Button size="lg" variant="outline">
                   View All Connectors
