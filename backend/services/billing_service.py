@@ -24,6 +24,7 @@ from backend.models.billing import (
     PaymentProvider,
     InvoiceStatus,
     PLAN_LIMITS,
+    REGIONAL_PRICING,
 )
 from backend.models.pipeline import Organization, User
 
@@ -252,12 +253,14 @@ class BillingService:
     PAYSTACK_API_BASE = "https://api.paystack.co"
     PAYSTACK_SUPPORTED_CURRENCIES = {"NGN", "KES", "GHS"}
 
-    # Amounts in kobo/pesewas/cents for Professional plan per currency
+    # Amounts in the smallest currency unit (kobo/cents/pesewas), derived
+    # from REGIONAL_PRICING — the purchasing-power pricing table in
+    # backend/models/billing.py. Change prices there, not here.
     PAYSTACK_PLAN_AMOUNTS = {
         SubscriptionPlan.PROFESSIONAL: {
-            "NGN": 1_500_000,   # NGN 15,000 in kobo
-            "KES": 500_000,     # KES 5,000 in cents
-            "GHS": 20_000,      # GHS 200 in pesewas
+            currency: pricing["professional_monthly"] * 100
+            for currency, pricing in REGIONAL_PRICING.items()
+            if pricing["provider"] == "paystack"
         },
     }
 

@@ -94,6 +94,34 @@ class TestBillingAPI:
         assert "professional" in plan_names
         assert "enterprise" in plan_names
 
+    def test_professional_has_regional_prices(self, client):
+        """Professional carries purchasing-power prices per market."""
+        response = client.get("/billing/plans")
+        assert response.status_code == 200
+        plans = {p["plan"]: p for p in response.json()["plans"]}
+
+        prices = {p["currency"]: p for p in plans["professional"]["prices"]}
+        assert set(prices) == {"NGN", "KES", "GHS", "GBP", "EUR"}
+        # Local prices are set deliberately, NOT FX conversions of the GBP price
+        assert prices["NGN"]["monthly"] == 15_000
+        assert prices["GBP"]["monthly"] == 35
+        assert prices["NGN"]["provider"] == "paystack"
+        assert prices["GBP"]["provider"] == "stripe"
+
+        # Free and custom-priced plans carry no regional price list
+        assert plans["starter"]["prices"] == []
+        assert plans["enterprise"]["prices"] == []
+
+    def test_paystack_amounts_derived_from_regional_pricing(self):
+        """Paystack checkout amounts must always match the pricing table (x100 minor units)."""
+        from backend.models.billing import REGIONAL_PRICING, SubscriptionPlan
+        from backend.services.billing_service import BillingService
+
+        amounts = BillingService.PAYSTACK_PLAN_AMOUNTS[SubscriptionPlan.PROFESSIONAL]
+        for currency, pricing in REGIONAL_PRICING.items():
+            if pricing["provider"] == "paystack":
+                assert amounts[currency] == pricing["professional_monthly"] * 100
+
     def test_get_subscription_unauthenticated(self, client):
         response = client.get("/billing/subscription")
         assert response.status_code in [401, 403]

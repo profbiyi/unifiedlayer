@@ -74,10 +74,18 @@ function isPaystackCurrency(currency?: string): currency is PaystackCurrency {
   return PAYSTACK_CURRENCIES.includes(currency?.toUpperCase() as PaystackCurrency);
 }
 
+// Purchasing-power pricing per market \u2014 mirrors REGIONAL_PRICING in
+// backend/models/billing.py (the source of truth). Each price is set against
+// local affordability, not an FX conversion.
 const PAYSTACK_PRICES: Record<PaystackCurrency, { professional: string; amount: number }> = {
   NGN: { professional: "\u20A615,000/mo", amount: 15000 },
   KES: { professional: "KES 5,000/mo", amount: 5000 },
   GHS: { professional: "GH\u20B5200/mo", amount: 200 },
+};
+
+const STRIPE_PRICES: Record<string, string> = {
+  GBP: "\u00A335/mo",
+  EUR: "\u20AC39/mo",
 };
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -385,8 +393,10 @@ export default function BillingPage() {
                   <CardTitle>{plan.name}</CardTitle>
                   <CardDescription>{plan.description}</CardDescription>
                   <p className="text-3xl font-bold mt-2">
-                    {usePaystack && plan.id === "professional"
-                      ? PAYSTACK_PRICES[orgCurrency as PaystackCurrency]?.professional ?? plan.price
+                    {plan.id === "professional"
+                      ? (usePaystack
+                          ? PAYSTACK_PRICES[orgCurrency as PaystackCurrency]?.professional
+                          : STRIPE_PRICES[orgCurrency]) ?? plan.price
                       : plan.price}
                   </p>
                 </CardHeader>

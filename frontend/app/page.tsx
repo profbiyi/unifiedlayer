@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PricingSection } from "@/components/pricing/PricingSection";
 import {
   ArrowRight,
   Check,
@@ -112,63 +112,6 @@ const whyUnifiedLayer = [
     title: "Up and running in minutes",
     description:
       "Connect your first data source in under 5 minutes. No consultants, no lengthy onboarding, no training required.",
-  },
-];
-
-const plans = [
-  {
-    name: "Guided Trial",
-    price: "Free",
-    period: "",
-    description:
-      "A 15-day guided trial with hands-on onboarding — request access to get started",
-    badge: "15-Day Guided Trial",
-    features: [
-      "15 days with onboarding support",
-      "We help you connect your first sources",
-      "5,000 rows synced",
-      "1 pipeline sync",
-      "1 data source",
-      "1 user",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Professional",
-    price: "From £35",
-    period: "/month",
-    description:
-      "Unlimited connectors, quality checks, lineage, and analytics — billed in your local currency (NGN, KES, GHS, GBP, EUR)",
-    badge: "Most Popular",
-    features: [
-      "Up to 3 team members",
-      "Unlimited connectors",
-      "500,000 rows/month",
-      "Unlimited pipelines",
-      "Data quality checks",
-      "Data lineage tracking",
-      "Built-in analytics",
-      "Email support",
-    ],
-    highlighted: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    description: "For large organisations with custom requirements",
-    badge: "Custom",
-    features: [
-      "Everything in Professional",
-      "Unlimited rows",
-      "Unlimited users",
-      "SLA guarantees",
-      "Dedicated support",
-      "SSO / SAML",
-      "Custom connectors",
-      "On-premise option",
-    ],
-    highlighted: false,
   },
 ];
 
@@ -422,73 +365,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="border-t bg-muted/30 py-20 md:py-28">
-        <div className="container">
-          <div className="mx-auto mb-16 max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-              Simple, transparent pricing
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Start with a guided trial. Upgrade when you need more. No hidden
-              fees, no per-credit billing, no surprises.
-            </p>
-          </div>
-          <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <Card
-                key={plan.name}
-                className={`relative ${
-                  plan.highlighted
-                    ? "border-primary shadow-lg scale-105"
-                    : "border-2"
-                }`}
-              >
-                {plan.highlighted && (
-                  <div className="absolute -top-4 left-0 right-0 mx-auto w-fit">
-                    <Badge className="bg-primary text-primary-foreground">
-                      {plan.badge}
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader className="pb-4 pt-6">
-                  {!plan.highlighted && plan.badge && (
-                    <Badge variant="secondary" className="mb-2 w-fit">
-                      {plan.badge}
-                    </Badge>
-                  )}
-                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <div className="mt-2">
-                    <span className="text-3xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground">{plan.period}</span>
-                  </div>
-                  <CardDescription className="mt-2">
-                    {plan.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-3">
-                    {plan.features.map((feature) => (
-                      <div key={feature} className="flex items-start gap-2">
-                        <Check className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                        <span className="text-sm">{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <Link href="/request-access" className="block">
-                    <Button
-                      className="w-full"
-                      variant={plan.highlighted ? "default" : "outline"}
-                    >
-                      Request Access
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Pricing Section — purchasing-power pricing per market */}
+      <PricingSection />
 
       {/* Footer */}
       <footer className="border-t py-12">

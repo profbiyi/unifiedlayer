@@ -93,6 +93,48 @@ PLAN_LIMITS = {
 }
 
 
+# Purchasing-power pricing — single source of truth for all market prices.
+#
+# Each market's Professional price is set deliberately against local SME
+# affordability, NOT an FX conversion of the GBP price (a converted £35 would
+# be ~₦70,000/month — unaffordable for the Nigerian SMEs the platform is
+# built for). Paystack checkout amounts are derived from this table.
+#
+# "professional_monthly" is in major currency units (₦, KSh, GH₵, £, €).
+REGIONAL_PRICING = {
+    "NGN": {
+        "country": "Nigeria",
+        "symbol": "₦",
+        "provider": "paystack",
+        "professional_monthly": 15_000,
+    },
+    "KES": {
+        "country": "Kenya",
+        "symbol": "KSh",
+        "provider": "paystack",
+        "professional_monthly": 5_000,
+    },
+    "GHS": {
+        "country": "Ghana",
+        "symbol": "GH₵",
+        "provider": "paystack",
+        "professional_monthly": 200,
+    },
+    "GBP": {
+        "country": "United Kingdom",
+        "symbol": "£",
+        "provider": "stripe",
+        "professional_monthly": 35,
+    },
+    "EUR": {
+        "country": "France / EU",
+        "symbol": "€",
+        "provider": "stripe",
+        "professional_monthly": 39,
+    },
+}
+
+
 class Subscription(Base):
     """Tracks an organization's subscription and links to payment provider."""
     __tablename__ = "subscriptions"
