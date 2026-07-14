@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* .force-light re-declares the light tokens on a wrapper element so
+     public pages (landing, auth, request-access) always render bright,
+     even for users whose stored in-app theme is dark. */
+  :root,
+  .force-light {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
