@@ -1,15 +1,19 @@
 """Add access_requests table.
 
 Revision ID: 2026071301
-Revises: 2026030501
+Revises: 2026040301
 Create Date: 2026-07-13 18:30:00.000000
 
+Note: originally chained onto 2026030501, which forked the migration tree
+(2026040301 also descends from it) and made `alembic upgrade head` fail
+with multiple heads — blocking backend deploys. Re-parented onto
+2026040301 to restore a linear chain.
 """
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '2026071301'
-down_revision = '2026030501'
+down_revision = '2026040301'
 branch_labels = None
 depends_on = None
 
