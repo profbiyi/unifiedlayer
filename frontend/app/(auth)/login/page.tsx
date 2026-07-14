@@ -169,12 +169,9 @@ export default function LoginPage() {
 
           <p className="text-xs text-muted-foreground text-center">
             Access is invitation-only.{" "}
-            <a
-              href="mailto:hello@unifiedlayer.io"
-              className="text-primary hover:underline"
-            >
+            <Link href="/request-access" className="text-primary hover:underline">
               Request access
-            </a>
+            </Link>
           </p>
         </CardFooter>
       </form>

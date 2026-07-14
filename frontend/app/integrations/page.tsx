@@ -82,7 +82,7 @@ const benefits = [
 
 export default function IntegrationsPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="force-light flex min-h-screen flex-col bg-background text-foreground">
       {/* Navigation */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">

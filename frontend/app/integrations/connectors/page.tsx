@@ -319,7 +319,7 @@ export default function ConnectorsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="force-light min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="border-b">
         <div className="container flex h-16 items-center justify-between">
