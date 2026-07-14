@@ -25,9 +25,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        {/* Default to the bright theme — first impressions (public site,
+            jury, prospects) should never depend on the visitor's OS setting.
+            Users who explicitly pick dark keep their choice. */}
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >

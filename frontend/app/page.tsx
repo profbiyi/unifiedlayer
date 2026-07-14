@@ -150,7 +150,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background py-24 md:py-36">
+      <section className="relative overflow-hidden bg-gradient-to-b from-primary/10 via-sky-50/40 to-background py-24 md:py-36 dark:via-background">
         <div className="container relative">
           <div className="mx-auto max-w-3xl text-center">
             <Badge className="mb-6" variant="secondary">
@@ -158,7 +158,7 @@ export default function Home() {
             </Badge>
             <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
               Turn fragmented data
-              <span className="block bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 bg-clip-text text-transparent">
                 into clarity
               </span>
             </h1>
