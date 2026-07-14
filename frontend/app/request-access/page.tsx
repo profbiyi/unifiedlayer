@@ -54,6 +54,17 @@ const SECTORS = [
 
 const COMPANY_SIZES = ["1-10", "11-50", "51-200", "200+"];
 
+function SectionTitle({ step, children }: { step: number; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 border-b pb-2">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+        {step}
+      </span>
+      <h2 className="font-display text-lg font-semibold">{children}</h2>
+    </div>
+  );
+}
+
 export default function RequestAccessPage() {
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -157,18 +168,17 @@ export default function RequestAccessPage() {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
                   <CheckCircle2 className="h-8 w-8 text-primary" />
                 </div>
-                <CardTitle className="text-2xl">Request received</CardTitle>
+                <CardTitle className="font-display text-2xl">Got it. We&apos;ll be in touch.</CardTitle>
                 <CardDescription className="text-base">
-                  Thank you &mdash; we&apos;ve got your details.
+                  Your request is with our team now.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 text-center text-sm text-muted-foreground">
                 <p>
-                  Here&apos;s what happens next: we&apos;ll review your request and reach
-                  out to schedule a short 15&ndash;20 minute discovery call. If
-                  UnifiedLayer is a good fit for your data setup, you&apos;ll get
-                  access to a <span className="font-medium text-foreground">15-day guided trial</span> with
-                  hands-on onboarding support.
+                  Next step is a short call, usually 15 to 20 minutes, so we can
+                  understand your setup. If it&apos;s a fit, you start a{" "}
+                  <span className="font-medium text-foreground">15-day guided trial</span>{" "}
+                  with our team helping you connect your first sources.
                 </p>
                 <Link href="/" className="inline-block">
                   <Button variant="outline">Back to home</Button>
@@ -178,16 +188,17 @@ export default function RequestAccessPage() {
           ) : (
             <Card className="border-2">
               <CardHeader>
-                <CardTitle className="text-2xl">Request access</CardTitle>
+                <CardTitle className="font-display text-3xl">Request access</CardTitle>
                 <CardDescription className="text-base">
-                  UnifiedLayer trials are guided, not self-serve. Tell us about
-                  your data setup and we&apos;ll schedule a short discovery call to
-                  make sure the trial is worth your time. Qualified organizations
-                  get a 15-day guided trial with onboarding support.
+                  We onboard every trial personally. Tell us a bit about your
+                  setup, we&apos;ll book a short call, and if it&apos;s a fit
+                  you get 15 days on the platform with us helping hands-on.
+                  Takes about two minutes.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  <SectionTitle step={1}>Your business</SectionTitle>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="companyName">Company name</Label>
@@ -275,33 +286,49 @@ export default function RequestAccessPage() {
                     </div>
                   </div>
 
+                  <SectionTitle step={2}>Where your data lives today</SectionTitle>
                   <div className="space-y-3">
-                    <div>
-                      <Label>Which systems generate data in your business today?</Label>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Select at least two &mdash; the platform connects data
-                        across the systems you already use.
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Pick at least two. That&apos;s where we start connecting.
                       </p>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          systems.length >= 2
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {systems.length} selected
+                      </span>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {DIGITAL_SYSTEMS.map((system) => (
-                        <label
-                          key={system}
-                          className="flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition-colors hover:border-primary/50"
-                        >
-                          <Checkbox
-                            checked={systems.includes(system)}
-                            onCheckedChange={() => toggleSystem(system)}
-                          />
-                          <span>{system}</span>
-                        </label>
-                      ))}
+                      {DIGITAL_SYSTEMS.map((system) => {
+                        const selected = systems.includes(system);
+                        return (
+                          <label
+                            key={system}
+                            className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition-colors ${
+                              selected
+                                ? "border-primary bg-primary/5 font-medium"
+                                : "hover:border-primary/50"
+                            }`}
+                          >
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={() => toggleSystem(system)}
+                            />
+                            <span>{system}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
 
+                  <SectionTitle step={3}>The problem you want solved</SectionTitle>
                   <div className="space-y-2">
                     <Label htmlFor="dataProblem">
-                      What data problem are you trying to solve?
+                      In your own words, what&apos;s the headache?
                     </Label>
                     <Textarea
                       id="dataProblem"
@@ -309,7 +336,7 @@ export default function RequestAccessPage() {
                       onChange={(e) => setDataProblem(e.target.value)}
                       required
                       rows={4}
-                      placeholder="e.g. Our transactions live in Paystack and our accounts in spreadsheets — reconciling them for monthly reporting takes days."
+                      placeholder="e.g. Our transactions live in Paystack and our accounts in spreadsheets. Reconciling them for monthly reporting takes days."
                     />
                   </div>
 
@@ -328,15 +355,15 @@ export default function RequestAccessPage() {
                     {submitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Submitting...
+                        Sending...
                       </>
                     ) : (
-                      "Request access"
+                      "Request my guided trial"
                     )}
                   </Button>
                   <p className="text-center text-xs text-muted-foreground">
-                    We only use these details to assess fit and contact you about
-                    the trial. No marketing lists, no spam.
+                    These details only go to our team, and only for the trial.
+                    No mailing lists.
                   </p>
                 </form>
               </CardContent>

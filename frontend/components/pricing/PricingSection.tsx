@@ -64,14 +64,13 @@ export function PricingSection() {
     <section id="pricing" className="border-t bg-muted/30 py-20 md:py-28">
       <div className="container">
         <div className="mx-auto mb-10 max-w-2xl text-center">
-          <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="mb-4 font-display text-3xl font-bold tracking-tight sm:text-4xl">
             Priced for your market
           </h2>
           <p className="text-lg text-muted-foreground">
-            Each market&apos;s price is set against what local businesses can
-            actually afford &mdash; not a currency conversion of a London
-            price. Start with a guided trial. No hidden fees, no per-credit
-            billing.
+            We price for your economy instead of converting a London price. A
+            Lagos business pays Lagos rates. Start with a free guided trial
+            and upgrade when it earns its keep.
           </p>
         </div>
 
