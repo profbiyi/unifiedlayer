@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,6 +9,15 @@ import { QueryProvider } from "@/components/query-provider";
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
+  fallback: ["system-ui", "arial"],
+});
+
+// Display font for headings — gives the brand a voice of its own instead of
+// the default all-Inter look. Exposed as `font-display` via tailwind config.
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
   fallback: ["system-ui", "arial"],
 });
 
@@ -24,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${bricolage.variable}`}>
         {/* Default to the bright theme — first impressions (public site,
             jury, prospects) should never depend on the visitor's OS setting.
             Users who explicitly pick dark keep their choice. */}

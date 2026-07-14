@@ -29,27 +29,27 @@ import {
 const problems = [
   {
     icon: Layers,
-    title: "Data trapped in silos",
+    title: "Nothing talks to anything",
     description:
-      "Your data is fragmented across SaaS tools, databases, and spreadsheets with no way to connect the dots.",
+      "Sales in one app, settlements in another, expenses in a spreadsheet. Month-end means exporting CSVs and praying the numbers agree.",
   },
   {
     icon: DollarSign,
     title: "Enterprise tools, enterprise prices",
     description:
-      "Existing data platforms are built for large companies with large budgets. Complex to set up, expensive to run.",
+      "The big data platforms price for Fortune 500 budgets. A Lagos SME should not pay San Francisco rates to see its own numbers.",
   },
   {
     icon: FileQuestion,
-    title: "Non-standard data ignored",
+    title: "Built abroad, blind to Africa",
     description:
-      "Most integration solutions exclude unconventional data sources like mobile money, local payment rails, and messaging platforms.",
+      "Mobile money, USSD payments, WhatsApp orders. Most integration tools do not even have connectors for how business actually happens here.",
   },
   {
     icon: UserX,
-    title: "No data team, no insights",
+    title: "No data team, no answers",
     description:
-      "Hiring data analysts and engineers is financially unrealistic for most SMEs. Insights remain locked away.",
+      "You cannot hire two data engineers just to know your margins. You should not have to.",
   },
 ];
 
@@ -154,20 +154,19 @@ export default function Home() {
         <div className="container relative">
           <div className="mx-auto max-w-3xl text-center">
             <Badge className="mb-6" variant="secondary">
-              The data platform for African SMEs
+              Made for African SMEs
             </Badge>
-            <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-              Turn fragmented data
+            <h1 className="mb-6 font-display text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+              See your whole business
               <span className="block bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 bg-clip-text text-transparent">
-                into clarity
+                in one place
               </span>
             </h1>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-              UnifiedLayer is the data integration and analytics platform built
-              for African SMEs. Connect payments, mobile money, banking, and
-              accounting data &mdash; Paystack, Flutterwave, M-Pesa, and more
-              &mdash; into a single source of truth. Your data stays under your
-              control. No data team required.
+              Your payments live in Paystack. Your wallet data sits with
+              M-Pesa. Your books are still in a spreadsheet. UnifiedLayer
+              pulls it all into one warehouse you control, so you finally know
+              what&apos;s going on without hiring a data team.
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
               <Link href="/request-access">
@@ -194,12 +193,12 @@ export default function Home() {
       <section className="border-t py-20 md:py-28">
         <div className="container">
           <div className="mx-auto mb-16 max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
-              The SME data challenge
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+              Sound familiar?
             </h2>
             <p className="text-lg text-muted-foreground">
-              Small and mid-sized businesses across Africa face data problems
-              that enterprise tools were never designed to solve.
+              If you run a business in Lagos, Nairobi, or Accra, you already
+              know these problems by name.
             </p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2">
@@ -232,12 +231,12 @@ export default function Home() {
       <section className="border-t bg-muted/30 py-20 md:py-28">
         <div className="container">
           <div className="mx-auto mb-16 max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               One platform. All your data.
             </h2>
             <p className="text-lg text-muted-foreground">
-              Everything you need to connect, transform, and understand your
-              data &mdash; without hiring a data team.
+              Connect your tools, clean the data, get answers. That&apos;s the
+              whole job.
             </p>
           </div>
           <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -270,12 +269,12 @@ export default function Home() {
       <section className="border-t py-20 md:py-28">
         <div className="container">
           <div className="mx-auto mb-16 max-w-2xl text-center">
-            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Why choose UnifiedLayer?
             </h2>
             <p className="text-lg text-muted-foreground">
-              Purpose-built for small and mid-sized businesses who need
-              enterprise-grade data capabilities without enterprise complexity.
+              Because it was built for businesses like yours, not scaled down
+              from something built for banks.
             </p>
           </div>
           <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
@@ -306,13 +305,13 @@ export default function Home() {
             <Badge className="mb-4" variant="secondary">
               Data Sovereignty
             </Badge>
-            <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="mb-4 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Your data. Your country. Your control.
             </h2>
             <p className="text-lg text-muted-foreground">
-              Most global data platforms move your data to servers in the US or
-              Europe. UnifiedLayer is built the other way around: you decide
-              where your data lives and who can touch it.
+              Most global platforms quietly ship your data to servers in the
+              US or Europe. We built UnifiedLayer the other way around. You
+              decide where your data lives and who can touch it.
             </p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-3">
