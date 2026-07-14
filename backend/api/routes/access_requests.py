@@ -8,6 +8,8 @@ discovery call before being granted a 15-day guided trial.
 Submissions are reviewed by the super admin, who invites qualified
 organizations manually (self-registration is disabled).
 """
+import logging
+import threading
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -20,7 +22,36 @@ from backend.auth import require_super_admin
 from backend.models import User
 from backend.models.access_request import AccessRequest, AccessRequestStatus
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/access-requests", tags=["Access Requests"])
+
+
+def _notify_super_admins(admin_emails: List[str], request: "AccessRequestCreate") -> None:
+    """Email super admins about a new access request (best-effort, in background)."""
+    from backend.notifications import email_notifier
+
+    systems = ", ".join(request.digital_systems) or "none listed"
+    body = (
+        "A new trial access request just came in.\n\n"
+        f"Company:  {request.company_name}\n"
+        f"Contact:  {request.contact_name} <{request.email}>\n"
+        f"Country:  {request.country}\n"
+        f"Sector:   {request.sector}\n"
+        f"Size:     {request.company_size or 'not given'}\n"
+        f"Systems:  {systems}\n\n"
+        f"Data problem:\n{request.data_problem}\n\n"
+        "Review it in the admin panel under Access Requests, then schedule "
+        "the discovery call."
+    )
+    try:
+        email_notifier.send(
+            to_emails=admin_emails,
+            subject=f"New access request: {request.company_name} ({request.country})",
+            body=body,
+        )
+    except Exception:
+        logger.exception("Failed to send access-request notification email")
 
 
 class AccessRequestCreate(BaseModel):
@@ -89,6 +120,17 @@ def submit_access_request(
     )
     db.add(request)
     db.commit()
+
+    # Alert super admins so no lead sits unseen (best-effort, non-blocking)
+    admin_emails = [
+        u.email
+        for u in db.query(User).filter(User.is_superuser.is_(True), User.is_active.is_(True)).all()
+    ]
+    if admin_emails:
+        threading.Thread(
+            target=_notify_super_admins, args=(admin_emails, payload), daemon=True
+        ).start()
+
     return {"message": "Request received. We will be in touch to schedule a discovery call."}
 
 
