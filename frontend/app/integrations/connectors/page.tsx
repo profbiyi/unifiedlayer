@@ -22,6 +22,9 @@ import {
   Landmark,
   CheckCircle2,
   XCircle,
+  Smartphone,
+  MessageCircle,
+  Plug,
 } from "lucide-react";
 
 interface Connector {
@@ -30,6 +33,7 @@ interface Connector {
   description: string;
   category: string;
   version: string;
+  coming_soon?: boolean;
   capabilities: {
     incremental: boolean;
     schema_discovery: boolean;
@@ -38,25 +42,14 @@ interface Connector {
   };
 }
 
-// Static connector data for the public marketing page
+// Static connector data for the public marketing page.
+// Only list connectors that exist in backend/connectors/ — anything on the
+// roadmap must carry coming_soon: true. Africa-first ordering.
 const staticConnectors: Connector[] = [
-  {
-    name: "stripe",
-    display_name: "Stripe",
-    description: "Sync payment data, customers, invoices, and subscriptions from Stripe.",
-    category: "payment",
-    version: "1.0.0",
-    capabilities: {
-      incremental: true,
-      schema_discovery: true,
-      connection_test: true,
-      auth_types: ["api_key"],
-    },
-  },
   {
     name: "paystack",
     display_name: "Paystack",
-    description: "Connect to Paystack for African payment processing data - transactions, customers, and settlements.",
+    description: "African payment processing data — transactions, customers, settlements, and refunds.",
     category: "payment",
     version: "1.0.0",
     capabilities: {
@@ -67,10 +60,89 @@ const staticConnectors: Connector[] = [
     },
   },
   {
-    name: "quickbooks",
-    display_name: "QuickBooks Online",
-    description: "Sync accounting data including invoices, customers, payments, and financial reports.",
-    category: "accounting",
+    name: "flutterwave",
+    display_name: "Flutterwave",
+    description: "Pan-African payments — transactions, transfers, and settlement data across 30+ countries.",
+    category: "payment",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "mpesa",
+    display_name: "M-Pesa",
+    description: "Safaricom M-Pesa transactions and settlement data for businesses operating in Kenya.",
+    category: "mobile_money",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "mtn_momo",
+    display_name: "MTN Mobile Money",
+    description: "MTN MoMo wallet and collection data — the dominant mobile money rail in Ghana and beyond.",
+    category: "mobile_money",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "whatsapp_business",
+    display_name: "WhatsApp Business",
+    description: "Customer conversations and order messages from the channel African SMEs actually sell on.",
+    category: "messaging",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "stripe",
+    display_name: "Stripe",
+    description: "Payment data, customers, invoices, and subscriptions — for France and EU operations.",
+    category: "payment",
+    version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "mono",
+    display_name: "Mono",
+    description: "African open banking — connect Nigerian bank accounts for transactions and account data.",
+    category: "banking",
+    version: "1.0.0",
+    coming_soon: true,
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["api_key"],
+    },
+  },
+  {
+    name: "truelayer",
+    display_name: "TrueLayer",
+    description: "EU open banking — secure access to bank accounts and transaction data in Europe.",
+    category: "banking",
     version: "1.0.0",
     capabilities: {
       incremental: true,
@@ -82,9 +154,23 @@ const staticConnectors: Connector[] = [
   {
     name: "xero",
     display_name: "Xero",
-    description: "Connect to Xero for invoices, contacts, bank transactions, and account data.",
+    description: "Invoices, contacts, bank transactions, and account data from Xero.",
     category: "accounting",
     version: "1.0.0",
+    capabilities: {
+      incremental: true,
+      schema_discovery: true,
+      connection_test: true,
+      auth_types: ["oauth2"],
+    },
+  },
+  {
+    name: "quickbooks",
+    display_name: "QuickBooks Online",
+    description: "Invoices, customers, payments, and financial reports from QuickBooks.",
+    category: "accounting",
+    version: "1.0.0",
+    coming_soon: true,
     capabilities: {
       incremental: true,
       schema_discovery: true,
@@ -95,9 +181,10 @@ const staticConnectors: Connector[] = [
   {
     name: "sage",
     display_name: "Sage Business Cloud",
-    description: "Sync financial data from Sage including contacts, invoices, and ledger entries.",
+    description: "Contacts, invoices, and ledger entries from Sage.",
     category: "accounting",
     version: "1.0.0",
+    coming_soon: true,
     capabilities: {
       incremental: true,
       schema_discovery: true,
@@ -106,42 +193,29 @@ const staticConnectors: Connector[] = [
     },
   },
   {
-    name: "freeagent",
-    display_name: "FreeAgent",
-    description: "UK-focused accounting software connector for invoices, expenses, and bank feeds.",
-    category: "accounting",
+    name: "google_sheets",
+    display_name: "Google Sheets",
+    description: "Sync spreadsheets directly — where most SME record-keeping actually lives.",
+    category: "file",
     version: "1.0.0",
     capabilities: {
-      incremental: true,
+      incremental: false,
       schema_discovery: true,
       connection_test: true,
       auth_types: ["oauth2"],
     },
   },
   {
-    name: "mono",
-    display_name: "Mono",
-    description: "African Open Banking - connect to bank accounts across Nigeria, Kenya, and Ghana.",
-    category: "banking",
+    name: "rest_api",
+    display_name: "REST API",
+    description: "Connect any REST API — bring data from internal systems and custom tools.",
+    category: "api",
     version: "1.0.0",
     capabilities: {
       incremental: true,
-      schema_discovery: true,
+      schema_discovery: false,
       connection_test: true,
-      auth_types: ["oauth2"],
-    },
-  },
-  {
-    name: "truelayer",
-    display_name: "TrueLayer",
-    description: "UK & EU Open Banking - secure access to bank accounts and transaction data.",
-    category: "banking",
-    version: "1.0.0",
-    capabilities: {
-      incremental: true,
-      schema_discovery: true,
-      connection_test: true,
-      auth_types: ["oauth2"],
+      auth_types: ["api_key", "oauth2", "none"],
     },
   },
   {
@@ -200,18 +274,35 @@ const staticConnectors: Connector[] = [
 
 const categoryIcons: Record<string, any> = {
   payment: CreditCard,
+  mobile_money: Smartphone,
+  messaging: MessageCircle,
   accounting: Building2,
   banking: Landmark,
   database: Database,
   file: FileSpreadsheet,
+  api: Plug,
+};
+
+const categoryLabels: Record<string, string> = {
+  payment: "Payments",
+  mobile_money: "Mobile Money",
+  messaging: "Messaging",
+  accounting: "Accounting",
+  banking: "Banking",
+  database: "Databases",
+  file: "Files & Sheets",
+  api: "APIs",
 };
 
 const categoryColors: Record<string, string> = {
   payment: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  mobile_money: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  messaging: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
   accounting: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   banking: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   database: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
   file: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+  api: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
 };
 
 export default function ConnectorsPage() {
@@ -282,7 +373,8 @@ export default function ConnectorsPage() {
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
               >
-                {category.charAt(0).toUpperCase() + category.slice(1)}
+                {categoryLabels[category] ||
+                  category.charAt(0).toUpperCase() + category.slice(1)}
               </Button>
             ))}
           </div>
@@ -298,7 +390,12 @@ export default function ConnectorsPage() {
             {filteredConnectors.map((connector) => {
               const CategoryIcon = categoryIcons[connector.category] || Database;
               return (
-                <Card key={connector.name} className="flex flex-col hover:shadow-md transition-shadow">
+                <Card
+                  key={connector.name}
+                  className={`flex flex-col hover:shadow-md transition-shadow ${
+                    connector.coming_soon ? "opacity-75" : ""
+                  }`}
+                >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -313,10 +410,13 @@ export default function ConnectorsPage() {
                             variant="secondary"
                             className={categoryColors[connector.category] || ""}
                           >
-                            {connector.category}
+                            {categoryLabels[connector.category] || connector.category}
                           </Badge>
                         </div>
                       </div>
+                      {connector.coming_soon && (
+                        <Badge variant="outline">Coming soon</Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col">
