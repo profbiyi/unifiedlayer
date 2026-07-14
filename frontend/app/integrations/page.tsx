@@ -39,14 +39,14 @@ const integrationCategories = [
   {
     icon: Landmark,
     title: "Banking & Open Banking",
-    description: "Connect bank accounts via Mono for African banks — plus TrueLayer for operations in Europe.",
-    examples: ["Mono", "TrueLayer"],
+    description: "Open banking connections for real-time cash flow — Mono for African banks is coming soon; TrueLayer available for Europe.",
+    examples: ["Mono (soon)", "TrueLayer"],
   },
   {
     icon: Building2,
     title: "Accounting Software",
-    description: "Sync your books from QuickBooks and Sage automatically — no more manual exports.",
-    examples: ["QuickBooks", "Sage"],
+    description: "Sync your books from Xero today — QuickBooks and Sage connectors are on the roadmap.",
+    examples: ["Xero", "QuickBooks (soon)", "Sage (soon)"],
   },
   {
     icon: Database,
@@ -57,8 +57,8 @@ const integrationCategories = [
   {
     icon: FileSpreadsheet,
     title: "Files & Spreadsheets",
-    description: "Upload CSV files or connect to spreadsheets for quick data imports.",
-    examples: ["CSV", "Excel"],
+    description: "Upload CSV files or sync Google Sheets directly — where most SME record-keeping lives.",
+    examples: ["CSV", "Google Sheets"],
   },
 ];
 
