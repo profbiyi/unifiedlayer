@@ -716,6 +716,34 @@ export default function ConnectionDetailsStep({
     </div>
   );
 
+  const renderMonoForm = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="secret_key">Secret Key</Label>
+        <Input
+          id="secret_key"
+          type="password"
+          placeholder="sk_..."
+          value={data.config.secret_key || ""}
+          onChange={(e) => updateConfig("secret_key", e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="account_ids">Account IDs (optional)</Label>
+        <Input
+          id="account_ids"
+          placeholder="acc_1, acc_2 — leave empty for all linked accounts"
+          value={data.config.account_ids || ""}
+          onChange={(e) => updateConfig("account_ids", e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Comma-separated Mono account IDs. Leave empty to sync every account
+          linked to your Mono app.
+        </p>
+      </div>
+    </div>
+  );
+
   const renderMTNMoMoForm = () => (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -879,6 +907,8 @@ export default function ConnectionDetailsStep({
         return renderHMRCForm();
       case "flutterwave":
         return renderFlutterwaveForm();
+      case "mono":
+        return renderMonoForm();
       case "mtn_momo":
         return renderMTNMoMoForm();
       case "mpesa":

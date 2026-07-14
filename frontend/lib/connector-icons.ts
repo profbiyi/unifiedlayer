@@ -174,9 +174,30 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
 
   // ── Banking ──
   {
+    id: "mono",
+    name: "Mono",
+    description: "African open banking — Nigerian bank accounts, transactions, identity",
+    icon: Landmark,
+    color: "bg-blue-600",
+    textColor: "text-white",
+    category: "banking",
+    popular: true,
+    isNew: true,
+    fields: [
+      { key: "secret_key", label: "Secret Key", type: "password", placeholder: "sk_...", required: true },
+      {
+        key: "account_ids",
+        label: "Account IDs",
+        type: "text",
+        placeholder: "acc_1, acc_2 (leave empty for all linked accounts)",
+        helpText: "Comma-separated Mono account IDs. Leave empty to sync every account linked to your Mono app.",
+      },
+    ],
+  },
+  {
     id: "open_banking",
     name: "Open Banking",
-    description: "UK bank accounts via TrueLayer",
+    description: "EU bank accounts via TrueLayer",
     icon: Landmark,
     color: "bg-indigo-500",
     textColor: "text-white",

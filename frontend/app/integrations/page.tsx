@@ -39,8 +39,8 @@ const integrationCategories = [
   {
     icon: Landmark,
     title: "Banking & Open Banking",
-    description: "Open banking connections for real-time cash flow — Mono for African banks is coming soon; TrueLayer available for Europe.",
-    examples: ["Mono (soon)", "TrueLayer"],
+    description: "Connect bank accounts via Mono for African banks — plus TrueLayer for operations in Europe.",
+    examples: ["Mono", "TrueLayer"],
   },
   {
     icon: Building2,

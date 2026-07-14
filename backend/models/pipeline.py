@@ -58,6 +58,7 @@ class SourceType(str, enum.Enum):
     HMRC_MTD = "hmrc_mtd"
     FLUTTERWAVE = "flutterwave"
     MTN_MOMO = "mtn_momo"
+    MONO = "mono"
 
 
 class DestinationType(str, enum.Enum):

@@ -17,6 +17,7 @@ from backend.connectors.open_banking import OpenBankingConnector
 from backend.connectors.hmrc_mtd import HMRCMTDConnector
 from backend.connectors.flutterwave import FlutterwaveConnector
 from backend.connectors.mtn_momo import MTNMoMoConnector
+from backend.connectors.mono import MonoConnector
 from backend.connectors.mongodb import MongoDBConnector
 
 # File connectors (registered via @register_connector decorator)
@@ -51,6 +52,7 @@ __all__ = [
     "HMRCMTDConnector",
     "FlutterwaveConnector",
     "MTNMoMoConnector",
+    "MonoConnector",
     "MongoDBConnector",
     "CSVConnector",
     "LocalFileConnector",

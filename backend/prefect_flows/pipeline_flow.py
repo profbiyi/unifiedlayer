@@ -379,6 +379,14 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
             table_name=config.get("table", "collections")
         )
 
+    elif source_type == "mono":
+        from backend.connectors.mono import MonoConnector
+        config = source_config.copy()
+        connector = MonoConnector(config)
+        source = connector.to_dlt_resource(
+            table_name=config.get("table", "transactions")
+        )
+
     elif source_type == "mongodb":
         from backend.connectors.mongodb import MongoDBConnector
         config = source_config.copy()
