@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -497,6 +498,9 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+        <Link href="/admin/access-requests">
+          <Button variant="outline">Access Requests</Button>
+        </Link>
         <Dialog open={onboardDialogOpen} onOpenChange={(open) => { setOnboardDialogOpen(open); if (!open) { setOnboardFormData(initialFormState); setOnboardResult(null); } }}>
           <DialogTrigger asChild>
             <Button variant="default">
