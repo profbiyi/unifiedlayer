@@ -130,7 +130,6 @@ const staticConnectors: Connector[] = [
     description: "African open banking — connect Nigerian bank accounts for transactions and account data.",
     category: "banking",
     version: "1.0.0",
-    coming_soon: true,
     capabilities: {
       incremental: true,
       schema_discovery: true,

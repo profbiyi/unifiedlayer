@@ -167,6 +167,43 @@ def test_rest_api_connection(config: Dict[str, Any]) -> Tuple[bool, str]:
         return False, f"Connection failed: {str(e)}"
 
 
+def test_mono_connection(config: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    Test Mono API connection (African open banking).
+
+    Args:
+        config: Source configuration with secret_key (and optional account_ids)
+
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        secret_key = config.get("secret_key")
+        if not secret_key:
+            return False, "Missing Mono secret key"
+
+        account_ids = [
+            a.strip() for a in str(config.get("account_ids", "") or "").split(",") if a.strip()
+        ]
+        headers = {"mono-sec-key": secret_key, "Accept": "application/json"}
+
+        if account_ids:
+            url = f"https://api.withmono.com/v2/accounts/{account_ids[0]}"
+        else:
+            url = "https://api.withmono.com/v2/accounts"
+
+        response = requests.get(url, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            return True, "Connection successful - Mono API key verified"
+        if response.status_code in (401, 403):
+            return False, "Mono rejected the secret key (check sk_... key and environment)"
+        return False, f"Mono API returned HTTP {response.status_code}: {response.text[:100]}"
+
+    except requests.exceptions.RequestException as e:
+        return False, f"Could not reach Mono API: {str(e)}"
+
+
 def test_mpesa_connection(config: Dict[str, Any]) -> Tuple[bool, str]:
     """
     Test M-Pesa API connection.
@@ -565,6 +602,7 @@ def test_connection(source_type: str, config: Dict[str, Any]) -> Tuple[bool, str
         "mongodb": test_mongodb_connection,
         "rest_api": test_rest_api_connection,
         "mpesa": test_mpesa_connection,
+        "mono": test_mono_connection,
         "whatsapp_business": test_whatsapp_connection,
         "s3": test_s3_connection,
     }
