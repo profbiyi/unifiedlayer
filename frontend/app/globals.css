@@ -62,4 +62,15 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Chrome paints autofilled inputs a murky blue-grey that reads as
+     "dark mode leaking through". Repaint them with our own tokens. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px hsl(var(--background)) inset;
+    -webkit-text-fill-color: hsl(var(--foreground));
+    caret-color: hsl(var(--foreground));
+    transition: background-color 9999s ease-in-out 0s;
+  }
 }
