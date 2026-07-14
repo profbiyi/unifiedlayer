@@ -37,10 +37,14 @@ export default function RootLayout({
         {/* Default to the bright theme — first impressions (public site,
             jury, prospects) should never depend on the visitor's OS setting.
             Users who explicitly pick dark keep their choice. */}
+        {/* storageKey bump: ignores theme preferences stored before the
+            bright rebrand, so every existing user starts light once.
+            Dark stays available via the header toggle. */}
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
           enableSystem
+          storageKey="ul-theme-v2"
           disableTransitionOnChange
         >
           <QueryProvider>
