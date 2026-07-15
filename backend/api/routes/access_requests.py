@@ -121,11 +121,21 @@ def submit_access_request(
     db.add(request)
     db.commit()
 
-    # Alert super admins so no lead sits unseen (best-effort, non-blocking)
-    admin_emails = [
-        u.email
-        for u in db.query(User).filter(User.is_superuser.is_(True), User.is_active.is_(True)).all()
-    ]
+    # Alert the team so no lead sits unseen (best-effort, non-blocking).
+    # ACCESS_REQUEST_NOTIFY_EMAILS overrides; falls back to super admin accounts.
+    from backend.config import settings
+
+    if settings.ACCESS_REQUEST_NOTIFY_EMAILS:
+        admin_emails = [
+            e.strip()
+            for e in settings.ACCESS_REQUEST_NOTIFY_EMAILS.split(",")
+            if e.strip()
+        ]
+    else:
+        admin_emails = [
+            u.email
+            for u in db.query(User).filter(User.is_superuser.is_(True), User.is_active.is_(True)).all()
+        ]
     if admin_emails:
         threading.Thread(
             target=_notify_super_admins, args=(admin_emails, payload), daemon=True

@@ -132,6 +132,9 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: Optional[str] = None
     SMTP_USE_TLS: bool = True
     SENDGRID_API_KEY: Optional[str] = None  # If set, uses SendGrid API instead of SMTP
+    # Where new access-request alerts go (comma-separated). Falls back to
+    # all active super admin account emails when unset.
+    ACCESS_REQUEST_NOTIFY_EMAILS: Optional[str] = None
 
     # Frontend URL (for invitation links, etc.)
     FRONTEND_URL: str = "http://localhost"
