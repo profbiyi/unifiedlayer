@@ -166,11 +166,17 @@ class EmailNotifier:
         Raises:
             EmailNotificationError: If email sending fails
         """
-        # Try SendGrid API first (works on cloud platforms that block SMTP)
+        # Try SendGrid API first (works on cloud platforms that block SMTP),
+        # but fall back to SMTP if SendGrid fails — a stale API key must not
+        # silently kill notifications when working SMTP credentials exist.
         if settings.SENDGRID_API_KEY:
-            return self._send_via_sendgrid(to_emails, subject, body, html)
+            try:
+                return self._send_via_sendgrid(to_emails, subject, body, html)
+            except EmailNotificationError:
+                if not self.smtp_host:
+                    raise
+                logger.warning("SendGrid send failed; falling back to SMTP")
 
-        # Fall back to SMTP
         if not self.smtp_host:
             logger.warning("No email provider configured (SENDGRID_API_KEY or SMTP_HOST)")
             return False
