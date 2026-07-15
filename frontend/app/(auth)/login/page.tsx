@@ -108,7 +108,7 @@ export default function LoginPage() {
   return (
     <Card className="border-0 shadow-none sm:border sm:shadow-sm">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+        <CardTitle className="font-display text-2xl font-bold">Welcome back</CardTitle>
         <CardDescription>
           Sign in to your UnifiedLayer account
         </CardDescription>

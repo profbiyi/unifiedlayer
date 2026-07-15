@@ -152,7 +152,10 @@ export default function RequestAccessPage() {
         </div>
       </header>
 
-      <main className="flex-1 bg-gradient-to-b from-primary/5 via-background to-background py-16">
+      <main className="relative flex-1 overflow-hidden bg-gradient-to-b from-primary/10 via-sky-50/60 to-background py-16">
+        {/* Soft decorative glows so the form doesn't float on a flat wash */}
+        <div aria-hidden className="pointer-events-none absolute -top-24 right-[10%] h-72 w-72 rounded-full bg-sky-300/20 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute top-1/3 -left-24 h-80 w-80 rounded-full bg-emerald-200/20 blur-3xl" />
         <div className="container max-w-2xl">
           <Link
             href="/"
@@ -163,7 +166,7 @@ export default function RequestAccessPage() {
           </Link>
 
           {submitted ? (
-            <Card className="border-2">
+            <Card className="border shadow-xl shadow-primary/5">
               <CardHeader className="text-center">
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
                   <CheckCircle2 className="h-8 w-8 text-primary" />
@@ -186,7 +189,7 @@ export default function RequestAccessPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="border-2">
+            <Card className="border shadow-xl shadow-primary/5">
               <CardHeader>
                 <CardTitle className="font-display text-3xl">Request access</CardTitle>
                 <CardDescription className="text-base">
