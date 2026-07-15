@@ -238,13 +238,13 @@ def env_mode(db: Session):
         print("\nAlternatively, run in interactive mode (without --env flag) to be prompted.")
         return
 
-    # Debug: show password length and first/last chars
-    masked_pwd = password[0] + "*" * (len(password) - 2) + password[-1] if len(password) > 2 else "***"
+    # Never print the password (deploy logs are visible to anyone with
+    # dashboard access and may be retained indefinitely).
     print("Creating Super Admin:")
     print(f"  Email: {email}")
     print(f"  Username: {username}")
     print(f"  Full Name: {full_name}")
-    print(f"  Password: {masked_pwd} (length: {len(password)})\n")
+    print("  Password: (from SUPER_ADMIN_PASSWORD env — not shown)\n")
 
     user = create_super_admin(email, username, password, full_name, db)
 
@@ -252,10 +252,8 @@ def env_mode(db: Session):
         print("\n" + "="*60)
         print("✅ SUPER ADMIN CREATED SUCCESSFULLY!")
         print("="*60)
-        print("\nCredentials:")
-        print(f"  Email: {email}")
+        print(f"\n  Email: {email}")
         print(f"  Username: {username}")
-        print(f"  Password: {password}")
         print("\n⚠️  IMPORTANT: Change the password after first login!")
         print("="*60 + "\n")
 

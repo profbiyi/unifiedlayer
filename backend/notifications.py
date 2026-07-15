@@ -166,22 +166,74 @@ class EmailNotifier:
         Raises:
             EmailNotificationError: If email sending fails
         """
-        # Try SendGrid API first (works on cloud platforms that block SMTP),
-        # but fall back to SMTP if SendGrid fails — a stale API key must not
-        # silently kill notifications when working SMTP credentials exist.
+        # Provider chain: Resend (Railway's recommended HTTPS API) → SendGrid
+        # → SMTP. Railway blocks outbound SMTP below the Pro plan, so an
+        # HTTPS provider must come first; each failure falls through to the
+        # next configured provider so one stale key can't kill notifications.
+        last_error: Optional[EmailNotificationError] = None
+
+        if settings.RESEND_API_KEY:
+            try:
+                return self._send_via_resend(to_emails, subject, body, html)
+            except EmailNotificationError as e:
+                last_error = e
+                logger.warning("Resend send failed; trying next email provider")
+
         if settings.SENDGRID_API_KEY:
             try:
                 return self._send_via_sendgrid(to_emails, subject, body, html)
-            except EmailNotificationError:
-                if not self.smtp_host:
-                    raise
-                logger.warning("SendGrid send failed; falling back to SMTP")
+            except EmailNotificationError as e:
+                last_error = e
+                logger.warning("SendGrid send failed; trying next email provider")
 
-        if not self.smtp_host:
-            logger.warning("No email provider configured (SENDGRID_API_KEY or SMTP_HOST)")
-            return False
+        if self.smtp_host:
+            return self._send_via_smtp(to_emails, subject, body, html)
 
-        return self._send_via_smtp(to_emails, subject, body, html)
+        if last_error:
+            raise last_error
+
+        logger.warning(
+            "No email provider configured (RESEND_API_KEY, SENDGRID_API_KEY or SMTP_HOST)"
+        )
+        return False
+
+    def _send_via_resend(
+        self,
+        to_emails: List[str],
+        subject: str,
+        body: str,
+        html: bool = False,
+    ) -> bool:
+        """Send email via the Resend HTTPS API (https://resend.com/docs/api-reference)."""
+        try:
+            payload: Dict[str, Any] = {
+                "from": f"UnifiedLayer <{self.from_email}>",
+                "to": to_emails,
+                "subject": subject,
+            }
+            payload["html" if html else "text"] = body
+            data = json.dumps(payload).encode()
+
+            req = urllib.request.Request(
+                "https://api.resend.com/emails",
+                data=data,
+                headers={
+                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+            )
+
+            urllib.request.urlopen(req, timeout=30)
+            logger.info(f"Email sent via Resend to {to_emails}: {subject}")
+            return True
+
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode() if e.fp else str(e)
+            logger.error(f"Resend API error: {e.code} - {error_body}")
+            raise EmailNotificationError(f"Resend error: {error_body}")
+        except Exception as e:
+            logger.error(f"Failed to send email via Resend: {str(e)}")
+            raise EmailNotificationError(f"Failed to send email: {str(e)}")
 
     def _send_via_sendgrid(
         self,
