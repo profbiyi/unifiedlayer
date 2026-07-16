@@ -31,6 +31,21 @@ class TestSubmitAccessRequest:
         assert stored.company_name == "Acme Payments Ltd"
         assert stored.status == AccessRequestStatus.NEW
         assert stored.digital_systems == VALID_PAYLOAD["digital_systems"]
+        assert stored.research_consent is False  # not sent -> defaults false
+
+    def test_research_consent_is_stored(self, client: TestClient, db: Session):
+        payload = {
+            **VALID_PAYLOAD,
+            "email": "consenting@acmepayments.com",
+            "research_consent": True,
+        }
+        response = client.post("/access-requests", json=payload)
+        assert response.status_code == 201
+
+        stored = db.query(AccessRequest).filter(
+            AccessRequest.email == "consenting@acmepayments.com"
+        ).first()
+        assert stored.research_consent is True
 
     def test_submit_requires_valid_email(self, client: TestClient):
         payload = {**VALID_PAYLOAD, "email": "not-an-email"}

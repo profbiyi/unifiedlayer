@@ -109,9 +109,9 @@ const whyUnifiedLayer = [
       "Native connectors for M-Pesa, Paystack, Flutterwave, WhatsApp, and other sources that enterprise tools ignore.",
   },
   {
-    title: "Up and running in minutes",
+    title: "Up and running fast",
     description:
-      "Connect your first data source in under 5 minutes. No consultants, no lengthy onboarding, no training required.",
+      "Designed to connect common sources in minutes, with guided onboarding instead of consultants and training courses.",
   },
 ];
 
@@ -324,9 +324,10 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Keep your data in-country. Regional hosting options mean your
-                  business data doesn&apos;t have to leave your jurisdiction to be
-                  useful.
+                  Your data lives on encrypted cloud infrastructure you
+                  control access to — and in-country hosting for Nigeria is
+                  on our roadmap, so your data won&apos;t have to leave your
+                  jurisdiction to be useful.
                 </p>
               </CardContent>
             </Card>
@@ -339,9 +340,9 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  Designed with NDPR (Nigeria), GDPR (EU), and local financial
-                  reporting requirements in mind &mdash; compliance is built into
-                  the platform, not bolted on.
+                  Designed with the Nigeria Data Protection Act 2023, GDPR
+                  (EU), and local financial reporting requirements in mind
+                  &mdash; compliance is built into the platform, not bolted on.
                 </p>
               </CardContent>
             </Card>
@@ -381,6 +382,9 @@ export default function Home() {
               </Link>
               <Link href="/integrations" className="hover:text-foreground">
                 Integrations
+              </Link>
+              <Link href="/research-pilot" className="hover:text-foreground">
+                Research Pilot
               </Link>
               <Link href="/privacy" className="hover:text-foreground">
                 Privacy

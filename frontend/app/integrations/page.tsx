@@ -112,7 +112,7 @@ export default function IntegrationsPage() {
           <div className="mx-auto max-w-3xl text-center">
             <Badge variant="secondary" className="mb-4">
               <Plug className="mr-1 h-3 w-3" />
-              11+ Integrations
+              15+ Integrations
             </Badge>
             <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
               Connect your tools in minutes
@@ -203,8 +203,8 @@ export default function IntegrationsPage() {
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="mb-4 text-2xl font-bold">Ready to unify your data?</h2>
             <p className="mb-6 text-muted-foreground">
-              Request access to start your 15-day guided trial. Connect your
-              first data source in under 5 minutes.
+              Request access to start your 15-day guided trial. We help you
+              connect your first sources, hands-on.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Link href="/request-access">

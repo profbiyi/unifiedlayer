@@ -40,6 +40,7 @@ interface AccessRequestItem {
   company_size: string | null;
   digital_systems: string[];
   data_problem: string;
+  research_consent: boolean;
   status: string;
   notes: string | null;
   created_at: string;
@@ -224,6 +225,11 @@ export default function AccessRequestsPage() {
                     >
                       <TableCell className="font-medium">
                         {r.company_name}
+                        {r.research_consent && (
+                          <Badge variant="outline" className="ml-2 border-primary/40 text-primary text-[10px]">
+                            Research pilot
+                          </Badge>
+                        )}
                         {r.company_size && (
                           <span className="block text-xs text-muted-foreground">
                             {r.company_size} people
