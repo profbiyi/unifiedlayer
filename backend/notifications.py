@@ -220,6 +220,9 @@ class EmailNotifier:
                 headers={
                     "Authorization": f"Bearer {settings.RESEND_API_KEY}",
                     "Content-Type": "application/json",
+                    # Cloudflare fronts api.resend.com and rejects urllib's
+                    # default User-Agent with error 1010 — identify ourselves.
+                    "User-Agent": "UnifiedLayer/1.0 (+https://unifiedlayer.io)",
                 },
             )
 
@@ -257,7 +260,8 @@ class EmailNotifier:
                 data=data,
                 headers={
                     "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "User-Agent": "UnifiedLayer/1.0 (+https://unifiedlayer.io)",
                 }
             )
 
