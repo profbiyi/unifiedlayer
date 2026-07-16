@@ -131,6 +131,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = None
     SMTP_FROM_EMAIL: Optional[str] = None
     SMTP_USE_TLS: bool = True
+    RESEND_API_KEY: Optional[str] = None  # Resend HTTPS API — Railway's recommended email provider
     SENDGRID_API_KEY: Optional[str] = None  # If set, uses SendGrid API instead of SMTP
     # Where new access-request alerts go (comma-separated). Falls back to
     # all active super admin account emails when unset.
