@@ -198,7 +198,11 @@ export default function RequestAccessPage() {
                   We onboard every trial personally. Tell us a bit about your
                   setup, we&apos;ll book a short call, and if it&apos;s a fit
                   you get 15 days on the platform with us helping hands-on.
-                  Takes about two minutes.
+                  Takes about two minutes. Applying for the research pilot?{" "}
+                  <Link href="/research-pilot" className="text-primary hover:underline">
+                    Read the participant information first
+                  </Link>
+                  .
                 </CardDescription>
               </CardHeader>
               <CardContent>
