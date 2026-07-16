@@ -42,8 +42,10 @@ export default function PrivacyPolicyPage() {
               information collected automatically via server logs.
             </li>
             <li>
-              <strong>Billing data</strong> &mdash; billing email and subscription plan. Payment
-              card details are processed exclusively by Stripe and are never stored on our servers.
+              <strong>Billing data</strong> &mdash; billing email and subscription plan. Payments
+              may be processed by Paystack (for customers billed in NGN, KES, or GHS) or Stripe
+              (for customers billed in GBP or EUR). Full payment card details are never stored on
+              our servers.
             </li>
           </ul>
 
@@ -93,8 +95,9 @@ export default function PrivacyPolicyPage() {
           <p>
             Under the <strong>General Data Protection Regulation (GDPR)</strong>,{" "}
             <strong>Protection of Personal Information Act (POPIA)</strong>, and the{" "}
-            <strong>Nigeria Data Protection Regulation (NDPR)</strong>, you have the following
-            rights:
+            <strong>Nigeria Data Protection Act 2023</strong> (together with directives and
+            regulations issued by the Nigeria Data Protection Commission), you have the
+            following rights:
           </p>
           <ul>
             <li>
@@ -126,8 +129,8 @@ export default function PrivacyPolicyPage() {
           <h2>5. Third Parties</h2>
           <ul>
             <li>
-              <strong>Stripe</strong> &mdash; payment processing. We share your billing email and
-              subscription events with Stripe.
+              <strong>Paystack and Stripe</strong> &mdash; payment processing. We share your
+              billing email and subscription events with the processor handling your currency.
             </li>
             <li>
               <strong>Cloud infrastructure provider</strong> &mdash; all platform data is stored on

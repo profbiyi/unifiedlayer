@@ -423,8 +423,9 @@ export default function ConnectorsPage() {
                       {connector.description}
                     </CardDescription>
 
-                    {/* Capabilities */}
-                    <div className="space-y-2 text-sm">
+                    {/* Capabilities — hidden on roadmap items so they don't
+                        read as operational */}
+                    <div className={connector.coming_soon ? "hidden" : "space-y-2 text-sm"}>
                       <div className="flex flex-wrap gap-3">
                         <div className="flex items-center gap-1">
                           {connector.capabilities.incremental ? (
@@ -463,7 +464,10 @@ export default function ConnectorsPage() {
         <div className="mt-8 pt-8 border-t">
           <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
             <div>
-              <span className="font-bold text-foreground">{staticConnectors.length}</span> integrations
+              <span className="font-bold text-foreground">{staticConnectors.filter((c) => !c.coming_soon).length}</span> live integrations
+            </div>
+            <div>
+              <span className="font-bold text-foreground">{staticConnectors.filter((c) => c.coming_soon).length}</span> coming soon
             </div>
             <div>
               <span className="font-bold text-foreground">{categories.length}</span> categories

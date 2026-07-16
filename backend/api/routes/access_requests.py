@@ -70,6 +70,7 @@ def _build_notification_html(request: "AccessRequestCreate") -> str:
           {row("Sector", e(request.sector))}
           {row("Company size", e(request.company_size or "not given"))}
           {row("Systems in use", systems)}
+          {row("Research pilot", "&#9989; Consented to be contacted" if request.research_consent else "Not indicated")}
         </table>
 
         <div style="margin:20px 0;padding:16px;background:#f8fafc;border-left:3px solid #2563eb;
@@ -122,6 +123,9 @@ class AccessRequestCreate(BaseModel):
     company_size: Optional[str] = Field(None, max_length=50)
     digital_systems: List[str] = Field(default_factory=list, max_length=30)
     data_problem: str = Field(..., min_length=10, max_length=5000)
+    # Stage-1 research consent: read the participant information notice and
+    # agreed to be contacted about the DBA Phase 2 pilot
+    research_consent: bool = False
 
 
 class AccessRequestResponse(BaseModel):
@@ -134,6 +138,7 @@ class AccessRequestResponse(BaseModel):
     company_size: Optional[str]
     digital_systems: List[str]
     data_problem: str
+    research_consent: bool
     status: AccessRequestStatus
     notes: Optional[str]
     created_at: datetime
@@ -175,6 +180,7 @@ def submit_access_request(
         company_size=payload.company_size,
         digital_systems=payload.digital_systems,
         data_problem=payload.data_problem.strip(),
+        research_consent=payload.research_consent,
         status=AccessRequestStatus.NEW,
     )
     db.add(request)

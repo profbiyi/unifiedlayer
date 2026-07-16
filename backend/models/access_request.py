@@ -9,6 +9,7 @@ and what data problem they are trying to solve.
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     Column,
     Integer,
     String,
@@ -54,6 +55,11 @@ class AccessRequest(Base):
     company_size = Column(String(50), nullable=True)  # e.g. 1-10, 11-50, 51-200
     digital_systems = Column(JSON, default=list)  # systems currently in use (min 2 to qualify)
     data_problem = Column(Text, nullable=False)  # what they are trying to solve
+
+    # DBA research pilot: applicant read the participant information notice
+    # and agreed to be contacted about the study (informed consent, stage 1;
+    # full consent form is signed before the trial begins)
+    research_consent = Column(Boolean, default=False, nullable=False)
 
     # Funnel tracking
     status = Column(

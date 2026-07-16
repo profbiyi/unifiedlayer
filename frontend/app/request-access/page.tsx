@@ -74,6 +74,7 @@ export default function RequestAccessPage() {
   const [companySize, setCompanySize] = useState("");
   const [systems, setSystems] = useState<string[]>([]);
   const [dataProblem, setDataProblem] = useState("");
+  const [researchConsent, setResearchConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,6 +118,7 @@ export default function RequestAccessPage() {
             company_size: companySize || null,
             digital_systems: systems,
             data_problem: dataProblem,
+            research_consent: researchConsent,
           }),
         }
       );
@@ -342,6 +344,26 @@ export default function RequestAccessPage() {
                       placeholder="e.g. Our transactions live in Paystack and our accounts in spreadsheets. Reconciling them for monthly reporting takes days."
                     />
                   </div>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/30 p-4 text-sm">
+                    <Checkbox
+                      checked={researchConsent}
+                      onCheckedChange={(v) => setResearchConsent(v === true)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-muted-foreground">
+                      I have read the{" "}
+                      <Link
+                        href="/research-pilot"
+                        target="_blank"
+                        className="text-primary hover:underline"
+                      >
+                        participant information notice
+                      </Link>{" "}
+                      and agree to be contacted about the fintech SME research
+                      pilot. <span className="text-xs">(Optional — you can request a regular trial without joining the study.)</span>
+                    </span>
+                  </label>
 
                   {error && (
                     <p className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
