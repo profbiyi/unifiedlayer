@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { usePipelines } from "@/hooks/queries/usePipelines";
 import { useSources } from "@/hooks/queries/useSources";
+import { useCurrentUser } from "@/hooks/queries/useAuth";
 import { useDestinations } from "@/hooks/queries/useDestinations";
 import { usePipelineRuns } from "@/hooks/queries/usePipelines";
 import { useOverviewMetrics } from "@/hooks/queries/useMetrics";
@@ -108,6 +109,10 @@ function AskBar() {
 export default function OverviewPage() {
   const { data: pipelines, isLoading: pipelinesLoading } = usePipelines();
   const { data: sources, isLoading: sourcesLoading } = useSources();
+  const { data: currentUser } = useCurrentUser();
+  const isSuperAdmin = currentUser?.roles?.some(
+    (role: string) => role.toLowerCase() === "super_admin" || role === "SUPER_ADMIN"
+  );
   const { data: destinations } = useDestinations();
   const { data: runs, isLoading: runsLoading } = usePipelineRuns();
   const { data: metrics, isLoading: metricsLoading } = useOverviewMetrics("24h");
@@ -168,11 +173,47 @@ export default function OverviewPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Welcome to UnifiedLayer</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            {isSuperAdmin ? "Welcome back, admin" : "Welcome to UnifiedLayer"}
+          </h1>
           <p className="text-muted-foreground">
-            Connect your first source and your business data starts flowing into one place.
+            {isSuperAdmin
+              ? "This is the platform admin workspace — your day-to-day lives in the admin panel."
+              : "Connect your first source and your business data starts flowing into one place."}
           </p>
         </div>
+
+        {/* Super admins run the platform, not pipelines — surface their real work */}
+        {isSuperAdmin && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link href="/admin/access-requests" className="block">
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="flex items-center justify-between py-4">
+                  <div>
+                    <p className="text-sm font-medium">Review access requests</p>
+                    <p className="text-xs text-muted-foreground">
+                      New trial leads and research pilot applicants
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/admin" className="block">
+              <Card className="transition-colors hover:border-primary/50">
+                <CardContent className="flex items-center justify-between py-4">
+                  <div>
+                    <p className="text-sm font-medium">Manage organizations</p>
+                    <p className="text-xs text-muted-foreground">
+                      Onboard trial orgs and monitor platform health
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        )}
 
         <QuickConnect />
 
@@ -238,6 +279,14 @@ export default function OverviewPage() {
             </div>
           </div>
         )}
+
+        <p className="text-sm text-muted-foreground">
+          Prefer a guided setup?{" "}
+          <Link href="/onboarding" className="text-primary hover:underline">
+            Take the step-by-step wizard
+          </Link>
+          .
+        </p>
       </div>
     );
   }
