@@ -118,6 +118,14 @@ const whyUnifiedLayer = [
 export default function Home() {
   return (
     <div className="force-light flex min-h-screen flex-col bg-background text-foreground">
+      {/* Research pilot announcement — direct path to the study */}
+      <Link
+        href="/research-pilot"
+        className="block bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+      >
+        Recruiting fintech SMEs in Nigeria &amp; France for a free 15-day
+        research pilot &mdash; learn more &rarr;
+      </Link>
       {/* Navigation */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
