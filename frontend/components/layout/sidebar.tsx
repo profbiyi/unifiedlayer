@@ -19,7 +19,6 @@ import {
   BarChart3,
   Lightbulb,
   MessageSquareText,
-  Rocket,
   Boxes,
   X,
   Plug,
@@ -58,7 +57,6 @@ const navSections = [
     label: "Library",
     items: [
       { title: "Templates", href: "/templates", icon: Sparkles },
-      { title: "Get Started", href: "/onboarding", icon: Rocket },
     ],
   },
   {
