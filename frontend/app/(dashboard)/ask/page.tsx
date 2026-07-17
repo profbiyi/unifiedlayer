@@ -44,6 +44,21 @@ export default function AskPage() {
     }
   }, [localMessages, askMutation.isPending]);
 
+  // Accept a handed-off question (?q=...) from the Overview ask bar.
+  // window.location instead of useSearchParams keeps the page statically
+  // renderable without a Suspense boundary.
+  const handedOffRef = useRef(false);
+  useEffect(() => {
+    if (handedOffRef.current) return;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q && q.trim()) {
+      handedOffRef.current = true;
+      window.history.replaceState({}, "", "/ask");
+      handleSendMessage(q.trim());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSendMessage = async (question: string) => {
     // Optimistically add user message
     const userMessage: AIMessageType = {
