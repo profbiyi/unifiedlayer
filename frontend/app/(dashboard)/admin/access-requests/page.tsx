@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Inbox, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Inbox, Loader2, RefreshCw, Trash2 } from "lucide-react";
 
 interface AccessRequestItem {
   id: number;
@@ -102,6 +102,27 @@ export default function AccessRequestsPage() {
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  const deleteRequest = async (id: number, company: string) => {
+    if (
+      !confirm(
+        `Permanently delete the request from "${company}"? Real leads should be marked Declined instead so the funnel history stays complete.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.delete(`/access-requests/${id}`);
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+      toast({ title: "Deleted", description: `Request from ${company} removed.` });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to delete the request.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const updateRequest = async (
     id: number,
@@ -211,6 +232,7 @@ export default function AccessRequestsPage() {
                   <TableHead>Systems</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Received</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -287,10 +309,21 @@ export default function AccessRequestsPage() {
                           month: "short",
                         })}
                       </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteRequest(r.id, r.company_name)}
+                          aria-label={`Delete request from ${r.company_name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     {expandedId === r.id && (
                       <TableRow>
-                        <TableCell colSpan={7} className="bg-muted/30">
+                        <TableCell colSpan={8} className="bg-muted/30">
                           <div className="space-y-4 p-2">
                             <div>
                               <p className="mb-1 text-sm font-medium">

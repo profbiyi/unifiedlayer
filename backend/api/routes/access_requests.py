@@ -222,6 +222,26 @@ def list_access_requests(
     return query.order_by(AccessRequest.created_at.desc()).all()
 
 
+@router.delete("/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_access_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Permanently delete an access request (super admin only).
+
+    Intended for test submissions and withdrawn applicants. Real research
+    leads should normally be kept and moved to DECLINED instead, so the
+    funnel history stays complete.
+    """
+    request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Access request not found")
+
+    db.delete(request)
+    db.commit()
+
+
 @router.patch("/{request_id}", response_model=AccessRequestResponse)
 def update_access_request(
     request_id: int,

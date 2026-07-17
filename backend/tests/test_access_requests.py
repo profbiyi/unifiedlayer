@@ -114,3 +114,27 @@ class TestUpdateAccessRequest:
             "/access-requests/999999", json={"status": "contacted"}
         )
         assert response.status_code == 404
+
+
+class TestDeleteAccessRequest:
+    def test_super_admin_can_delete(self, super_admin_client: TestClient, db: Session):
+        submit = super_admin_client.post("/access-requests", json=VALID_PAYLOAD)
+        assert submit.status_code == 201
+        request_id = db.query(AccessRequest).filter(
+            AccessRequest.email == "ada@acmepayments.com"
+        ).first().id
+
+        response = super_admin_client.delete(f"/access-requests/{request_id}")
+        assert response.status_code == 204
+        assert (
+            db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+            is None
+        )
+
+    def test_regular_user_cannot_delete(self, auth_client: TestClient):
+        response = auth_client.delete("/access-requests/1")
+        assert response.status_code == 403
+
+    def test_delete_missing_request_returns_404(self, super_admin_client: TestClient):
+        response = super_admin_client.delete("/access-requests/999999")
+        assert response.status_code == 404
