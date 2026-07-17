@@ -144,6 +144,25 @@ export default function OverviewPage() {
 
   const recentRuns = runs?.slice(0, 5) || [];
 
+  // ── Loading gate: don't commit to either view until we know whether this
+  // org has data — otherwise the dashboard flashes and then swaps to the
+  // welcome screen (or vice versa), which reads as a glitch. ──
+  if (stillLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Overview</h1>
+          <p className="text-muted-foreground">Loading your workspace...</p>
+        </div>
+        <StatsCardSkeleton count={4} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-[280px] lg:col-span-2" />
+          <Skeleton className="h-[280px]" />
+        </div>
+      </div>
+    );
+  }
+
   // ── New-user view: onboarding replaces the dashboard, not stacks on it ──
   if (isNewUser) {
     return (
