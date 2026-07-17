@@ -47,7 +47,7 @@ export default function AuthLayout({
             </div>
             <div className="flex items-center gap-3 rounded-lg bg-white/10 px-4 py-3">
               <Shield className="h-5 w-5 shrink-0" />
-              <span className="text-sm font-medium">NDPR &amp; GDPR Ready</span>
+              <span className="text-sm font-medium">NDPA &amp; GDPR Ready</span>
             </div>
           </div>
         </div>

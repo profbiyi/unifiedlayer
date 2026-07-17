@@ -99,8 +99,8 @@ export default function IntegrationsPage() {
             <Link href="/login">
               <Button variant="ghost">Sign In</Button>
             </Link>
-            <Link href="/login">
-              <Button>Get Started</Button>
+            <Link href="/request-access">
+              <Button>Request Access</Button>
             </Link>
           </nav>
         </div>
