@@ -1,12 +1,20 @@
 "use client";
 
 import { Sparkles, User, AlertCircle, Clock } from "lucide-react";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import type { AIMessage as AIMessageType } from "@/types/ai";
 import { SQLCodeBlock } from "./SQLCodeBlock";
-import { ResultsChart } from "./ResultsChart";
 import { ResultsTable } from "./ResultsTable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy-load the Recharts-based chart so it code-splits out of the /ask
+// bundle — most answers render before the chart is needed.
+const ResultsChart = dynamic(
+  () => import("./ResultsChart").then((m) => m.ResultsChart),
+  { ssr: false, loading: () => <Skeleton className="h-[300px] w-full" /> }
+);
 
 interface AIMessageProps {
   message: AIMessageType;
