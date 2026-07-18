@@ -28,7 +28,13 @@ import QuickConnect from "@/components/dashboard/QuickConnect";
 import { Badge } from "@/components/ui/badge";
 import { StatsCardSkeleton } from "@/components/skeletons/StatsCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import dynamic from "next/dynamic";
+
+// Lazy-load Recharts so it code-splits out of the initial dashboard bundle.
+const RunsLineChart = dynamic(
+  () => import("@/components/charts/dashboard-charts").then((m) => m.RunsLineChart),
+  { ssr: false, loading: () => <Skeleton className="h-[260px] w-full" /> }
+);
 import TemplateCard from "@/components/templates/TemplateCard";
 import Link from "next/link";
 
@@ -397,17 +403,7 @@ export default function OverviewPage() {
                 <p className="text-sm text-muted-foreground">No syncs in the last 7 days</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={runsOverTime}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2} name="Completed" />
-                  <Line type="monotone" dataKey="failed" stroke="#ef4444" strokeWidth={2} name="Failed" />
-                </LineChart>
-              </ResponsiveContainer>
+              <RunsLineChart data={runsOverTime} />
             )}
           </CardContent>
         </Card>
