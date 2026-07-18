@@ -2,30 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
   Activity,
-  AlertTriangle,
   ArrowDown,
-  ArrowRight,
   ArrowUp,
-  Banknote,
-  BarChart3,
-  CheckCircle2,
   Clock,
-  CreditCard,
-  FileText,
-  Landmark,
+  Database,
   Lightbulb,
   PiggyBank,
-  Plug,
-  PoundSterling,
   TrendingUp,
-  XCircle,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import apiClient from "@/lib/api-client";
+import { usePipelineRuns } from "@/hooks/queries/usePipelines";
+import { useSources } from "@/hooks/queries/useSources";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardData {
   summary: {
@@ -39,333 +41,288 @@ interface DashboardData {
   data_health: {
     healthy_pipelines: number;
     stale_pipelines: number;
-    stale_details: Array<{ name: string; last_sync: string | null; hours_ago?: number }>;
   };
   connected_sources: Record<string, number>;
-  recommendations: Array<{
-    type: string;
-    priority: string;
-    title: string;
-    description: string;
-  }>;
 }
 
 interface ROIData {
-  time_saved: { hours: number; description: string };
-  money_saved: { gbp: number; description: string };
+  time_saved: { hours: number };
+  money_saved: { gbp: number };
   data_processed: { rows: number; pipeline_runs: number };
-  automation: { active_pipelines: number; description: string };
+  automation: { active_pipelines: number };
   verdict: { status: string; message: string };
 }
 
-function formatNumber(n: number): string {
+const SOURCE_LABELS: Record<string, string> = {
+  paystack: "Paystack",
+  flutterwave: "Flutterwave",
+  mpesa: "M-Pesa",
+  mtn_momo: "MTN MoMo",
+  mono: "Mono",
+  stripe: "Stripe",
+  postgres: "PostgreSQL",
+  mysql: "MySQL",
+  mongodb: "MongoDB",
+  google_sheets: "Google Sheets",
+  whatsapp: "WhatsApp",
+};
+
+function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString();
 }
 
-const insightCards = [
-  {
-    id: "cash-flow",
-    icon: Landmark,
-    title: "Cash Flow Analysis",
-    description: "Daily inflows vs outflows, spending breakdown, balance trends, recurring costs",
-    requires: "Open Banking",
-    color: "text-blue-600",
-    bg: "bg-blue-50 dark:bg-blue-950",
-  },
-  {
-    id: "revenue",
-    icon: TrendingUp,
-    title: "Revenue & Payments",
-    description: "Revenue trends, MRR tracking, payment success rates, failed payment alerts, churn signals",
-    requires: "GoCardless / Stripe",
-    color: "text-green-600",
-    bg: "bg-green-50 dark:bg-green-950",
-  },
-  {
-    id: "invoicing",
-    icon: FileText,
-    title: "Invoice Health",
-    description: "Overdue invoices, aging report, average days to pay, top debtors, collection rate",
-    requires: "Xero",
-    color: "text-orange-600",
-    bg: "bg-orange-50 dark:bg-orange-950",
-  },
-  {
-    id: "tax",
-    icon: PoundSterling,
-    title: "Tax Readiness",
-    description: "Next VAT deadline, estimated liability, filing history, compliance score",
-    requires: "HMRC MTD",
-    color: "text-purple-600",
-    bg: "bg-purple-50 dark:bg-purple-950",
-  },
-];
-
 export default function InsightsPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [roi, setRoi] = useState<ROIData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: runs } = usePipelineRuns();
+  const { data: sources } = useSources();
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [dashRes, roiRes] = await Promise.all([
-          apiClient.get("/insights/dashboard"),
-          apiClient.get("/insights/roi"),
-        ]);
-        setDashboard(dashRes.data);
-        setRoi(roiRes.data);
-      } catch (err) {
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
+    Promise.all([
+      apiClient.get("/insights/dashboard").then((r) => r.data).catch(() => null),
+      apiClient.get("/insights/roi").then((r) => r.data).catch(() => null),
+    ]).then(([d, r]) => {
+      setDashboard(d);
+      setRoi(r);
+      setLoading(false);
+    });
   }, []);
+
+  // Rows synced per day (last 14 days) from real run history
+  const last14 = Array.from({ length: 14 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (13 - i));
+    return date.toISOString().split("T")[0];
+  });
+  const volumeOverTime = last14.map((date) => {
+    const dayRuns =
+      runs?.filter(
+        (run) =>
+          run.status === "completed" &&
+          new Date(run.created_at).toISOString().split("T")[0] === date
+      ) || [];
+    return {
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      rows: dayRuns.reduce((sum, r) => sum + (r.rows_written || 0), 0),
+    };
+  });
+  const hasVolume = volumeOverTime.some((d) => d.rows > 0);
+
+  // Connected sources by type (real coverage)
+  const bySource = Object.entries(dashboard?.connected_sources || {}).map(
+    ([type, count]) => ({
+      name: SOURCE_LABELS[type] || type,
+      sources: count,
+    })
+  );
+
+  const hasData = (sources?.length || 0) > 0;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Activity className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Business Insights</h1>
+          <p className="text-muted-foreground">Crunching your numbers...</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
+        </div>
+        <Skeleton className="h-[300px]" />
       </div>
     );
   }
 
+  if (!hasData) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Business Insights</h1>
+          <p className="text-muted-foreground">
+            Connect a source and your insights appear here automatically.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Lightbulb className="h-6 w-6 text-primary" />
+            </div>
+            <p className="font-medium">No data to analyse yet</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Once you connect a payment processor, bank, or database, UnifiedLayer
+              builds these insights from your data — no spreadsheets, no analyst required.
+            </p>
+            <Link
+              href="/connect"
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Connect your first source →
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const trend = dashboard?.summary.data_trend_percent ?? 0;
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Business Insights</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Business Insights</h1>
         <p className="text-muted-foreground">
-          See what your data tells you about your business.
+          {dashboard?.summary.headline || "Your business data, analysed automatically"}
         </p>
       </div>
 
-      {/* ROI Banner */}
-      {roi && (
-        <Card className="border-primary/50 bg-gradient-to-r from-primary/5 to-primary/10">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                  <PiggyBank className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold">{dashboard?.summary.headline}</p>
-                  <p className="text-sm text-muted-foreground">{roi.verdict.message}</p>
-                </div>
-              </div>
-              <div className="flex gap-6">
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{roi.time_saved.hours}h</p>
-                  <p className="text-xs text-muted-foreground">Time saved</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">
-                    &pound;{roi.money_saved.gbp.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Money saved</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold">{formatNumber(roi.data_processed.rows)}</p>
-                  <p className="text-xs text-muted-foreground">Rows synced</p>
-                </div>
-              </div>
-            </div>
+      {/* Real headline metrics */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Data synced (30d)</CardTitle>
+            <Database className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{fmt(dashboard?.summary.data_synced || 0)}</div>
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              {trend !== 0 && (
+                <span className={trend > 0 ? "text-green-600" : "text-red-600"}>
+                  {trend > 0 ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />}
+                  {Math.abs(trend)}%
+                </span>
+              )}
+              rows vs previous month
+            </p>
           </CardContent>
         </Card>
-      )}
 
-      {/* KPI Cards */}
-      {dashboard && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Data Synced</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatNumber(dashboard.summary.data_synced)}</div>
-              <div className="flex items-center text-xs">
-                {dashboard.summary.data_trend_percent > 0 ? (
-                  <ArrowUp className="h-3 w-3 text-green-600 mr-1" />
-                ) : dashboard.summary.data_trend_percent < 0 ? (
-                  <ArrowDown className="h-3 w-3 text-red-600 mr-1" />
-                ) : null}
-                <span className={dashboard.summary.data_trend_percent >= 0 ? "text-green-600" : "text-red-600"}>
-                  {dashboard.summary.data_trend_percent > 0 ? "+" : ""}{dashboard.summary.data_trend_percent}%
-                </span>
-                <span className="text-muted-foreground ml-1">vs last month</span>
-              </div>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Time saved (30d)</CardTitle>
+            <Clock className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{roi?.time_saved.hours ?? 0}h</div>
+            <p className="text-xs text-muted-foreground">vs manual reconciliation</p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Pipeline Health</CardTitle>
-              {dashboard.summary.success_rate >= 95 ? (
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboard.summary.success_rate}%</div>
-              <p className="text-xs text-muted-foreground">
-                {dashboard.data_health.healthy_pipelines} healthy, {dashboard.data_health.stale_pipelines} stale
-              </p>
-            </CardContent>
-          </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Estimated value</CardTitle>
+            <PiggyBank className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              £{(roi?.money_saved.gbp ?? 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">staff time not spent</p>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Automations</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboard.summary.pipeline_runs}</div>
-              <p className="text-xs text-muted-foreground">Pipeline runs this month</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Time Saved</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{dashboard.summary.time_saved_hours}h</div>
-              <p className="text-xs text-muted-foreground">of manual work this month</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Business Insight Cards */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Your Business at a Glance</h2>
-        <div className="grid gap-6 md:grid-cols-2">
-          {insightCards.map((card) => {
-            const Icon = card.icon;
-            const isConnected = dashboard?.connected_sources && (
-              (card.id === "cash-flow" && dashboard.connected_sources["open_banking"]) ||
-              (card.id === "revenue" && (dashboard.connected_sources["gocardless"] || dashboard.connected_sources["stripe"] || dashboard.connected_sources["paystack"])) ||
-              (card.id === "invoicing" && dashboard.connected_sources["xero"]) ||
-              (card.id === "tax" && dashboard.connected_sources["hmrc_mtd"])
-            );
-
-            return (
-              <Card key={card.id} className={`transition-all ${isConnected ? "hover:shadow-md" : "opacity-80"}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${card.bg}`}>
-                        <Icon className={`h-5 w-5 ${card.color}`} />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">{card.title}</CardTitle>
-                        <CardDescription className="text-xs">Requires {card.requires}</CardDescription>
-                      </div>
-                    </div>
-                    {isConnected ? (
-                      <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Connected
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">
-                        <Plug className="h-3 w-3 mr-1" />
-                        Connect
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">{card.description}</p>
-                  {isConnected ? (
-                    <Link href={`/insights/${card.id === "cash-flow" ? "cash-flow" : card.id === "revenue" ? "revenue" : card.id === "invoicing" ? "invoicing" : "tax"}`}>
-                      <Button variant="outline" size="sm" className="w-full">
-                        View Insights
-                        <ArrowRight className="ml-2 h-3 w-3" />
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Link href="/sources">
-                      <Button variant="secondary" size="sm" className="w-full">
-                        <Plug className="mr-2 h-3 w-3" />
-                        Connect {card.requires}
-                      </Button>
-                    </Link>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sync reliability</CardTitle>
+            <Activity className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboard?.summary.success_rate ?? 100}%</div>
+            <p className="text-xs text-muted-foreground">
+              {dashboard?.data_health.healthy_pipelines ?? 0} healthy ·{" "}
+              {dashboard?.data_health.stale_pipelines ?? 0} stale
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Recommendations */}
-      {dashboard && dashboard.recommendations.length > 0 && (
-        <Card>
+      {/* Real charts from run history */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-yellow-600" />
-              <CardTitle>Recommendations</CardTitle>
-            </div>
-            <CardDescription>Actions to get more value from your data</CardDescription>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Data flowing into your business (14 days)
+            </CardTitle>
+            <CardDescription>Rows synced per day across all your sources</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {dashboard.recommendations.map((rec, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  {rec.type === "connect" ? (
-                    <Plug className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                  ) : rec.type === "fix" ? (
-                    <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                  ) : (
-                    <ArrowRight className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <p className="text-sm font-medium">{rec.title}</p>
-                    <p className="text-xs text-muted-foreground">{rec.description}</p>
-                  </div>
-                  <Badge
-                    variant={rec.priority === "high" ? "destructive" : "secondary"}
-                    className="shrink-0 ml-auto text-xs"
-                  >
-                    {rec.priority}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+            {!hasVolume ? (
+              <div className="flex h-[280px] items-center justify-center">
+                <p className="text-sm text-muted-foreground">No synced rows in the last 14 days</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={volumeOverTime}>
+                  <defs>
+                    <linearGradient id="rows" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" fontSize={12} />
+                  <YAxis tickFormatter={fmt} fontSize={12} />
+                  <Tooltip formatter={(v: number) => [v.toLocaleString(), "rows"]} />
+                  <Area
+                    type="monotone"
+                    dataKey="rows"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    fill="url(#rows)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Where your data comes from</CardTitle>
+            <CardDescription>Connected sources by type</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {bySource.length === 0 ? (
+              <div className="flex h-[280px] items-center justify-center">
+                <p className="text-sm text-muted-foreground">No sources connected</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={bySource} layout="vertical" margin={{ left: 8 }}>
+                  <XAxis type="number" hide allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" width={90} fontSize={12} />
+                  <Tooltip />
+                  <Bar dataKey="sources" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {roi?.verdict?.message && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center gap-3 py-4">
+            <Lightbulb className="h-5 w-5 shrink-0 text-primary" />
+            <p className="text-sm">
+              <span className="font-medium">The bottom line: </span>
+              {roi.verdict.message}
+            </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Stale Pipelines Warning */}
-      {dashboard && dashboard.data_health.stale_pipelines > 0 && (
-        <Card className="border-yellow-500/50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-600" />
-              <CardTitle className="text-base">Stale Data Warning</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {dashboard.data_health.stale_details.map((p, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span>{p.name}</span>
-                  <span className="text-muted-foreground">
-                    {p.last_sync ? `${p.hours_ago}h ago` : "Never synced"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <p className="text-center text-xs text-muted-foreground">
+        Want a specific number?{" "}
+        <Link href="/ask" className="text-primary hover:underline">
+          Ask your data a question →
+        </Link>
+      </p>
     </div>
   );
 }
