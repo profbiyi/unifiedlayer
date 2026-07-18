@@ -16,6 +16,7 @@ from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from backend.config import settings
+from backend.services.openai_helper import chat_completion
 from backend.models.pipeline import (
     Organization,
     Pipeline,
@@ -376,7 +377,7 @@ Do not include greetings, sign-offs, or markdown. Plain text only."""
             return None
 
         try:
-            response = self.openai_client.chat.completions.create(
+            response = chat_completion(self.openai_client,
                 model=self.openai_model,
                 messages=[
                     {
