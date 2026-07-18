@@ -467,6 +467,17 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
+def _check_redis() -> bool:
+    """Ping Redis so /health/ready reports whether it is actually connected."""
+    try:
+        import redis
+
+        client = redis.from_url(settings.REDIS_URL, socket_connect_timeout=3)
+        return bool(client.ping())
+    except Exception:
+        return False
+
+
 @app.get("/health/ready", tags=["Health"])
 async def readiness_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
@@ -476,6 +487,7 @@ async def readiness_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     checks = {
         "database": DatabaseHealthCheck.check(),
+        "redis": _check_redis(),
     }
 
     all_healthy = all(checks.values())
