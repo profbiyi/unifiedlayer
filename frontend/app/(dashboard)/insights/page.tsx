@@ -13,21 +13,21 @@ import {
   PiggyBank,
   TrendingUp,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import apiClient from "@/lib/api-client";
 import { usePipelineRuns } from "@/hooks/queries/usePipelines";
 import { useSources } from "@/hooks/queries/useSources";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy-load Recharts so it code-splits out of the initial insights bundle.
+const VolumeAreaChart = dynamic(
+  () => import("@/components/charts/dashboard-charts").then((m) => m.VolumeAreaChart),
+  { ssr: false, loading: () => <Skeleton className="h-[280px] w-full" /> }
+);
+const SourcesBarChart = dynamic(
+  () => import("@/components/charts/dashboard-charts").then((m) => m.SourcesBarChart),
+  { ssr: false, loading: () => <Skeleton className="h-[280px] w-full" /> }
+);
 
 interface DashboardData {
   summary: {
@@ -256,27 +256,7 @@ export default function InsightsPage() {
                 <p className="text-sm text-muted-foreground">No synced rows in the last 14 days</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={volumeOverTime}>
-                  <defs>
-                    <linearGradient id="rows" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" fontSize={12} />
-                  <YAxis tickFormatter={fmt} fontSize={12} />
-                  <Tooltip formatter={(v: number) => [v.toLocaleString(), "rows"]} />
-                  <Area
-                    type="monotone"
-                    dataKey="rows"
-                    stroke="#2563eb"
-                    strokeWidth={2}
-                    fill="url(#rows)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <VolumeAreaChart data={volumeOverTime} />
             )}
           </CardContent>
         </Card>
@@ -292,14 +272,7 @@ export default function InsightsPage() {
                 <p className="text-sm text-muted-foreground">No sources connected</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={bySource} layout="vertical" margin={{ left: 8 }}>
-                  <XAxis type="number" hide allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" width={90} fontSize={12} />
-                  <Tooltip />
-                  <Bar dataKey="sources" fill="#2563eb" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <SourcesBarChart data={bySource} />
             )}
           </CardContent>
         </Card>

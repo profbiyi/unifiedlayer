@@ -4,7 +4,7 @@ Database configuration and session management.
 Provides SQLAlchemy engine, session management, and FastAPI dependencies.
 """
 from typing import Generator
-from sqlalchemy import create_engine, event, pool
+from sqlalchemy import create_engine, event, pool, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.engine import Engine
@@ -143,7 +143,10 @@ class DatabaseHealthCheck:
         """
         try:
             db = SessionLocal()
-            db.execute("SELECT 1")
+            # SQLAlchemy 2.0 requires text() — a bare string raises
+            # ObjectNotExecutableError, which made this check falsely report
+            # the DB as down even while the app served queries fine.
+            db.execute(text("SELECT 1"))
             db.close()
             return True
         except Exception as e:
