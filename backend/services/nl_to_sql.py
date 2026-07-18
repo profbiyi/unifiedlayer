@@ -12,6 +12,7 @@ from typing import Dict, List, Optional
 from openai import OpenAI
 
 from backend.config import settings
+from backend.services.openai_helper import chat_completion
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,7 @@ If you cannot generate a valid query, respond with:
             messages.append({"role": "user", "content": question})
 
             # Call OpenAI
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=messages,
                 temperature=0.1,  # Low temperature for consistent SQL

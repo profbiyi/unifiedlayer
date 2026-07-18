@@ -68,10 +68,17 @@ class Settings(BaseSettings):
     GCP_CREDENTIALS_PATH: Optional[str] = None
     GCS_BUCKET: Optional[str] = None
 
-    # OpenAI. gpt-4o-mini is fast, inexpensive, and available on modern API
-    # keys — the legacy "gpt-4" id 404s for keys created after its retirement.
+    # OpenAI — two tiers so each task uses the right-sized model:
+    #   OPENAI_MODEL           fast/cheap, for NL->SQL and quick summaries
+    #   OPENAI_MODEL_ADVANCED  stronger reasoning, for data modelling/analysis
+    # Both are overridable via env (e.g. set OPENAI_MODEL_ADVANCED=gpt-5).
+    # gpt-4o-mini/gpt-4o are available on all current keys; the legacy "gpt-4"
+    # id 404s for keys created after its retirement. OPENAI_MODEL_FALLBACK is
+    # retried automatically if a configured model returns model_not_found.
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MODEL_ADVANCED: str = "gpt-4o"
+    OPENAI_MODEL_FALLBACK: str = "gpt-4o-mini"
     OPENAI_TEMPERATURE: float = 0.7
 
     # Prefect

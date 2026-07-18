@@ -15,6 +15,7 @@ from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from backend.config import settings
+from backend.services.openai_helper import chat_completion
 from backend.database import get_db_session
 from backend.services.schema_analyzer import SchemaContext, get_schema_analyzer
 from backend.models.data_model import GeneratedModel, ModelLayer, ModelStatus
@@ -74,7 +75,7 @@ class AIModeler:
         else:
             self.client = OpenAI(api_key=api_key)
 
-        self.model = "gpt-4o"
+        self.model = getattr(settings, "OPENAI_MODEL_ADVANCED", "gpt-4o")
         self.schema_analyzer = get_schema_analyzer()
 
     def analyze_schema(
@@ -149,7 +150,7 @@ Return ONLY a JSON array of question strings.
 """
 
         try:
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -246,7 +247,7 @@ Generate CREATE VIEW statements compatible with PostgreSQL.
 """
 
         try:
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -397,7 +398,7 @@ Include appropriate JOINs and aggregations in fact tables.
 """
 
         try:
-            response = self.client.chat.completions.create(
+            response = chat_completion(self.client,
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
