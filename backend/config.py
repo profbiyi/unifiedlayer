@@ -68,9 +68,10 @@ class Settings(BaseSettings):
     GCP_CREDENTIALS_PATH: Optional[str] = None
     GCS_BUCKET: Optional[str] = None
 
-    # OpenAI
+    # OpenAI. gpt-4o-mini is fast, inexpensive, and available on modern API
+    # keys — the legacy "gpt-4" id 404s for keys created after its retirement.
     OPENAI_API_KEY: Optional[str] = None
-    OPENAI_MODEL: str = "gpt-4"
+    OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_TEMPERATURE: float = 0.7
 
     # Prefect
