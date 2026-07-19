@@ -334,15 +334,27 @@ class Pipeline(Base):
     exponential_backoff_enabled = Column(Boolean, default=False, nullable=False, server_default='false')  # Use exponential backoff for retries
 
     # Write mode: controls how new data is merged with existing data
+    # values_callable makes SQLAlchemy bind the enum *value* ("merge") rather
+    # than its name ("MERGE"). The Postgres enum types were created by
+    # migrations with lowercase values, so without this every pipeline insert
+    # raises "invalid input value for enum ... 'MERGE'".
     write_mode = Column(
-        SQLEnum(WriteModeEnum, name="write_mode_enum"),
+        SQLEnum(
+            WriteModeEnum,
+            name="write_mode_enum",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=True,
         default=WriteModeEnum.MERGE,
     )
 
     # Schema contract: controls how schema changes from the source are handled
     schema_contract = Column(
-        SQLEnum(SchemaContractEnum, name="schema_contract_enum"),
+        SQLEnum(
+            SchemaContractEnum,
+            name="schema_contract_enum",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
         nullable=True,
         default=SchemaContractEnum.EVOLVE,
     )
