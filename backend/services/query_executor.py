@@ -6,7 +6,9 @@ Executes SQL queries safely with timeout and row limits.
 import logging
 import time
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -90,9 +92,15 @@ class QueryExecutor:
                 row_dict = {}
                 for i, col in enumerate(columns):
                     value = row[i]
-                    # Convert non-serializable types
-                    if hasattr(value, 'isoformat'):  # datetime
+                    # Convert non-JSON-serializable types. Decimal (from
+                    # SUM/AVG/numeric columns) was previously unhandled and
+                    # crashed response serialization with a 500.
+                    if hasattr(value, 'isoformat'):  # datetime / date
                         value = value.isoformat()
+                    elif isinstance(value, Decimal):
+                        value = float(value)
+                    elif isinstance(value, UUID):
+                        value = str(value)
                     elif isinstance(value, bytes):
                         value = value.decode('utf-8', errors='replace')
                     row_dict[col] = value
