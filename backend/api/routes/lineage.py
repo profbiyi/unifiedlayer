@@ -320,8 +320,7 @@ async def get_pipeline_lineage_graph(
                 "id": source.id,
                 "public_id": str(source.public_id),
                 "name": source.name,
-                "sourceType": source.source_type,
-                "connectionString": source.connection_string,
+                "sourceType": getattr(source.source_type, "value", source.source_type),
                 "pipelineCount": pipeline_count,
             }
         })
@@ -336,7 +335,9 @@ async def get_pipeline_lineage_graph(
             .limit(1)
         ).scalar_one_or_none()
 
-        latest_status = latest_run.status if latest_run else None
+        latest_status = (
+            getattr(latest_run.status, "value", latest_run.status) if latest_run else None
+        )
 
         nodes.append({
             "id": f"pipeline-{pipeline.id}",
@@ -366,8 +367,7 @@ async def get_pipeline_lineage_graph(
                 "id": destination.id,
                 "public_id": str(destination.public_id),
                 "name": destination.name,
-                "destinationType": destination.destination_type,
-                "connectionString": destination.connection_string,
+                "destinationType": getattr(destination.destination_type, "value", destination.destination_type),
                 "pipelineCount": pipeline_count,
             }
         })
