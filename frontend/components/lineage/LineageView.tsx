@@ -243,6 +243,9 @@ export default function LineageView() {
         })),
         apiEdges.map((e: any) => ({
           ...e,
+          // React Flow requires a unique edge id or the edge (the arrow) is
+          // silently dropped — the API doesn't send one, so derive it.
+          id: e.id || `e-${e.source}-${e.target}`,
           ...defaultEdgeOptions,
           animated: e.animated,
           style: {
