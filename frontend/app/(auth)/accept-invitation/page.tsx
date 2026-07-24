@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -258,9 +259,8 @@ function AcceptInvitationContent() {
                     <Label htmlFor="password">
                       Password <span className="text-destructive">*</span>
                     </Label>
-                    <Input
+                    <PasswordInput
                       id="password"
-                      type="password"
                       placeholder="Min 8 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -272,9 +272,8 @@ function AcceptInvitationContent() {
                     <Label htmlFor="confirmPassword">
                       Confirm Password <span className="text-destructive">*</span>
                     </Label>
-                    <Input
+                    <PasswordInput
                       id="confirmPassword"
-                      type="password"
                       placeholder="Repeat password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
