@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -672,9 +673,8 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="onboard_admin_password">Temporary Password *</Label>
-                        <Input
+                        <PasswordInput
                           id="onboard_admin_password"
-                          type="password"
                           placeholder="Min 8 characters"
                           value={onboardFormData.admin_password}
                           onChange={(e) => setOnboardFormData({ ...onboardFormData, admin_password: e.target.value })}

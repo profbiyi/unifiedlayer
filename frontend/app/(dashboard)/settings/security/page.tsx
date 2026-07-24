@@ -7,6 +7,7 @@ import { useCurrentUser } from "@/hooks/queries/useAuth";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -248,9 +249,8 @@ export default function SecuritySettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="disable-password">Password</Label>
-              <Input
+              <PasswordInput
                 id="disable-password"
-                type="password"
                 placeholder="Enter your password"
                 value={disablePassword}
                 onChange={(e) => setDisablePassword(e.target.value)}
