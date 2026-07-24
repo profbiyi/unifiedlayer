@@ -19,7 +19,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
       - name: Install ruff
-        run: pip install ruff
+        # Pin the version: an unpinned `pip install ruff` lets new releases
+        # silently change the active rule set (a July 2026 release turned on
+        # B008/I001/G201/… and broke CI on unchanged code). Bump deliberately.
+        run: pip install ruff==0.15.2
       - name: Run ruff linter
         run: ruff check backend/
 
