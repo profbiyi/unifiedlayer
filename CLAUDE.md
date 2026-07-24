@@ -551,8 +551,9 @@ Changes:
 
 ### Medium
 1. **No Celery beat schedule for health checks** — Health tasks run on-demand only, not periodically
-2. **Unauthenticated `/config` endpoint** — Exposes CORS config, rate limit settings, etc.
-3. **`/stats` and `/metrics` are unauthenticated** — Prometheus metrics and DB stats exposed publicly
+2. ~~Unauthenticated `/config` endpoint~~ — **FIXED** (verified live 2026-07-24): `/config`,
+   `/stats`, `/metrics` all require `Depends(get_current_user)` in `main.py`; `/metrics` is
+   further restricted to super admins. All three return 401 unauthenticated in production.
 
 ### Low
 4. **`ScrollArea` ref may not work for auto-scroll in `/ask` page** — shadcn ScrollArea doesn't
@@ -562,7 +563,16 @@ Changes:
 
 ## API URL Convention (IMPORTANT)
 - Backend routes are ALL under `/api/v1` prefix
-- `NEXT_PUBLIC_API_URL` in production = `https://api.unifiedlayer.io/api/v1`
+- **Production `NEXT_PUBLIC_API_URL` (actual, verified 2026-07-24) =**
+  `https://backend-production-901a.up.railway.app/api/v1` — the Railway-generated backend
+  domain. Set as a build-time env var on the Railway **frontend** service (not in the repo;
+  `.env.local`/`.env.example` only carry the localhost dev value).
+- ⚠️ `api.unifiedlayer.io` is the *intended* custom API domain but is **NOT configured** —
+  it does not resolve (NXDOMAIN). To switch to it: (1) add the custom domain to the backend
+  service in Railway → copy the CNAME target, (2) add that CNAME as `api` at the DNS registrar
+  (Namecheap), (3) update `NEXT_PUBLIC_API_URL` on the Railway frontend service to
+  `https://api.unifiedlayer.io/api/v1` and redeploy the frontend. No code change needed
+  (the URL is env-driven); CORS is keyed on the frontend origin, which is unchanged.
 - In local dev = `http://localhost:8000/api/v1` (NOT just `http://localhost:8000`)
 - The `.env.local` has a bug: it points to Prefect (4200) — fix to `http://localhost:8000/api/v1`
 
