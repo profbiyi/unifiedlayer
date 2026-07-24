@@ -85,3 +85,42 @@ export function SourcesBarChart({
     </ResponsiveContainer>
   );
 }
+
+// Stacked completed/failed runs per day — the real Analytics timeline chart.
+export function RunsTimelineChart({
+  data,
+}: {
+  data: { date: string; completed: number; failed: number }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="date" fontSize={11} interval="preserveStartEnd" />
+        <YAxis allowDecimals={false} fontSize={12} />
+        <Tooltip />
+        <Legend />
+        <Bar dataKey="completed" stackId="a" fill="#10b981" name="Completed" radius={[0, 0, 0, 0]} />
+        <Bar dataKey="failed" stackId="a" fill="#ef4444" name="Failed" radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+// Rows synced by source type — horizontal bar for the Analytics breakdown.
+export function SourceVolumeChart({
+  data,
+}: {
+  data: { name: string; rows: number }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 44)}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }}>
+        <XAxis type="number" tickFormatter={fmt} fontSize={12} />
+        <YAxis type="category" dataKey="name" width={110} fontSize={12} />
+        <Tooltip formatter={(v: number) => [v.toLocaleString(), "rows"]} />
+        <Bar dataKey="rows" fill="#2563eb" radius={[0, 4, 4, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
