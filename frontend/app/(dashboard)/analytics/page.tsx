@@ -14,6 +14,19 @@ import {
   Activity,
 } from "lucide-react";
 import apiClient from "@/lib/api-client";
+import dynamic from "next/dynamic";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Recharts is heavy — lazy-load the chart module so it code-splits out of the
+// Analytics initial bundle. The page shell paints immediately; charts fill in.
+const RunsTimelineChart = dynamic(
+  () => import("@/components/charts/dashboard-charts").then((m) => m.RunsTimelineChart),
+  { ssr: false, loading: () => <Skeleton className="h-[280px] w-full" /> }
+);
+const SourceVolumeChart = dynamic(
+  () => import("@/components/charts/dashboard-charts").then((m) => m.SourceVolumeChart),
+  { ssr: false, loading: () => <Skeleton className="h-[220px] w-full" /> }
+);
 
 interface OverviewData {
   pipelines: { total: number; active: number };
@@ -180,44 +193,8 @@ export default function AnalyticsPage() {
               No pipeline runs in the selected period.
             </p>
           ) : (
-            <div className="flex items-end gap-1 h-40">
-              {timeline.map((day) => {
-                const maxTotal = Math.max(...timeline.map((t) => t.total), 1);
-                const height = (day.total / maxTotal) * 100;
-                const failPercent = day.total > 0 ? (day.failed / day.total) * 100 : 0;
-                return (
-                  <div
-                    key={day.date}
-                    className="flex-1 flex flex-col justify-end group relative"
-                  >
-                    <div
-                      className="w-full rounded-t transition-all hover:opacity-80"
-                      style={{
-                        height: `${height}%`,
-                        background: failPercent > 0
-                          ? `linear-gradient(to top, hsl(var(--destructive)) ${failPercent}%, hsl(var(--primary)) ${failPercent}%)`
-                          : "hsl(var(--primary))",
-                        minHeight: day.total > 0 ? "4px" : "0",
-                      }}
-                    />
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 hidden group-hover:block bg-popover border rounded px-2 py-1 text-xs whitespace-nowrap shadow-md z-10">
-                      {day.date}: {day.completed} ok, {day.failed} failed
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <RunsTimelineChart data={timeline} />
           )}
-          <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-sm bg-primary" />
-              Successful
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-sm bg-destructive" />
-              Failed
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -277,30 +254,12 @@ export default function AnalyticsPage() {
                 No data synced yet.
               </p>
             ) : (
-              <div className="space-y-4">
-                {sources.map((s) => {
-                  const maxRows = Math.max(...sources.map((x) => x.total_rows_synced), 1);
-                  const percent = (s.total_rows_synced / maxRows) * 100;
-                  return (
-                    <div key={s.source_type}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium capitalize">
-                          {s.source_type.replace("_", " ")}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {formatNumber(s.total_rows_synced)} rows
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <SourceVolumeChart
+                data={sources.map((s) => ({
+                  name: s.source_type.replace(/_/g, " "),
+                  rows: s.total_rows_synced,
+                }))}
+              />
             )}
           </CardContent>
         </Card>
