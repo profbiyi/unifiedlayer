@@ -68,6 +68,20 @@ class Settings(BaseSettings):
     GCP_CREDENTIALS_PATH: Optional[str] = None
     GCS_BUCKET: Optional[str] = None
 
+    # Managed object storage — the platform-owned S3-compatible bucket used for
+    # the "managed warehouse" option (internal MinIO, Cloudflare R2, Backblaze
+    # B2, or AWS S3). One bucket, a prefix per org; DuckDB reads it back for
+    # on-platform BI + AI. Feature is enabled only when a bucket + creds are set.
+    # See docs/architecture/managed-analytics-duckdb.md.
+    MANAGED_STORAGE_BUCKET: Optional[str] = None
+    MANAGED_STORAGE_ENDPOINT: Optional[str] = None   # e.g. minio:9000 or R2/B2 endpoint; unset ⇒ AWS S3
+    MANAGED_STORAGE_ACCESS_KEY: Optional[str] = None
+    MANAGED_STORAGE_SECRET_KEY: Optional[str] = None
+    MANAGED_STORAGE_REGION: str = "us-east-1"
+    MANAGED_STORAGE_USE_SSL: bool = True
+    # MinIO/R2 need path-style addressing; native AWS S3 uses "vhost".
+    MANAGED_STORAGE_URL_STYLE: str = "path"
+
     # OpenAI — two tiers so each task uses the right-sized model:
     #   OPENAI_MODEL           fast/cheap, for NL->SQL and quick summaries
     #   OPENAI_MODEL_ADVANCED  stronger reasoning, for data modelling/analysis
