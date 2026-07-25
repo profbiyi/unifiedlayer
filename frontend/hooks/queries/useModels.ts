@@ -61,8 +61,11 @@ export const useGenerateModels = () => {
 
   return useMutation({
     mutationFn: async (pipelineId: string) => {
+      // Backend route is POST /models/generate/{pipeline_id} and requires a
+      // (possibly empty) JSON body — an absent body 422s. Generation is async.
       const { data } = await api.post<ModelGenerationResult>(
-        `/pipelines/${pipelineId}/models/generate`
+        `/models/generate/${pipelineId}`,
+        {}
       );
       return data;
     },
@@ -72,7 +75,7 @@ export const useGenerateModels = () => {
         queryKey: ["models", "pipeline", pipelineId],
       });
       toast.success(
-        `Generated ${data.fact_tables} fact tables and ${data.dimension_tables} dimension tables`
+        data?.message || "Model generation started — this runs in the background."
       );
     },
     onError: (error: any) => {
