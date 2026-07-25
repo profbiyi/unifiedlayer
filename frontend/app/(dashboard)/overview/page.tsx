@@ -121,7 +121,10 @@ export default function OverviewPage() {
   );
   const { data: destinations } = useDestinations();
   const { data: runs, isLoading: runsLoading } = usePipelineRuns();
-  const { data: metrics, isLoading: metricsLoading } = useOverviewMetrics("24h");
+  // 7-day window, not 24h: a quiet last-24h (common for SMEs on daily/weekly
+  // schedules) shouldn't zero out the landing dashboard. 7d reflects recent
+  // operational health without going stale.
+  const { data: metrics, isLoading: metricsLoading } = useOverviewMetrics("7d");
   const { data: templates } = useTemplates();
 
   const stillLoading = pipelinesLoading || sourcesLoading;
@@ -321,7 +324,7 @@ export default function OverviewPage() {
               <div className="text-2xl font-bold">
                 {(metrics?.total_rows_processed || 0).toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">Last 24 hours</p>
+              <p className="text-xs text-muted-foreground">Last 7 days</p>
             </CardContent>
           </Card>
 
@@ -331,11 +334,15 @@ export default function OverviewPage() {
               <CheckCircle2 className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{`${metrics?.success_rate ?? 100}%`}</div>
+              <div className="text-2xl font-bold">
+                {metrics && metrics.total_runs > 0 ? `${metrics.success_rate}%` : "—"}
+              </div>
               <p className="text-xs text-muted-foreground">
-                {metrics?.failed_runs
-                  ? `${metrics.failed_runs} failed in 24h`
-                  : "No failures in 24h"}
+                {!metrics || metrics.total_runs === 0
+                  ? "No syncs in the last 7 days"
+                  : metrics.failed_runs
+                  ? `${metrics.failed_runs} failed this week`
+                  : "No failures this week"}
               </p>
             </CardContent>
           </Card>
