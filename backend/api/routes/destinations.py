@@ -10,6 +10,7 @@ from backend.schemas import DestinationCreate, DestinationUpdate, DestinationRes
 from backend.models.pipeline import Destination, User, Pipeline
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
+from backend.services import managed_storage
 import logging
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,51 @@ async def create_destination(
     db.refresh(destination)
 
     logger.info(f"Destination created: {destination.id} - {destination.name}")
+    return destination
+
+
+@router.get("/managed/status")
+async def managed_storage_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Whether the platform-managed warehouse is available, and whether this org
+    has one provisioned yet. Lets the connect flow offer "Managed warehouse".
+    """
+    existing = managed_storage.get_managed_destination(db, current_user.organization_id)
+    return {
+        "available": managed_storage.is_configured(),
+        "provisioned": existing is not None,
+        "destination_id": str(existing.public_id) if existing else None,
+    }
+
+
+@router.post("/managed/provision", response_model=DestinationResponse, status_code=status.HTTP_201_CREATED)
+@require_permission("destination", "create")
+async def provision_managed_destination(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Provision (idempotently) this org's platform-managed warehouse — a per-org
+    prefix in the managed bucket that on-platform BI + AI read back via DuckDB.
+
+    **Requires:** destination.create permission
+    """
+    if not managed_storage.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Managed warehouse is not available on this deployment.",
+        )
+    destination = managed_storage.provision_managed_destination(
+        db, current_user.organization_id
+    )
+    logger.info(
+        "Managed destination provisioned: org=%s dest=%s",
+        current_user.organization_id,
+        destination.id,
+    )
     return destination
 
 

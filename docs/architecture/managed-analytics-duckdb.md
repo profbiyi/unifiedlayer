@@ -144,6 +144,14 @@ for the thesis risk-management chapter.
 - **No secrets in prompts or logs:** bucket creds live in `EncryptedJSON`; the LLM sees
   schema only (table/column names + types), never credentials or rows beyond the result cap.
 
+**Credential handling**
+- The platform's shared managed-storage credentials are **never persisted** in a
+  `Destination.config` row (that field is surfaced by the destinations API). The managed
+  destination stores only non-secret routing info (bucket URL, prefix, region, endpoint);
+  the real keys are injected from settings at sync time (`managed_storage.write_credentials`)
+  and used server-side only by the DuckDB engine. Org-supplied external-bucket creds are
+  stored via `EncryptedJSON` and likewise never returned.
+
 **Auditability**
 - Every AI query logged with org, user, generated SQL, row count, duration (feeds the audit
   trail + the thesis governance narrative).

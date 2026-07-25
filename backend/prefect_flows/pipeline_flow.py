@@ -501,6 +501,15 @@ def load_to_destination(
             # Optional: AWS region
             if destination_config.get("region"):
                 credentials["region_name"] = destination_config["region"]
+            # Optional: custom S3 endpoint for S3-compatible stores (MinIO,
+            # Cloudflare R2, Backblaze B2). Native AWS S3 leaves this unset.
+            if destination_config.get("endpoint_url"):
+                credentials["endpoint_url"] = destination_config["endpoint_url"]
+            # Managed warehouse: the platform's shared storage credentials are
+            # never stored in the DB — inject them from settings at sync time.
+            if destination_config.get("managed"):
+                from backend.services.managed_storage import write_credentials
+                credentials.update(write_credentials())
 
         elif destination_type == "gcs":
             # GCS can use service account JSON or application default credentials
