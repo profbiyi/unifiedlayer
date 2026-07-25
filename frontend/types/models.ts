@@ -32,11 +32,15 @@ export interface GeneratedModel {
   created_at: string;
 }
 
+// Generation runs asynchronously in the background — the POST returns an
+// accepted/pending record, not the finished models. Poll the generation
+// status (GET /models/generations/{id}) for counts once it completes.
 export interface ModelGenerationResult {
-  models: GeneratedModel[];
-  fact_tables: number;
-  dimension_tables: number;
-  questions_generated: number;
+  generation_id: string;
+  status: string;
+  message: string;
+  models_count?: number | null;
+  questions_count?: number | null;
 }
 
 export interface GenerateModelsRequest {

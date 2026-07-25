@@ -191,11 +191,10 @@ export default function ModelsPage() {
             icon={<Boxes className="h-10 w-10" />}
             title="No models generated yet"
             description="Use AI to automatically generate dimensional models (star schema) from your synced data. These models help you analyze your data more effectively."
-            action={{
-              label: "Generate Models",
-              onClick: () => {},
-            }}
           />
+          <div className="flex justify-center pb-10 -mt-2">
+            <GenerateModelsButton size="lg" />
+          </div>
         </Card>
       ) : pipelineGroups.length === 0 ? (
         <Card className="p-8">
