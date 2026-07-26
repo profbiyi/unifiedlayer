@@ -216,7 +216,7 @@ async def ask_question(
     # sandboxed, tenant-isolated DuckDB engine; legacy orgs use the Postgres
     # executor. org_is_managed was resolved above when building the schema.
     if org_is_managed:
-        query_result = managed_query.execute(org_id, safe_sql, timeout_seconds=30, max_rows=1000)
+        query_result = managed_query.execute(db, org_id, safe_sql, timeout_seconds=30, max_rows=1000)
     else:
         executor = get_query_executor(db)
         query_result = await executor.execute(safe_sql, timeout_seconds=30, max_rows=1000)

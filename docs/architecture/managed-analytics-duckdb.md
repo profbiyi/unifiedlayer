@@ -174,8 +174,13 @@ for the thesis risk-management chapter.
    retire the hardcoded map.
 4. **Wire AI to the engine** — Ask AI + model generation execute via
    `DuckDBAnalyticsEngine` for managed-mode orgs (Postgres path stays for legacy/BYO).
-5. **External bucket option** — user-provided S3/GCS creds; same engine; sovereignty toggle
-   in the connect flow.
+5. **External bucket option** ✅ — a customer designates their own S3 bucket as a managed
+   warehouse ("Use as a managed warehouse" toggle on the S3 destination form). The engine
+   reads from the destination's own config (bucket + creds) via
+   `managed_storage.engine_s3_config_for` / `resolve_engine_config`; internal falls back to
+   platform settings. Single managed location per org (internal OR external) — not a
+   multi-location union (that stays a future enterprise option). Isolation for external =
+   the customer's own bucket; write-side uses the destination's own creds (not the platform's).
 6. **Hardening** — load/perf, retention tiers, full audit surfacing.
 
 ## 8. Open decisions

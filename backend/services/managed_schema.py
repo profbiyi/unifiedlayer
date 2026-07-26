@@ -94,11 +94,17 @@ def schema_from_engine(engine: DuckDBAnalyticsEngine) -> Dict[str, Any]:
 
 
 def is_managed(db: Session, organization_id: int) -> bool:
-    """True when this org has a provisioned managed warehouse and storage is on."""
-    return (
-        managed_storage.is_configured()
-        and managed_storage.get_managed_destination(db, organization_id) is not None
-    )
+    """
+    True when this org has a usable managed warehouse — internal (needs the
+    platform storage configured) or external (self-contained: the destination
+    carries its own bucket credentials).
+    """
+    dest = managed_storage.get_managed_destination(db, organization_id)
+    if not dest:
+        return False
+    if (dest.config or {}).get("aws_access_key_id"):
+        return True  # external bucket, self-contained
+    return managed_storage.is_configured()  # internal needs platform creds
 
 
 def get_org_schema(db: Session, organization_id: int) -> Dict[str, Any]:
@@ -115,7 +121,7 @@ def get_org_schema(db: Session, organization_id: int) -> Dict[str, Any]:
         return cached[1]
 
     try:
-        s3 = managed_storage.engine_s3_config(organization_id)
+        s3 = managed_storage.resolve_engine_config(db, organization_id)
         with DuckDBAnalyticsEngine(s3=s3) as engine:
             engine.register_all()
             schema = schema_from_engine(engine)

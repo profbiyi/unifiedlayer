@@ -4,6 +4,8 @@ Tests for managed storage provisioning (phase 2).
 Covers the enable flag, per-org isolation prefix, the dlt-facing write config,
 the DuckDB read config bridge, and idempotent provisioning.
 """
+from types import SimpleNamespace
+
 import pytest
 
 from backend.config import settings
@@ -103,6 +105,39 @@ def test_engine_s3_config_raises_when_unconfigured(monkeypatch):
     _unconfigure(monkeypatch)
     with pytest.raises(managed_storage.ManagedStorageNotConfigured):
         managed_storage.engine_s3_config(12)
+
+
+def test_engine_s3_config_for_external_bucket():
+    # A customer's own bucket + creds -> read straight from the destination config.
+    dest = SimpleNamespace(
+        organization_id=12,
+        config={
+            "managed": True,
+            "bucket_url": "s3://dataguy_test/warehouse",
+            "aws_access_key_id": "AKIA_X",
+            "aws_secret_access_key": "sekret",
+            "region": "eu-west-3",
+        },
+    )
+    s3 = managed_storage.engine_s3_config_for(dest)
+    assert s3["bucket"] == "dataguy_test"
+    assert s3["prefix"] == "warehouse"
+    assert s3["access_key"] == "AKIA_X"
+    assert s3["region"] == "eu-west-3"
+    assert s3["endpoint"] is None       # native AWS S3
+    assert s3["url_style"] == "vhost"
+
+
+def test_engine_s3_config_for_internal_uses_settings(monkeypatch):
+    _configure(monkeypatch)
+    dest = SimpleNamespace(
+        organization_id=12,
+        config={"managed": True, "bucket_url": "s3://ul-managed/org-12"},  # no creds ⇒ internal
+    )
+    s3 = managed_storage.engine_s3_config_for(dest)
+    assert s3["bucket"] == "ul-managed"   # from platform settings
+    assert s3["prefix"] == "org-12"
+    assert s3["access_key"] == "AKIA_TEST"
 
 
 def test_provision_is_idempotent(monkeypatch, db, test_org):

@@ -505,9 +505,11 @@ def load_to_destination(
             # Cloudflare R2, Backblaze B2). Native AWS S3 leaves this unset.
             if destination_config.get("endpoint_url"):
                 credentials["endpoint_url"] = destination_config["endpoint_url"]
-            # Managed warehouse: the platform's shared storage credentials are
-            # never stored in the DB — inject them from settings at sync time.
-            if destination_config.get("managed"):
+            # Managed INTERNAL warehouse: the platform's shared storage
+            # credentials are never stored in the DB — inject them from settings
+            # at sync time. Managed EXTERNAL (customer bucket) already carries its
+            # own creds in the config, so leave those as-is.
+            if destination_config.get("managed") and not destination_config.get("aws_access_key_id"):
                 from backend.services.managed_storage import write_credentials
                 credentials.update(write_credentials())
 
