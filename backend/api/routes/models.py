@@ -241,14 +241,21 @@ def run_model_generation(
         # Run AI modeling
         ai_modeler = get_ai_modeler()
 
-        # Analyze schema
+        # Analyze schema. Managed (bucket) destinations aren't SQL warehouses —
+        # introspect the org's real Parquet tables via the DuckDB engine instead
+        # of connecting a SQL analyzer. Legacy/warehouse destinations unchanged.
         destination = pipeline.destination
-        schema_context = ai_modeler.analyze_schema(
-            destination_config=destination.config,
-            destination_type=destination.destination_type.value,
-            tables=tables,
-            schema_name=schema_name or destination.config.get("dataset_name"),
-        )
+        from backend.services import managed_storage
+        if destination.config.get("managed") and managed_storage.is_configured():
+            from backend.services.managed_modeling import build_schema_context
+            schema_context = build_schema_context(organization_id, tables)
+        else:
+            schema_context = ai_modeler.analyze_schema(
+                destination_config=destination.config,
+                destination_type=destination.destination_type.value,
+                tables=tables,
+                schema_name=schema_name or destination.config.get("dataset_name"),
+            )
 
         generation.schema_tables_analyzed = schema_context.total_tables
         generation.schema_columns_analyzed = schema_context.total_columns
