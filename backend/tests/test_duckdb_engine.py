@@ -169,6 +169,25 @@ def test_row_cap_truncates(tmp_path):
         assert result.truncated is True
 
 
+def test_results_are_json_safe(org_data):
+    """Decimal / date / timestamp cells must be coerced (stored in a JSON column)."""
+    import json
+
+    with DuckDBAnalyticsEngine(base_path=str(org_data)) as engine:
+        engine.register_all()
+        result = engine.execute(
+            "SELECT CAST(1234.56 AS DECIMAL(18,2)) AS amt, "
+            "DATE '2026-07-25' AS d, TIMESTAMP '2026-07-25 10:00:00' AS ts"
+        )
+        assert result.success, result.error
+        row = result.rows[0]
+        assert row["amt"] == 1234.56 and isinstance(row["amt"], float)
+        assert row["d"] == "2026-07-25"
+        assert row["ts"].startswith("2026-07-25T")
+        # the whole row must be json.dumps-able
+        json.dumps(result.rows)
+
+
 def test_execute_before_lock_raises(org_data):
     engine = DuckDBAnalyticsEngine(base_path=str(org_data))
     with pytest.raises(SandboxError):
