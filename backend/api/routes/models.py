@@ -354,6 +354,24 @@ async def generate_models(
             detail="Pipeline has no destination configured",
         )
 
+    # AI model generation (and its materialization) requires a warehouse we can
+    # read AND write on the customer's behalf — i.e. a MANAGED warehouse
+    # (internal, or their own bucket managed by us). Conventional BYO warehouses
+    # (Snowflake/BigQuery the customer runs) are out of scope; tell them clearly.
+    if not pipeline.destination.config.get("managed"):
+        dest_type = getattr(
+            pipeline.destination.destination_type, "value", pipeline.destination.destination_type
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "AI model generation is available only for managed warehouses "
+                "(our internal storage or your own bucket managed by us). This "
+                f"pipeline writes to a {dest_type} destination. Switch it to a "
+                "managed warehouse to use AI modeling."
+            ),
+        )
+
     # Check if there's already a running generation
     running = db.query(ModelGeneration).filter(
         ModelGeneration.pipeline_id == pipeline.id,
