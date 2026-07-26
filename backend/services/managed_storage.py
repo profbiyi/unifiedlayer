@@ -48,13 +48,27 @@ def org_prefix(organization_id: int) -> str:
     return f"org-{organization_id}"
 
 
-def _endpoint_url() -> Optional[str]:
-    """Full scheme://host[:port] endpoint for dlt/s3fs (None ⇒ native AWS S3)."""
+def _endpoint_host() -> Optional[str]:
+    """
+    Endpoint as bare host[:port] (no scheme, no trailing slash). Tolerant of an
+    endpoint that was configured WITH a scheme (a common mistake) — DuckDB's
+    s3_endpoint and dlt both want the host only and add the scheme themselves,
+    so a value like ``https://acc.r2.cloudflarestorage.com`` would otherwise
+    become ``https://https://…``.
+    """
     endpoint = settings.MANAGED_STORAGE_ENDPOINT
     if not endpoint:
         return None
+    return endpoint.replace("https://", "").replace("http://", "").strip().rstrip("/")
+
+
+def _endpoint_url() -> Optional[str]:
+    """Full scheme://host endpoint for dlt/s3fs (None ⇒ native AWS S3)."""
+    host = _endpoint_host()
+    if not host:
+        return None
     scheme = "https" if settings.MANAGED_STORAGE_USE_SSL else "http"
-    return f"{scheme}://{endpoint}"
+    return f"{scheme}://{host}"
 
 
 def destination_config(organization_id: int) -> Dict[str, Any]:
@@ -110,7 +124,7 @@ def engine_s3_config(organization_id: int) -> Dict[str, Any]:
     if not is_configured():
         raise ManagedStorageNotConfigured("Managed storage is not configured")
     return {
-        "endpoint": settings.MANAGED_STORAGE_ENDPOINT,  # host:port, or None ⇒ AWS
+        "endpoint": _endpoint_host(),  # bare host, or None ⇒ native AWS S3
         "region": settings.MANAGED_STORAGE_REGION,
         "access_key": settings.MANAGED_STORAGE_ACCESS_KEY,
         "secret_key": settings.MANAGED_STORAGE_SECRET_KEY,

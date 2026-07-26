@@ -89,6 +89,16 @@ def test_engine_s3_config_maps_for_duckdb(monkeypatch):
     assert s3["use_ssl"] is False
 
 
+def test_endpoint_with_scheme_is_normalized(monkeypatch):
+    # A common misconfig: endpoint set WITH https:// (as R2 shows it). Must not
+    # produce https://https:// — DuckDB/dlt want the bare host.
+    _configure(monkeypatch, endpoint="https://acc.r2.cloudflarestorage.com", use_ssl=True)
+    s3 = managed_storage.engine_s3_config(12)
+    assert s3["endpoint"] == "acc.r2.cloudflarestorage.com"
+    cfg = managed_storage.destination_config(12)
+    assert cfg["endpoint_url"] == "https://acc.r2.cloudflarestorage.com"
+
+
 def test_engine_s3_config_raises_when_unconfigured(monkeypatch):
     _unconfigure(monkeypatch)
     with pytest.raises(managed_storage.ManagedStorageNotConfigured):
