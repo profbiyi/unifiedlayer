@@ -38,6 +38,26 @@ def test_schema_from_engine_shape(tmp_path):
         assert set(col.keys()) == {"name", "type", "description"}
 
 
+def test_schema_from_engine_enriches_columns(tmp_path):
+    base = tmp_path / "org-40"
+    base.mkdir()
+    _write_parquet(
+        str(base / "tx.parquet"),
+        "SELECT * FROM (VALUES (1, 500.0, 'success'), (2, 900.0, 'failed'), "
+        "(3, 100.0, 'success')) AS t(id, amount, status)",
+    )
+    with DuckDBAnalyticsEngine(base_path=str(base)) as engine:
+        engine.register_all()
+        schema = managed_schema.schema_from_engine(engine)
+
+    cols = {c["name"]: c["description"] for c in schema["tx"]["columns"]}
+    # low-cardinality category -> distinct values (so the LLM uses real values)
+    assert cols["status"].startswith("values:")
+    assert "success" in cols["status"] and "failed" in cols["status"]
+    # numeric -> range (so the LLM infers scale)
+    assert cols["amount"].startswith("range")
+
+
 def test_get_org_schema_empty_when_storage_unconfigured(monkeypatch, db, test_org):
     monkeypatch.setattr(settings, "MANAGED_STORAGE_BUCKET", None, raising=False)
     monkeypatch.setattr(settings, "MANAGED_STORAGE_ACCESS_KEY", None, raising=False)

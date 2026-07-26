@@ -30,14 +30,61 @@ _cache: Dict[int, tuple] = {}
 CACHE_TTL_SECONDS = 300
 
 
+# Cap profiling work on very wide tables.
+_MAX_PROFILE_COLUMNS = 40
+_LOW_CARDINALITY_MAX = 20
+_NUMERIC_TYPES = ("INT", "DECIMAL", "DOUBLE", "FLOAT", "NUMERIC", "REAL", "HUGEINT")
+_TEXT_TYPES = ("VARCHAR", "CHAR", "TEXT", "STRING", "BOOL", "ENUM")
+
+
+def _q(ident: str) -> str:
+    """Quote a DuckDB identifier."""
+    return '"' + ident.replace('"', '""') + '"'
+
+
+def _profile_column(engine: DuckDBAnalyticsEngine, table: str, name: str, col_type: str) -> str:
+    """
+    A short semantic hint for a column, so the LLM stops guessing: the distinct
+    values of a low-cardinality category (e.g. status), or the numeric range
+    (helps it infer scale/units). Empty string when nothing useful applies.
+
+    Uses read-only SELECTs on the already-materialised, sandboxed table.
+    """
+    upper = col_type.upper()
+    tq, cq = _q(table), _q(name)
+    try:
+        if any(k in upper for k in _NUMERIC_TYPES):
+            r = engine.execute(f"SELECT MIN({cq}) AS lo, MAX({cq}) AS hi FROM {tq}")
+            if r.success and r.rows and r.rows[0].get("lo") is not None:
+                return f"range {r.rows[0]['lo']}–{r.rows[0]['hi']}"
+        elif any(k in upper for k in _TEXT_TYPES):
+            r = engine.execute(
+                f"SELECT DISTINCT {cq} AS v FROM {tq} "
+                f"WHERE {cq} IS NOT NULL LIMIT {_LOW_CARDINALITY_MAX + 1}"
+            )
+            if r.success and 0 < len(r.rows) <= _LOW_CARDINALITY_MAX:
+                return "values: " + ", ".join(str(row["v"]) for row in r.rows)
+    except Exception:  # noqa: BLE001 — profiling is best-effort, never fatal
+        pass
+    return ""
+
+
 def schema_from_engine(engine: DuckDBAnalyticsEngine) -> Dict[str, Any]:
-    """Convert the engine's raw introspection into the LLM schema shape."""
+    """
+    Convert the engine's introspection into the LLM schema shape, enriched with
+    per-column hints (distinct values / numeric ranges) so generated SQL uses
+    real category values and correct scale.
+    """
     raw = engine.introspect()
     schema: Dict[str, Any] = {}
     for table, cols in raw.items():
-        columns: List[Dict[str, str]] = [
-            {"name": c["name"], "type": c["type"], "description": ""} for c in cols
-        ]
+        columns: List[Dict[str, str]] = []
+        for c in cols[:_MAX_PROFILE_COLUMNS]:
+            columns.append({
+                "name": c["name"],
+                "type": c["type"],
+                "description": _profile_column(engine, table, c["name"], c["type"]),
+            })
         schema[table] = {
             "columns": columns,
             "source": "managed",
