@@ -32,6 +32,7 @@ export default function NewDestinationPage() {
   const [selectedType, setSelectedType] = useState("");
   const [search, setSearch] = useState("");
   const [isTesting, setIsTesting] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const createDestination = useCreateDestination();
   const { data: currentUser } = useCurrentUser();
@@ -155,6 +156,24 @@ export default function NewDestinationPage() {
 
     if (!currentUser) {
       toast.error("User not authenticated");
+      return;
+    }
+
+    // Managed (internal) warehouse: no config — the platform provisions it.
+    if (selectedType === "managed") {
+      setProvisioning(true);
+      try {
+        await api.post("/destinations/managed/provision");
+        toast.success("Managed warehouse ready");
+        router.push("/destinations");
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.detail ||
+            "Managed warehouse isn't available on this deployment."
+        );
+      } finally {
+        setProvisioning(false);
+      }
       return;
     }
 
@@ -472,6 +491,21 @@ export default function NewDestinationPage() {
                     </div>
                   </div>
 
+                  {selectedType === "managed" ? (
+                    /* Managed (internal) — zero-config: the platform provisions it */
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 space-y-2 dark:border-emerald-900 dark:bg-emerald-950/10">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-emerald-600" />
+                        No setup required
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Your synced data lands in UnifiedLayer&apos;s managed storage. Dashboards,
+                        Ask AI, and lineage work out of the box — no warehouse to run, no
+                        credentials to manage.
+                      </p>
+                    </div>
+                  ) : (
+                  <>
                   {/* Basic Info */}
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -479,7 +513,7 @@ export default function NewDestinationPage() {
                       <Input
                         id="name"
                         placeholder={`My ${selectedMeta.name} Warehouse`}
-                        {...register("name", { required: true })}
+                        {...register("name", { required: selectedType !== "managed" })}
                       />
                       {errors.name && (
                         <p className="text-sm text-destructive">Name is required</p>
@@ -543,22 +577,24 @@ export default function NewDestinationPage() {
                       )}
                     </div>
                   </div>
+                  </>
+                  )}
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-2">
                     <Button
                       type="submit"
-                      disabled={createDestination.isPending}
+                      disabled={createDestination.isPending || provisioning}
                     >
-                      {createDestination.isPending ? (
+                      {createDestination.isPending || provisioning ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating...
+                          {selectedType === "managed" ? "Setting up..." : "Creating..."}
                         </>
                       ) : (
                         <>
                           <Check className="mr-2 h-4 w-4" />
-                          Create Destination
+                          {selectedType === "managed" ? "Create Managed Warehouse" : "Create Destination"}
                         </>
                       )}
                     </Button>

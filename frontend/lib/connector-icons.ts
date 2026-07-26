@@ -391,6 +391,16 @@ export interface DestinationMeta {
 
 export const DESTINATION_CONNECTORS: DestinationMeta[] = [
   {
+    id: "managed",
+    name: "Managed Warehouse",
+    description: "Zero setup — we host it. Dashboards + Ask AI included.",
+    icon: Warehouse,
+    color: "bg-emerald-600",
+    textColor: "text-white",
+    popular: true,
+    fields: [],
+  },
+  {
     id: "postgres",
     name: "PostgreSQL",
     description: "Load data into any PostgreSQL database",
