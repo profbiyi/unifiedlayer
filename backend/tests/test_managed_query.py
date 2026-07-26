@@ -4,7 +4,6 @@ Tests for managed-warehouse query execution (phase 4).
 Covers the EngineResult→QueryResult adaptation (the field mapping the AI path
 relies on) and the graceful failure when managed storage isn't configured.
 """
-from backend.config import settings
 from backend.services import managed_query
 from backend.services.duckdb_engine import EngineResult
 
@@ -34,10 +33,8 @@ def test_to_query_result_carries_error():
     assert qr.error == "boom"
 
 
-def test_execute_returns_failed_result_when_unconfigured(monkeypatch):
-    monkeypatch.setattr(settings, "MANAGED_STORAGE_BUCKET", None, raising=False)
-    monkeypatch.setattr(settings, "MANAGED_STORAGE_ACCESS_KEY", None, raising=False)
-    monkeypatch.setattr(settings, "MANAGED_STORAGE_SECRET_KEY", None, raising=False)
-    qr = managed_query.execute(12, "SELECT 1")
+def test_execute_returns_failed_result_when_no_managed_warehouse(db, test_org):
+    # No managed destination for this org -> resolve raises -> clean failed result.
+    qr = managed_query.execute(db, test_org.id, "SELECT 1")
     assert qr.success is False
     assert qr.error  # never raises; surfaces as a query error

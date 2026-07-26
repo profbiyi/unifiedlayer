@@ -48,18 +48,30 @@ def org_prefix(organization_id: int) -> str:
     return f"org-{organization_id}"
 
 
+def _strip_scheme(url: str) -> str:
+    """Bare host[:port] — no scheme, no trailing slash (DuckDB/dlt add the scheme)."""
+    return url.replace("https://", "").replace("http://", "").strip().rstrip("/")
+
+
+def _split_bucket_url(bucket_url: Optional[str]) -> tuple:
+    """``s3://bucket/prefix`` -> ('bucket', 'prefix'); prefix may be ''."""
+    if not bucket_url:
+        return "", ""
+    rest = bucket_url.replace("s3://", "").replace("gs://", "").strip("/")
+    parts = rest.split("/", 1)
+    return parts[0], (parts[1] if len(parts) > 1 else "")
+
+
 def _endpoint_host() -> Optional[str]:
     """
-    Endpoint as bare host[:port] (no scheme, no trailing slash). Tolerant of an
-    endpoint that was configured WITH a scheme (a common mistake) — DuckDB's
-    s3_endpoint and dlt both want the host only and add the scheme themselves,
-    so a value like ``https://acc.r2.cloudflarestorage.com`` would otherwise
-    become ``https://https://…``.
+    Platform endpoint as bare host[:port]. Tolerant of an endpoint configured
+    WITH a scheme (a common mistake) — DuckDB's s3_endpoint and dlt want the host
+    only, so ``https://acc.r2.cloudflarestorage.com`` would otherwise double up.
     """
     endpoint = settings.MANAGED_STORAGE_ENDPOINT
     if not endpoint:
         return None
-    return endpoint.replace("https://", "").replace("http://", "").strip().rstrip("/")
+    return _strip_scheme(endpoint)
 
 
 def _endpoint_url() -> Optional[str]:
@@ -135,17 +147,64 @@ def engine_s3_config(organization_id: int) -> Dict[str, Any]:
     }
 
 
+def engine_s3_config_for(destination: Destination) -> Dict[str, Any]:
+    """
+    Build the DuckDB READ config for a managed destination — INTERNAL (platform
+    bucket, creds from settings) or EXTERNAL (the customer's own bucket + creds
+    stored in the destination config). External = "your data, our AI".
+
+    A destination is external when it carries its own bucket credentials.
+    """
+    cfg = destination.config or {}
+    if cfg.get("aws_access_key_id"):
+        bucket, prefix = _split_bucket_url(cfg.get("bucket_url"))
+        host = _strip_scheme(cfg["endpoint_url"]) if cfg.get("endpoint_url") else None
+        return {
+            "endpoint": host,  # None ⇒ native AWS S3
+            "region": cfg.get("region") or "us-east-1",
+            "access_key": cfg.get("aws_access_key_id"),
+            "secret_key": cfg.get("aws_secret_access_key"),
+            "url_style": "path" if host else "vhost",
+            "use_ssl": True,
+            "bucket": bucket,
+            "prefix": prefix,
+        }
+    # Internal platform-managed bucket.
+    return engine_s3_config(destination.organization_id)
+
+
+def resolve_engine_config(db: Session, organization_id: int) -> Dict[str, Any]:
+    """Find the org's managed destination and build its DuckDB READ config."""
+    dest = get_managed_destination(db, organization_id)
+    if not dest:
+        raise ManagedStorageNotConfigured("No managed warehouse for this organization")
+    return engine_s3_config_for(dest)
+
+
 def get_managed_destination(db: Session, organization_id: int) -> Optional[Destination]:
-    """Return the org's managed destination if it exists, else None."""
-    return (
+    """
+    The org's managed warehouse destination, internal OR external. The
+    internal-provisioned one is matched by name; an external bucket a customer
+    designated managed is matched by ``config.managed`` on any S3 destination.
+    """
+    dests = (
         db.query(Destination)
         .filter(
             Destination.organization_id == organization_id,
             Destination.destination_type == DestinationType.S3,
-            Destination.name == MANAGED_DESTINATION_NAME,
         )
-        .first()
+        .all()
     )
+    for dest in dests:  # internal fast-path
+        if dest.name == MANAGED_DESTINATION_NAME:
+            return dest
+    for dest in dests:  # external: designated managed in its own config
+        try:
+            if (dest.config or {}).get("managed"):
+                return dest
+        except Exception:  # noqa: BLE001 — a bad config row shouldn't break lookup
+            continue
+    return None
 
 
 def provision_managed_destination(db: Session, organization_id: int) -> Destination:
@@ -161,7 +220,17 @@ def provision_managed_destination(db: Session, organization_id: int) -> Destinat
             "Managed storage is not configured (MANAGED_STORAGE_* env vars)"
         )
 
-    existing = get_managed_destination(db, organization_id)
+    # Idempotency keyed on the internal name only — never touch an external
+    # managed destination the customer set up.
+    existing = (
+        db.query(Destination)
+        .filter(
+            Destination.organization_id == organization_id,
+            Destination.destination_type == DestinationType.S3,
+            Destination.name == MANAGED_DESTINATION_NAME,
+        )
+        .first()
+    )
     if existing:
         existing.config = destination_config(organization_id)
         existing.is_active = True

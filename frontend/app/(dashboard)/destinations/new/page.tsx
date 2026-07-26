@@ -85,6 +85,12 @@ export default function NewDestinationPage() {
       config.bucket_url = `s3://${data.bucket}`;
       config.aws_access_key_id = data.access_key;
       config.aws_secret_access_key = data.secret_key;
+      if (data.managed) {
+        // Managed warehouse: the platform's DuckDB engine reads this bucket for
+        // on-platform BI + AI. Data lands under this dataset folder.
+        config.managed = true;
+        config.dataset_name = "unifiedlayer";
+      }
       if (data.region) {
         config.region = data.region;
       }
@@ -293,6 +299,18 @@ export default function NewDestinationPage() {
               <Label htmlFor="secret_key">Secret Key *</Label>
               <Input id="secret_key" type="password" placeholder="••••••••" {...register("secret_key", { required: true })} />
             </div>
+          </div>
+          <div className="rounded-lg border bg-muted/40 p-3">
+            <label htmlFor="managed" className="flex items-start gap-3 cursor-pointer">
+              <input id="managed" type="checkbox" className="mt-1 h-4 w-4 accent-primary" {...register("managed")} />
+              <div>
+                <div className="text-sm font-medium">Use as a managed warehouse</div>
+                <div className="text-xs text-muted-foreground">
+                  Run dashboards, Ask AI, and model generation directly on this bucket.
+                  Your data stays in your bucket; analytics happen on the platform.
+                </div>
+              </div>
+            </label>
           </div>
         </>
       );

@@ -248,7 +248,7 @@ def run_model_generation(
         from backend.services import managed_storage
         if destination.config.get("managed") and managed_storage.is_configured():
             from backend.services.managed_modeling import build_schema_context
-            schema_context = build_schema_context(organization_id, tables)
+            schema_context = build_schema_context(db, organization_id, tables)
         else:
             schema_context = ai_modeler.analyze_schema(
                 destination_config=destination.config,

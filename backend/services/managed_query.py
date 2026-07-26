@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy.orm import Session
+
 from backend.services import managed_storage
 from backend.services.duckdb_engine import EngineResult
 from backend.services.duckdb_engine import DuckDBAnalyticsEngine
@@ -32,6 +34,7 @@ def to_query_result(result: EngineResult) -> QueryResult:
 
 
 def execute(
+    db: Session,
     organization_id: int,
     sql: str,
     *,
@@ -39,11 +42,12 @@ def execute(
     timeout_seconds: int = 30,
 ) -> QueryResult:
     """
-    Execute read-only SQL for a managed org against its bucket. Returns a failed
+    Execute read-only SQL for a managed org against its warehouse bucket
+    (internal or the customer's own external bucket). Returns a failed
     QueryResult (never raises) so the AI path can surface a clean error.
     """
     try:
-        s3 = managed_storage.engine_s3_config(organization_id)
+        s3 = managed_storage.resolve_engine_config(db, organization_id)
         with DuckDBAnalyticsEngine(s3=s3) as engine:
             engine.register_all()
             result = engine.execute(sql, max_rows=max_rows, timeout_seconds=timeout_seconds)

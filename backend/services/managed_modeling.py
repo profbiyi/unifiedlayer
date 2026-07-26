@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy.orm import Session
+
 from backend.services import managed_storage
 from backend.services.duckdb_engine import DuckDBAnalyticsEngine
 from backend.services.schema_analyzer import ColumnInfo, SchemaContext, TableSchema
@@ -46,11 +48,12 @@ def schema_context_from_introspection(
 
 
 def build_schema_context(
+    db: Session,
     organization_id: int,
     tables: Optional[List[str]] = None,
 ) -> SchemaContext:
     """Read the org's managed bucket via DuckDB and build a modeling SchemaContext."""
-    s3 = managed_storage.engine_s3_config(organization_id)
+    s3 = managed_storage.resolve_engine_config(db, organization_id)
     with DuckDBAnalyticsEngine(s3=s3) as engine:
         engine.register_all()
         raw: Dict[str, Any] = engine.introspect()
