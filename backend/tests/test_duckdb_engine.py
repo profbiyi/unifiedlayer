@@ -48,10 +48,44 @@ def other_org_file(tmp_path):
     return secret
 
 
+@pytest.fixture()
+def org_data_dlt(tmp_path):
+    """dlt-style layout: <dataset>/<table>/<parts>.parquet, with a multi-part table."""
+    base = tmp_path / "org-20"
+    payments = base / "main" / "payments"
+    customers = base / "main" / "customers"
+    payments.mkdir(parents=True)
+    customers.mkdir(parents=True)
+    _write_parquet(
+        str(payments / "1234.0.parquet"),
+        "SELECT * FROM (VALUES (1, 100), (2, 200)) AS t(id, amount)",
+    )
+    _write_parquet(
+        str(payments / "1234.1.parquet"),
+        "SELECT * FROM (VALUES (3, 300)) AS t(id, amount)",
+    )
+    _write_parquet(
+        str(customers / "1234.0.parquet"),
+        "SELECT * FROM (VALUES (1, 'Ada')) AS t(id, name)",
+    )
+    return base
+
+
 def test_register_all_discovers_tables(org_data):
     with DuckDBAnalyticsEngine(base_path=str(org_data)) as engine:
         tables = set(engine.register_all())
         assert tables == {"payments", "customers"}
+
+
+def test_discovers_dlt_layout_and_unions_parts(org_data_dlt):
+    """Table name comes from the dir; multiple part files union into one table."""
+    with DuckDBAnalyticsEngine(base_path=str(org_data_dlt)) as engine:
+        tables = set(engine.register_all())
+        assert tables == {"payments", "customers"}
+        result = engine.execute("SELECT COUNT(*) AS n, SUM(amount) AS s FROM payments")
+        assert result.success, result.error
+        assert result.rows[0]["n"] == 3   # both parts
+        assert result.rows[0]["s"] == 600
 
 
 def test_introspect_returns_columns(org_data):

@@ -43,9 +43,6 @@ _READONLY_RE = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 _LINE_COMMENT_RE = re.compile(r"--[^\n]*")
 
-# Parquet is the canonical synced format; allow the common alternatives too.
-_TABLE_FILE_GLOBS = ("*.parquet", "*.parq")
-
 
 @dataclass
 class EngineResult:
@@ -156,59 +153,79 @@ class DuckDBAnalyticsEngine:
             ident = f"t_{ident}"
         return ident
 
-    def register_table(self, table_name: str, relative_path: str) -> None:
-        """
-        Materialise one Parquet source (file, dir, or glob) as an in-memory table.
-
-        Must be called before the sandbox is locked (register_all locks after).
-        """
+    def _materialize(self, table_name: str, source: str) -> str:
+        """Create an in-memory table from a Parquet file/dir-glob (pre-lock only)."""
         if self._locked:
             raise SandboxError("Engine is locked; register tables before locking")
         ident = self._safe_identifier(table_name)
-        uri = self._source_uri(relative_path)
-        # If a directory was given, read all parquet parts under it.
-        if not self.s3 and os.path.isdir(uri):
-            uri = os.path.join(uri, "**", "*.parquet")
         # Materialise now (external access still enabled) so that after lock-down
         # the data is resident and no file/network access is needed to query it.
         self._conn.execute(
             f'CREATE TABLE "{ident}" AS SELECT * FROM read_parquet(?, union_by_name=true)',
-            [uri],
+            [source],
         )
-        self._registered[ident] = uri
-        logger.info("Registered table '%s' from %s", ident, uri)
+        self._registered[ident] = source
+        logger.info("Registered table '%s' from %s", ident, source)
+        return ident
+
+    def register_table(self, table_name: str, relative_path: str) -> None:
+        """Materialise one Parquet source (file, dir, or glob) as an in-memory table."""
+        uri = self._source_uri(relative_path)
+        if not self.s3 and os.path.isdir(uri):
+            uri = os.path.join(uri, "**", "*.parquet")
+        self._materialize(table_name, uri)
+
+    def _location_root(self) -> str:
+        if self.s3:
+            return f"s3://{self.s3['bucket']}/{self.s3['prefix'].rstrip('/')}"
+        return os.path.abspath(self.base_path).rstrip("/")
+
+    def _discover_files(self) -> List[str]:
+        """List every Parquet file under the org's location (local FS or S3)."""
+        if self.s3:
+            root = self._location_root()
+            rows = self._conn.execute(
+                "SELECT file FROM glob(?)", [f"{root}/**/*.parquet"]
+            ).fetchall()
+            return [r[0] for r in rows]
+        files: List[str] = []
+        for ext in ("parquet", "parq"):
+            files.extend(
+                glob.glob(os.path.join(self.base_path, "**", f"*.{ext}"), recursive=True)
+            )
+        return files
+
+    def _derive_tables(self, files: List[str]) -> Dict[str, str]:
+        """
+        Map discovered Parquet files to {table_name: source}. dlt writes one
+        directory per table (``<dataset>/<table>/<parts>.parquet``), so the table
+        name is the file's parent directory; a file sitting directly in the
+        location root uses its stem. All parts of a table share one dir-glob.
+        """
+        root = self._location_root()
+        tables: Dict[str, str] = {}
+        for f in files:
+            norm = f if self.s3 else os.path.abspath(f)
+            parent = norm.rsplit("/", 1)[0] if "/" in norm else root
+            if parent.rstrip("/") == root:
+                name = re.sub(r"\.(parquet|parq)$", "", os.path.basename(norm))
+                source = norm
+            else:
+                name = os.path.basename(parent.rstrip("/"))
+                source = f"{parent.rstrip('/')}/**/*.parquet"
+            tables.setdefault(self._safe_identifier(name), source)
+        return tables
 
     def register_all(self) -> List[str]:
         """
-        Discover every Parquet table under the org's location, materialise each,
-        then lock the sandbox. Returns the registered table names.
-
-        For local base_path: each top-level ``*.parquet`` file or subdirectory
-        (dlt writes one dir per table) becomes a table.
+        Discover every Parquet table under the org's location (local or S3),
+        materialise each, then lock the sandbox. Returns the table names.
         """
-        if self.s3:
-            # S3 discovery is handled by the catalog in a later phase; callers
-            # register known tables explicitly for now.
-            raise NotImplementedError(
-                "register_all() for S3 requires the catalog (phase 3); "
-                "use register_table() with known names for now"
-            )
-
-        entries: List[str] = []
-        for pattern in _TABLE_FILE_GLOBS:
-            entries.extend(glob.glob(os.path.join(self.base_path, pattern)))
-        # dlt-style: one subdirectory per table
-        for child in sorted(os.listdir(self.base_path)) if os.path.isdir(self.base_path) else []:
-            child_path = os.path.join(self.base_path, child)
-            if os.path.isdir(child_path) and glob.glob(os.path.join(child_path, "**", "*.parquet"), recursive=True):
-                entries.append(child_path)
-
-        for entry in sorted(set(entries)):
+        for ident, source in sorted(self._derive_tables(self._discover_files()).items()):
             try:
-                self.register_table(os.path.basename(entry), os.path.basename(entry))
+                self._materialize(ident, source)
             except Exception as exc:  # noqa: BLE001 — one bad table shouldn't sink the rest
-                logger.warning("Skipping unreadable source %s: %s", entry, exc)
-
+                logger.warning("Skipping unreadable table %s (%s): %s", ident, source, exc)
         self._lock_down()
         return list(self._registered.keys())
 
