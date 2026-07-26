@@ -44,6 +44,25 @@ export const useCreateDestination = () => {
   });
 };
 
+export const useUpdateDestination = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Destination> }) => {
+      const { data } = await api.put<Destination>(`/destinations/${id}`, updates);
+      return data;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["destinations", id] });
+      toast.success("Destination updated");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Failed to update destination");
+    },
+  });
+};
+
 export const useDeleteDestination = () => {
   const queryClient = useQueryClient();
 
