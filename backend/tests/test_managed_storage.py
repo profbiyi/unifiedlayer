@@ -108,7 +108,8 @@ def test_engine_s3_config_raises_when_unconfigured(monkeypatch):
 
 
 def test_engine_s3_config_for_external_bucket():
-    # A customer's own bucket + creds -> read straight from the destination config.
+    # A customer's own bucket + creds -> read straight from the destination config,
+    # scoped to the org's dataset folder.
     dest = SimpleNamespace(
         organization_id=12,
         config={
@@ -117,15 +118,36 @@ def test_engine_s3_config_for_external_bucket():
             "aws_access_key_id": "AKIA_X",
             "aws_secret_access_key": "sekret",
             "region": "eu-west-3",
+            "dataset_name": "org_12",
         },
     )
     s3 = managed_storage.engine_s3_config_for(dest)
     assert s3["bucket"] == "dataguy_test"
-    assert s3["prefix"] == "warehouse"
+    assert s3["prefix"] == "warehouse/org_12"   # per-org isolation within the bucket
     assert s3["access_key"] == "AKIA_X"
     assert s3["region"] == "eu-west-3"
     assert s3["endpoint"] is None       # native AWS S3
     assert s3["url_style"] == "vhost"
+
+
+def test_external_bucket_isolates_orgs():
+    """Two orgs sharing one bucket must resolve to different prefixes."""
+    def dest(org):
+        return SimpleNamespace(
+            organization_id=org,
+            config={
+                "managed": True,
+                "bucket_url": "s3://shared-bucket",
+                "aws_access_key_id": "AKIA",
+                "aws_secret_access_key": "s",
+                "dataset_name": f"org_{org}",
+            },
+        )
+    a = managed_storage.engine_s3_config_for(dest(12))
+    b = managed_storage.engine_s3_config_for(dest(13))
+    assert a["bucket"] == b["bucket"] == "shared-bucket"
+    assert a["prefix"] != b["prefix"]
+    assert a["prefix"] == "org_12" and b["prefix"] == "org_13"
 
 
 def test_engine_s3_config_for_internal_uses_settings(monkeypatch):
