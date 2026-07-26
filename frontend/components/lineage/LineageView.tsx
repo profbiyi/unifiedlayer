@@ -87,6 +87,23 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = "LR") => 
   return { nodes: layoutedNodes, edges };
 };
 
+function fmtNum(n?: number): string {
+  if (!n) return "0";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+function relTime(iso?: string | null): string {
+  if (!iso) return "never";
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 // Custom node components
 function SourceNode({ data, selected }: { data: any; selected?: boolean }) {
   return (
@@ -141,10 +158,19 @@ function PipelineNode({ data, selected }: { data: any; selected?: boolean }) {
         ) : (
           <Badge variant="secondary" className="text-xs">Inactive</Badge>
         )}
-        {data.schedule && (
-          <span className="text-xs text-purple-600 truncate">{data.schedule}</span>
+        {typeof data.successRate === "number" && (
+          <span className="text-xs text-purple-700">{data.successRate}% ok</span>
         )}
       </div>
+      {(data.rowsSynced > 0 || data.lastRunAt) && (
+        <div className="mt-1.5 flex items-center gap-3 text-[11px] text-purple-600">
+          <span>{fmtNum(data.rowsSynced)} rows</span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {relTime(data.lastRunAt)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -162,10 +188,13 @@ function DestinationNode({ data, selected }: { data: any; selected?: boolean }) 
         </div>
         <div className="font-bold text-emerald-900 truncate">{data.name}</div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Badge variant="outline" className="text-xs border-emerald-300 text-emerald-700">
           {data.destinationType}
         </Badge>
+        {data.isManaged && (
+          <Badge className="text-xs bg-emerald-600 hover:bg-emerald-600">Managed</Badge>
+        )}
         <span className="text-xs text-emerald-600">{data.pipelineCount} pipelines</span>
       </div>
     </div>
@@ -220,6 +249,7 @@ export default function LineageView() {
     pipelines: 0,
     destinations: 0,
     activePipelines: 0,
+    tables: 0,
   });
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -361,7 +391,7 @@ export default function LineageView() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${stats.tables > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -406,6 +436,19 @@ export default function LineageView() {
             <div className="text-2xl font-bold text-green-600">{stats.activePipelines}</div>
           </CardContent>
         </Card>
+        {stats.tables > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Table className="h-4 w-4" />
+                Tables
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.tables}</div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Lineage Graph */}
@@ -465,12 +508,14 @@ export default function LineageView() {
                   {selectedNode.type === "source" && <Database className="h-5 w-5 text-blue-600" />}
                   {selectedNode.type === "pipeline" && <Workflow className="h-5 w-5 text-purple-600" />}
                   {selectedNode.type === "destination" && <HardDrive className="h-5 w-5 text-emerald-600" />}
+                  {selectedNode.type === "table" && <Table className="h-5 w-5 text-gray-600" />}
                   {selectedNode.data.name}
                 </SheetTitle>
                 <SheetDescription>
                   {selectedNode.type === "source" && "Data Source"}
                   {selectedNode.type === "pipeline" && "Data Pipeline"}
                   {selectedNode.type === "destination" && "Data Destination"}
+                  {selectedNode.type === "table" && "Table in the managed warehouse"}
                 </SheetDescription>
               </SheetHeader>
 
@@ -521,6 +566,20 @@ export default function LineageView() {
                             <span className="font-mono text-xs">{selectedNode.data.schedule}</span>
                           </div>
                         )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Rows synced (30d)</span>
+                          <span>{fmtNum(selectedNode.data.rowsSynced)}</span>
+                        </div>
+                        {typeof selectedNode.data.successRate === "number" && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Success rate</span>
+                            <span>{selectedNode.data.successRate}% ({selectedNode.data.runs30d} runs)</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Last run</span>
+                          <span>{relTime(selectedNode.data.lastRunAt)}</span>
+                        </div>
                       </>
                     )}
                     {selectedNode.type === "destination" && (
@@ -529,11 +588,23 @@ export default function LineageView() {
                           <span className="text-muted-foreground">Type</span>
                           <Badge variant="outline">{selectedNode.data.destinationType}</Badge>
                         </div>
+                        {selectedNode.data.isManaged && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Warehouse</span>
+                            <Badge className="bg-emerald-600 hover:bg-emerald-600">Managed</Badge>
+                          </div>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Pipelines</span>
                           <span>{selectedNode.data.pipelineCount}</span>
                         </div>
                       </>
+                    )}
+                    {selectedNode.type === "table" && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Schema</span>
+                        <span>{selectedNode.data.schema}</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -573,16 +644,18 @@ export default function LineageView() {
                   </div>
                 )}
 
-                {/* Navigation Button */}
-                <Button
-                  className="w-full"
-                  onClick={() =>
-                    handleNavigate(selectedNode.type, selectedNode.data.public_id)
-                  }
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View {selectedNode.type === "source" ? "Source" : selectedNode.type === "pipeline" ? "Pipeline" : "Destination"}
-                </Button>
+                {/* Navigation Button (not for warehouse tables — no detail page) */}
+                {selectedNode.type !== "table" && (
+                  <Button
+                    className="w-full"
+                    onClick={() =>
+                      handleNavigate(selectedNode.type, selectedNode.data.public_id)
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    View {selectedNode.type === "source" ? "Source" : selectedNode.type === "pipeline" ? "Pipeline" : "Destination"}
+                  </Button>
+                )}
               </div>
             </>
           )}

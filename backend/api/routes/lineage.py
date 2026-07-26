@@ -3,6 +3,7 @@ Data Lineage API routes.
 
 Provides endpoints for table-level and column-level lineage tracking.
 """
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
@@ -325,20 +326,37 @@ async def get_pipeline_lineage_graph(
             }
         })
 
-    # Add pipeline nodes
+    # Aggregate recent run stats per pipeline in one query (rows synced,
+    # freshness, health) so the graph tells an operational story, not just topology.
+    run_stats: Dict[int, Dict[str, Any]] = {}
+    pipeline_ids = [p.id for p in pipelines]
+    if pipeline_ids:
+        since = datetime.now(timezone.utc) - timedelta(days=30)
+        recent_runs = db.execute(
+            select(PipelineRun).where(
+                PipelineRun.pipeline_id.in_(pipeline_ids),
+                PipelineRun.created_at >= since,
+            )
+        ).scalars().all()
+        for run in recent_runs:
+            st = run_stats.setdefault(
+                run.pipeline_id,
+                {"rows": 0, "runs": 0, "ok": 0, "last_at": None, "last_status": None},
+            )
+            st["runs"] += 1
+            st["rows"] += run.rows_written or 0
+            status_val = getattr(run.status, "value", run.status)
+            if status_val == "completed":
+                st["ok"] += 1
+            if st["last_at"] is None or (run.created_at and run.created_at > st["last_at"]):
+                st["last_at"] = run.created_at
+                st["last_status"] = status_val
+
+    # Add pipeline nodes (enriched with recent-run stats)
     for pipeline in pipelines:
-        # Get latest run status
-        latest_run = db.execute(
-            select(PipelineRun)
-            .where(PipelineRun.pipeline_id == pipeline.id)
-            .order_by(PipelineRun.created_at.desc())
-            .limit(1)
-        ).scalar_one_or_none()
-
-        latest_status = (
-            getattr(latest_run.status, "value", latest_run.status) if latest_run else None
-        )
-
+        st = run_stats.get(pipeline.id, {})
+        runs = st.get("runs", 0)
+        last_at = st.get("last_at")
         nodes.append({
             "id": f"pipeline-{pipeline.id}",
             "type": "pipeline",
@@ -349,7 +367,11 @@ async def get_pipeline_lineage_graph(
                 "description": pipeline.description,
                 "isActive": pipeline.is_active,
                 "schedule": pipeline.schedule,
-                "latestStatus": latest_status,
+                "latestStatus": st.get("last_status"),
+                "rowsSynced": st.get("rows", 0),
+                "runs30d": runs,
+                "successRate": round(100 * st.get("ok", 0) / runs) if runs else None,
+                "lastRunAt": last_at.isoformat() if last_at else None,
                 "sourceId": pipeline.source_id,
                 "destinationId": pipeline.destination_id,
             }
@@ -360,6 +382,7 @@ async def get_pipeline_lineage_graph(
         # Count pipelines using this destination
         pipeline_count = sum(1 for p in pipelines if p.destination_id == destination.id)
 
+        is_managed = bool((destination.config or {}).get("managed"))
         nodes.append({
             "id": f"destination-{destination.id}",
             "type": "destination",
@@ -369,6 +392,7 @@ async def get_pipeline_lineage_graph(
                 "name": destination.name,
                 "destinationType": getattr(destination.destination_type, "value", destination.destination_type),
                 "pipelineCount": pipeline_count,
+                "isManaged": is_managed,
             }
         })
 
@@ -394,6 +418,40 @@ async def get_pipeline_lineage_graph(
             "animated": pipeline.is_active,
         })
 
+    # For MANAGED orgs, extend the graph end-to-end: show the real tables
+    # produced in the managed warehouse (read live from the bucket), as
+    # downstream nodes off the managed destination. Non-managed orgs stop at the
+    # destination — we can't see inside a warehouse we don't manage. Best-effort:
+    # never let a bucket read break the graph.
+    table_count = 0
+    try:
+        from backend.services import managed_schema
+        if managed_schema.is_managed(db, org_id):
+            managed_dest = managed_schema.managed_storage.get_managed_destination(db, org_id)
+            schema = managed_schema.get_org_schema(db, org_id)
+            if managed_dest and schema:
+                dest_node_id = f"destination-{managed_dest.id}"
+                for table_name, table_info in schema.items():
+                    node_id = f"table-{table_name}"
+                    nodes.append({
+                        "id": node_id,
+                        "type": "table",
+                        "data": {
+                            "name": table_name,
+                            "schema": f"{len(table_info.get('columns', []))} columns",
+                        },
+                    })
+                    edges.append({
+                        "id": f"{dest_node_id}-to-{node_id}",
+                        "source": dest_node_id,
+                        "target": node_id,
+                        "type": "default",
+                        "animated": False,
+                    })
+                table_count = len(schema)
+    except Exception as exc:  # noqa: BLE001 — lineage must render even if the bucket is unreadable
+        logger.warning("Managed lineage tables unavailable for org %s: %s", org_id, exc)
+
     return {
         "nodes": nodes,
         "edges": edges,
@@ -402,6 +460,7 @@ async def get_pipeline_lineage_graph(
             "pipelines": len(pipelines),
             "destinations": len(destinations),
             "activePipelines": sum(1 for p in pipelines if p.is_active),
+            "tables": table_count,
         }
     }
 
