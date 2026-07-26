@@ -29,7 +29,9 @@ import logging
 import os
 import re
 import time
+import uuid
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 import duckdb
@@ -42,6 +44,25 @@ logger = logging.getLogger(__name__)
 _READONLY_RE = re.compile(r"^\s*(select|with)\b", re.IGNORECASE)
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 _LINE_COMMENT_RE = re.compile(r"--[^\n]*")
+
+
+def _json_safe(value: Any) -> Any:
+    """
+    Convert a DuckDB cell to a JSON-serialisable value. Results are stored in a
+    JSON column and returned in the API response, so Decimal / datetime / date /
+    UUID / bytes (all common in real data) must be coerced or serialization fails.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if hasattr(value, "isoformat"):  # datetime / date / time
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("utf-8", errors="replace")
+    return str(value)
 
 
 @dataclass
@@ -289,7 +310,9 @@ class DuckDBAnalyticsEngine:
             fetched = rel.fetchmany(max_rows + 1)
             truncated = len(fetched) > max_rows
             fetched = fetched[:max_rows]
-            rows = [dict(zip(columns, r)) for r in fetched]
+            rows = [
+                {col: _json_safe(val) for col, val in zip(columns, r)} for r in fetched
+            ]
             return EngineResult(
                 success=True,
                 columns=columns,
