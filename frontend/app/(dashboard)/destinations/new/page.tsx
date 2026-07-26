@@ -88,9 +88,10 @@ export default function NewDestinationPage() {
       config.aws_secret_access_key = data.secret_key;
       if (data.managed) {
         // Managed warehouse: the platform's DuckDB engine reads this bucket for
-        // on-platform BI + AI. Data lands under this dataset folder.
+        // on-platform BI + AI. Scope to a per-org folder so multiple orgs can
+        // safely share one bucket without seeing each other's data.
         config.managed = true;
-        config.dataset_name = "unifiedlayer";
+        config.dataset_name = `org_${currentUser?.organization_id ?? "default"}`;
       }
       if (data.region) {
         config.region = data.region;

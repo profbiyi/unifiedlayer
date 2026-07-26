@@ -157,8 +157,12 @@ def engine_s3_config_for(destination: Destination) -> Dict[str, Any]:
     """
     cfg = destination.config or {}
     if cfg.get("aws_access_key_id"):
-        bucket, prefix = _split_bucket_url(cfg.get("bucket_url"))
+        bucket, base = _split_bucket_url(cfg.get("bucket_url"))
         host = _strip_scheme(cfg["endpoint_url"]) if cfg.get("endpoint_url") else None
+        # Scope reads to the org's own folder so multiple orgs can share a bucket
+        # without seeing each other's data (dlt writes under this same dataset).
+        dataset = cfg.get("dataset_name") or org_prefix(destination.organization_id)
+        prefix = "/".join(p for p in [base, dataset] if p)
         return {
             "endpoint": host,  # None ⇒ native AWS S3
             "region": cfg.get("region") or "us-east-1",
