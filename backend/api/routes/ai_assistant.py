@@ -21,6 +21,7 @@ from backend.services.nl_to_sql import get_nl_to_sql_service
 from backend.services.sql_validator import get_sql_validator
 from backend.services.query_executor import get_query_executor
 from backend.services.auto_visualize import get_auto_visualizer
+from backend.services import managed_schema, managed_query
 
 logger = logging.getLogger(__name__)
 
@@ -135,9 +136,14 @@ async def ask_question(
     db.add(user_message)
     db.flush()
 
-    # Get schema context
+    # Get schema context — prefer the org's REAL synced tables (managed
+    # warehouse, read live from its bucket) over the legacy hardcoded
+    # per-connector map. Falls back automatically for unmanaged orgs.
     schema_service = get_schema_context_service(db)
-    schema = schema_service.get_org_schema(org_id)
+    org_is_managed = managed_schema.is_managed(db, org_id)
+    schema = managed_schema.get_org_schema(db, org_id) if org_is_managed else {}
+    if not schema:
+        schema = schema_service.get_org_schema(org_id)
     schema_context = schema_service.build_llm_context(schema)
 
     # Get conversation history for context
@@ -206,9 +212,14 @@ async def ask_question(
     safe_sql = validator.sanitize(sql_result.sql, max_rows=1000)
     assistant_message.sql = safe_sql
 
-    # Execute query
-    executor = get_query_executor(db)
-    query_result = await executor.execute(safe_sql, timeout_seconds=30, max_rows=1000)
+    # Execute query — managed orgs run against their own bucket via the
+    # sandboxed, tenant-isolated DuckDB engine; legacy orgs use the Postgres
+    # executor. org_is_managed was resolved above when building the schema.
+    if org_is_managed:
+        query_result = managed_query.execute(org_id, safe_sql, timeout_seconds=30, max_rows=1000)
+    else:
+        executor = get_query_executor(db)
+        query_result = await executor.execute(safe_sql, timeout_seconds=30, max_rows=1000)
 
     assistant_message.execution_time_ms = query_result.execution_time_ms
 
