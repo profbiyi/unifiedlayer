@@ -9,7 +9,8 @@ ConnectorRegistry. These tests verify that dispatch + return normalization
 from unittest.mock import MagicMock
 
 import backend.connectors.sdk.registry as reg
-from backend.utils.connection_tester import test_connection
+# Aliased so pytest doesn't collect the imported function as a test case.
+from backend.utils.connection_tester import test_connection as run_connection_test
 
 
 def _patch_registry(monkeypatch, *, found: bool, connector=None):
@@ -32,7 +33,7 @@ def test_registry_dispatch_dict_success(monkeypatch):
     fake.test_connection.return_value = {"success": True, "message": "Connected to Stripe"}
     _patch_registry(monkeypatch, found=True, connector=fake)
 
-    ok, msg = test_connection("stripe", {"api_key": "sk_test_x"})
+    ok, msg = run_connection_test("stripe", {"api_key": "sk_test_x"})
 
     assert ok is True
     assert "Connected to Stripe" in msg
@@ -44,7 +45,7 @@ def test_registry_dispatch_dict_failure(monkeypatch):
     fake.test_connection.return_value = {"success": False, "message": "Invalid API key"}
     _patch_registry(monkeypatch, found=True, connector=fake)
 
-    ok, msg = test_connection("paystack", {"secret_key": "sk_test_bad"})
+    ok, msg = run_connection_test("paystack", {"secret_key": "sk_test_bad"})
 
     assert ok is False
     assert "Invalid API key" in msg
@@ -55,7 +56,7 @@ def test_registry_dispatch_bool_true(monkeypatch):
     fake.test_connection.return_value = True
     _patch_registry(monkeypatch, found=True, connector=fake)
 
-    ok, msg = test_connection("xero", {"access_token": "tok"})
+    ok, msg = run_connection_test("xero", {"access_token": "tok"})
 
     assert ok is True
     assert msg
@@ -66,7 +67,7 @@ def test_registry_dispatch_bool_false(monkeypatch):
     fake.test_connection.return_value = False
     _patch_registry(monkeypatch, found=True, connector=fake)
 
-    ok, _ = test_connection("gocardless", {"access_token": "bad"})
+    ok, _ = run_connection_test("gocardless", {"access_token": "bad"})
 
     assert ok is False
 
@@ -76,7 +77,7 @@ def test_registry_dispatch_exception_is_failure_not_crash(monkeypatch):
     fake.test_connection.side_effect = RuntimeError("401 Unauthorized")
     _patch_registry(monkeypatch, found=True, connector=fake)
 
-    ok, msg = test_connection("flutterwave", {"secret_key": "bad"})
+    ok, msg = run_connection_test("flutterwave", {"secret_key": "bad"})
 
     assert ok is False
     assert "401 Unauthorized" in msg
@@ -86,7 +87,7 @@ def test_unregistered_type_reports_not_verified(monkeypatch):
     # Not a registered connector and not a hand-written tester → neutral, honest.
     _patch_registry(monkeypatch, found=False)
 
-    ok, msg = test_connection("salesforce", {"token": "x"})
+    ok, msg = run_connection_test("salesforce", {"token": "x"})
 
     assert ok is True
     assert "not verified" in msg.lower()
