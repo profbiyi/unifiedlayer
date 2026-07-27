@@ -3,8 +3,19 @@ Prefect flows for pipeline execution.
 
 Provides orchestration for data pipeline runs using Prefect.
 """
+import os
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
+
+# Set BEFORE importing dlt. dlt persists working state under DLT_DATA_DIR
+# (defaults to ~/.dlt, but the container home is read-only → "Operation not
+# permitted"). And boto3 >= 1.36 adds S3 data-integrity checksums by default
+# that S3-compatible stores (Cloudflare R2, MinIO, Backblaze B2) reject — force
+# them to "when_required". Pairs with the aligned boto stack in requirements.txt.
+os.environ.setdefault("DLT_DATA_DIR", "/tmp/dlt_data")
+os.environ.setdefault("AWS_REQUEST_CHECKSUM_CALCULATION", "when_required")
+os.environ.setdefault("AWS_RESPONSE_CHECKSUM_VALIDATION", "when_required")
+
 import dlt
 from prefect import flow, task
 import logging
