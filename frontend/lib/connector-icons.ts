@@ -13,15 +13,12 @@ import {
   Smartphone,
   Landmark,
   Receipt,
-  FileText,
   CloudUpload,
   MessageCircle,
   Banknote,
   Building2,
   Warehouse,
   Server,
-  FileUp,
-  Link2,
   Table2,
   type LucideIcon,
 } from "lucide-react";
@@ -284,48 +281,6 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
       { key: "credentials_json", label: "Service Account JSON", type: "textarea", required: true, helpText: "Paste the full JSON key from Google Cloud Console" },
     ],
   },
-  {
-    id: "csv",
-    name: "CSV File",
-    description: "Upload and sync CSV files",
-    icon: FileText,
-    color: "bg-gray-500",
-    textColor: "text-white",
-    category: "files",
-    fields: [
-      { key: "file_path", label: "File Path", type: "text", required: true },
-      { key: "delimiter", label: "Delimiter", type: "text", defaultValue: ",", placeholder: "," },
-    ],
-  },
-  {
-    id: "local",
-    name: "Local File",
-    description: "Import from local filesystem",
-    icon: FileUp,
-    color: "bg-gray-600",
-    textColor: "text-white",
-    category: "files",
-    fields: [
-      { key: "path", label: "Directory Path", type: "text", placeholder: "/data/exports/", required: true },
-      { key: "file_pattern", label: "File Pattern", type: "text", placeholder: "*.csv", defaultValue: "*.csv" },
-    ],
-  },
-  {
-    id: "http_file",
-    name: "HTTP / Public File",
-    description: "Sync CSV, JSONL or Parquet from any public URL",
-    icon: Globe,
-    color: "bg-indigo-500",
-    textColor: "text-white",
-    category: "files",
-    isNew: true,
-    fields: [
-      { key: "url", label: "File URL", type: "text", placeholder: "https://data.gov.uk/dataset.csv", required: true },
-      { key: "file_format", label: "Format", type: "select", defaultValue: "auto", options: [{ value: "auto", label: "Auto-detect" }, { value: "csv", label: "CSV" }, { value: "jsonl", label: "JSONL" }, { value: "parquet", label: "Parquet" }] },
-      { key: "table_name", label: "Table Name", type: "text", placeholder: "my_data" },
-    ],
-  },
-
   // ── APIs ──
   {
     id: "rest_api",
@@ -342,21 +297,6 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
     ],
   },
 
-  {
-    id: "rest_api_declarative",
-    name: "REST API (Custom)",
-    description: "Connect to any REST API — configure endpoints, auth, and pagination",
-    icon: Link2,
-    color: "bg-violet-600",
-    textColor: "text-white",
-    category: "apis",
-    isNew: true,
-    fields: [
-      { key: "base_url", label: "Base URL", type: "text", placeholder: "https://api.example.com/v1", required: true },
-      { key: "auth_type", label: "Auth Type", type: "select", required: true, defaultValue: "none", options: [{ value: "none", label: "No Auth" }, { value: "bearer", label: "Bearer Token" }, { value: "api_key", label: "API Key" }, { value: "basic", label: "Basic Auth" }] },
-      { key: "auth_token", label: "Auth Token / API Key", type: "password", helpText: "Required if auth type is Bearer or API Key" },
-    ],
-  },
 
   // ── Messaging ──
   {

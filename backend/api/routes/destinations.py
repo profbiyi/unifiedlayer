@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.schemas import DestinationCreate, DestinationUpdate, DestinationResponse
-from backend.models.pipeline import Destination, User, Pipeline
+from backend.models.pipeline import Destination, User, Pipeline, DestinationType
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
 from backend.services import managed_storage
@@ -150,6 +150,13 @@ async def create_destination(
     # Handle special case: postgresql -> POSTGRES
     if normalized_destination_type == "POSTGRESQL":
         normalized_destination_type = "POSTGRES"
+
+    # Validate against the enum → clean 400 instead of a 500 on commit.
+    if normalized_destination_type not in {dt.name for dt in DestinationType}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported destination type: {destination_data.destination_type}",
+        )
 
     destination = Destination(
         name=destination_data.name,
