@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useSource } from "@/hooks/queries/useSources";
+import { useSource, useUpdateSource } from "@/hooks/queries/useSources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,8 +33,25 @@ export default function SourceDetailPage() {
   const sourceId = params.id as string;
 
   const { data: source, isLoading, error } = useSource(sourceId);
+  const updateSource = useUpdateSource();
   const [isEditing, setIsEditing] = useState(false);
   const [showSensitive, setShowSensitive] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (source) {
+      setName(source.name || "");
+      setDescription(source.description || "");
+    }
+  }, [source]);
+
+  const handleSaveSource = () => {
+    updateSource.mutate(
+      { id: sourceId, updates: { name, description } },
+      { onSuccess: () => setIsEditing(false) }
+    );
+  };
 
   if (isLoading) {
     return (
@@ -140,7 +157,7 @@ export default function SourceDetailPage() {
             <div className="space-y-2">
               <Label>Name</Label>
               {isEditing ? (
-                <Input value={source.name} disabled />
+                <Input value={name} onChange={(e) => setName(e.target.value)} />
               ) : (
                 <p className="text-sm font-medium">{source.name}</p>
               )}
@@ -156,7 +173,11 @@ export default function SourceDetailPage() {
           <div className="space-y-2">
             <Label>Description</Label>
             {isEditing ? (
-              <Textarea value={source.description || ""} disabled rows={2} />
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+              />
             ) : (
               <p className="text-sm text-muted-foreground">
                 {source.description || "No description provided"}
@@ -255,12 +276,24 @@ export default function SourceDetailPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Editing is currently view-only. To update this source, please create a new one.
+                Update the name and description. To change connection credentials,
+                create a new source.
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setName(source.name || "");
+                    setDescription(source.description || "");
+                    setIsEditing(false);
+                  }}
+                  disabled={updateSource.isPending}
+                >
                   <X className="mr-2 h-4 w-4" />
                   Cancel
+                </Button>
+                <Button onClick={handleSaveSource} disabled={updateSource.isPending}>
+                  {updateSource.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>
