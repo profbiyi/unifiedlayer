@@ -44,6 +44,24 @@ export const useSource = (id: string) => {
   });
 };
 
+export const useUpdateSource = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Source> }) => {
+      const { data } = await api.put<Source>(`/sources/${id}`, updates);
+      return data;
+    },
+    onSuccess: (_data, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["sources"] });
+      queryClient.invalidateQueries({ queryKey: ["sources", id] });
+      toast.success("Source updated");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Failed to update source");
+    },
+  });
+};
+
 export const useCreateSource = () => {
   const queryClient = useQueryClient();
 
