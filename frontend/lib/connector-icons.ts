@@ -95,7 +95,7 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
     category: "payments",
     popular: true,
     fields: [
-      { key: "api_key", label: "Secret Key", type: "password", placeholder: "sk_live_...", required: true, helpText: "Settings → API Keys & Webhooks" },
+      { key: "secret_key", label: "Secret Key", type: "password", placeholder: "sk_live_...", required: true, helpText: "Settings → API Keys & Webhooks" },
     ],
   },
   {
@@ -107,7 +107,7 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
     textColor: "text-white",
     category: "payments",
     fields: [
-      { key: "api_key", label: "Secret Key", type: "password", placeholder: "FLWSECK-...", required: true },
+      { key: "secret_key", label: "Secret Key", type: "password", placeholder: "FLWSECK-...", required: true },
     ],
   },
   {

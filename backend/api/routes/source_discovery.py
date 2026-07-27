@@ -3,6 +3,7 @@ Source Discovery API routes.
 
 Endpoints for testing connections, discovering schemas, and previewing data.
 """
+import asyncio
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ import logging
 from backend.database import get_db
 from backend.models.pipeline import User
 from backend.auth import get_current_user
+from backend.utils.connection_tester import test_connection as run_source_connection_test
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +105,14 @@ async def test_connection(
                 message="File configuration saved",
             )
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Connection testing not implemented for source type: {request.source_type}",
+            # Delegate everything else to the shared connection tester, which
+            # dispatches to the connector's own test_connection() via the registry
+            # (stripe, paystack, flutterwave, mtn_momo, gocardless, xero,
+            # open_banking, hmrc_mtd, mono, ...). Run the sync tester off the loop.
+            success, message = await asyncio.to_thread(
+                run_source_connection_test, request.source_type, request.config
             )
+            result = ConnectionTestResponse(success=success, message=message)
 
         return result
 
