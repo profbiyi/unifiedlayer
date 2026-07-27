@@ -5,7 +5,7 @@ Test connections to various data sources before saving.
 """
 
 import logging
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Optional, Tuple
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -582,6 +582,60 @@ def test_redshift_connection(config: Dict[str, Any]) -> Tuple[bool, str]:
         return False, f"Connection failed: {str(e)}"
 
 
+def _test_via_connector_registry(
+    source_type: str, config: Dict[str, Any]
+) -> Optional[Tuple[bool, str]]:
+    """
+    Fall back to a registered connector's own ``test_connection()``.
+
+    Many API connectors (stripe, paystack, flutterwave, mtn_momo, gocardless,
+    xero, open_banking, hmrc_mtd, mono, ...) implement ``test_connection()`` on
+    their BaseConnector subclass and register under their ``metadata.name`` —
+    which matches the SourceType value. Dispatching to the registry gives a real
+    credential check instead of a stub, without hand-mapping each constructor.
+
+    Returns ``None`` when the type is not a registered connector (the caller then
+    falls back to the neutral "not verified" message). Normalizes the connector's
+    return value (a ``{"success", "message"}`` dict, or a bool) into ``(bool, str)``.
+    The stored flat config dict becomes the connector's ``credentials``.
+    """
+    try:
+        import backend.connectors  # noqa: F401  — importing populates the registry
+        from backend.connectors.sdk.registry import ConnectorRegistry
+    except Exception as e:  # pragma: no cover - defensive; registry should import
+        logger.warning(f"Connector registry unavailable: {e}")
+        return None
+
+    if ConnectorRegistry.get(source_type.lower()) is None:
+        return None
+
+    connector = None
+    try:
+        connector = ConnectorRegistry.instantiate(source_type.lower(), config)
+        result = connector.test_connection()
+    except Exception as e:
+        logger.info(f"{source_type} connection test failed: {e}")
+        return False, f"Connection failed: {e}"
+    finally:
+        if connector is not None:
+            try:
+                connector.close()
+            except Exception:
+                pass
+
+    # Connectors are inconsistent: payment ones return a dict, UK ones a bool.
+    if isinstance(result, dict):
+        success = bool(result.get("success"))
+        message = result.get("message") or (
+            "Connection successful" if success else "Connection failed"
+        )
+        return success, message
+    if isinstance(result, bool):
+        return result, "Connection successful" if result else "Connection failed"
+    # A connector that returns nothing on success (raises on failure) reached here.
+    return True, "Connection successful"
+
+
 def test_connection(source_type: str, config: Dict[str, Any]) -> Tuple[bool, str]:
     """
     Test connection for any source type.
@@ -611,9 +665,14 @@ def test_connection(source_type: str, config: Dict[str, Any]) -> Tuple[bool, str
     tester = testers.get(source_type.lower())
 
     if not tester:
-        # No live tester yet for this type (e.g. paystack/stripe/xero). Don't
-        # claim success — say clearly that it wasn't verified so the UI can show
-        # a neutral state rather than a false-positive green check.
+        # No hand-written tester — try the connector's own test_connection() via
+        # the registry (covers stripe/paystack/flutterwave/mtn_momo/gocardless/
+        # xero/open_banking/hmrc_mtd, etc. with a real credential check).
+        registry_result = _test_via_connector_registry(source_type, config)
+        if registry_result is not None:
+            return registry_result
+        # Genuinely no tester for this type — don't claim success; say it wasn't
+        # verified so the UI shows a neutral state, not a false-positive green check.
         logger.warning(f"No connection tester available for source type: {source_type}")
         return True, f"Credentials saved — live connection test not yet available for {source_type} (not verified)"
 
