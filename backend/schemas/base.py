@@ -6,10 +6,33 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, computed_field, model_validator, model_serializer
+from pydantic import BaseModel, EmailStr, computed_field, field_validator, model_validator, model_serializer
 
 
 import re
+
+# ---- Secret masking for API responses --------------------------------------
+# Connection configs (sources/destinations) hold credentials at rest. They must
+# NEVER be returned in plaintext by the API — any org user could read them.
+# Responses mask the secret values; routing fields (host, bucket, region,
+# dataset, endpoint) stay visible; updates preserve the stored secret when the
+# client sends the mask back (see the update routes).
+MASKED_SECRET = "••••••••"
+_SECRET_HINTS = (
+    "password", "secret", "token", "credential", "private_key",
+    "api_key", "access_key", "client_secret", "connection_string",
+)
+
+
+def mask_secret_config(config):
+    """Return a copy of a connection config with secret values masked."""
+    if not config or not isinstance(config, dict):
+        return config
+    return {
+        key: (MASKED_SECRET if (value and any(h in key.lower() for h in _SECRET_HINTS)) else value)
+        for key, value in config.items()
+    }
+
 
 # ISO 8601 datetime pattern: YYYY-MM-DDTHH:MM:SS (with optional fractional seconds)
 _ISO_DATETIME_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$')
@@ -246,6 +269,11 @@ class DataSourceResponse(UTCDatetimeMixin, DataSourceBase):
     created_at: datetime
     updated_at: datetime
 
+    @field_validator("config")
+    @classmethod
+    def _mask_config(cls, v):
+        return mask_secret_config(v)
+
     @computed_field
     @property
     def id(self) -> str:
@@ -374,6 +402,11 @@ class DestinationResponse(UTCDatetimeMixin, DestinationBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("config")
+    @classmethod
+    def _mask_config(cls, v):
+        return mask_secret_config(v)
 
     @computed_field
     @property

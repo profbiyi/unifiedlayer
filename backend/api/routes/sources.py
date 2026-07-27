@@ -12,6 +12,7 @@ from backend.models.pipeline import DataSource, User, Pipeline
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
 from backend.services.auto_dashboard_service import get_auto_dashboard_service
+from backend.schemas.base import MASKED_SECRET
 import logging
 
 logger = logging.getLogger(__name__)
@@ -275,6 +276,14 @@ async def update_source(
         )
 
     update_data = source_data.dict(exclude_unset=True)
+    # Preserve stored secrets when the client sends back the masked config.
+    if update_data.get("config") is not None:
+        merged = dict(source.config or {})
+        for key, value in update_data["config"].items():
+            if value == MASKED_SECRET:
+                continue
+            merged[key] = value
+        update_data["config"] = merged
     for field, value in update_data.items():
         setattr(source, field, value)
 

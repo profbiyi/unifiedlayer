@@ -11,6 +11,7 @@ from backend.models.pipeline import Destination, User, Pipeline
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
 from backend.services import managed_storage
+from backend.schemas.base import MASKED_SECRET
 import logging
 
 logger = logging.getLogger(__name__)
@@ -247,6 +248,15 @@ async def update_destination(
         )
 
     update_data = destination_data.dict(exclude_unset=True)
+    # Config comes back from the client with secrets masked — merge so a masked
+    # value keeps the stored secret instead of overwriting it with the mask.
+    if update_data.get("config") is not None:
+        merged = dict(destination.config or {})
+        for key, value in update_data["config"].items():
+            if value == MASKED_SECRET:
+                continue
+            merged[key] = value
+        update_data["config"] = merged
     for field, value in update_data.items():
         setattr(destination, field, value)
 
