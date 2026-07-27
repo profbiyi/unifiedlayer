@@ -653,8 +653,10 @@ def test_destination_connection(destination_type: str, config: Dict[str, Any]) -
     tester = testers.get(destination_type.lower())
 
     if not tester:
+        # No live tester yet (e.g. google_sheets/fabric). Don't report success for
+        # an unvalidated connection — say clearly it wasn't verified.
         logger.warning(f"No connection tester available for destination type: {destination_type}")
-        return True, f"Connection test not implemented for {destination_type} (skipped)"
+        return True, f"Settings saved — live connection test not yet available for {destination_type} (not verified)"
 
     try:
         return tester(config)
