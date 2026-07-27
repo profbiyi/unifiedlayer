@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.schemas import DataSourceCreate, DataSourceUpdate, DataSourceResponse
-from backend.models.pipeline import DataSource, User, Pipeline
+from backend.models.pipeline import DataSource, User, Pipeline, SourceType
 from backend.auth import get_current_user
 from backend.rbac.permissions import require_permission
 from backend.services.auto_dashboard_service import get_auto_dashboard_service
@@ -176,6 +176,14 @@ async def create_source(
     # Handle special case: postgresql -> POSTGRES
     if normalized_source_type == "POSTGRESQL":
         normalized_source_type = "POSTGRES"
+
+    # Validate against the enum up front → a clean 400 instead of a 500 on commit
+    # when an unsupported source type is submitted.
+    if normalized_source_type not in {st.name for st in SourceType}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported source type: {source_data.source_type}",
+        )
 
     source = DataSource(
         name=source_data.name,

@@ -603,15 +603,19 @@ def test_connection(source_type: str, config: Dict[str, Any]) -> Tuple[bool, str
         "rest_api": test_rest_api_connection,
         "mpesa": test_mpesa_connection,
         "mono": test_mono_connection,
-        "whatsapp_business": test_whatsapp_connection,
+        # Enum value is "whatsapp" (not "whatsapp_business") — the old key never matched.
+        "whatsapp": test_whatsapp_connection,
         "s3": test_s3_connection,
     }
 
     tester = testers.get(source_type.lower())
 
     if not tester:
+        # No live tester yet for this type (e.g. paystack/stripe/xero). Don't
+        # claim success — say clearly that it wasn't verified so the UI can show
+        # a neutral state rather than a false-positive green check.
         logger.warning(f"No connection tester available for source type: {source_type}")
-        return True, f"Connection test not implemented for {source_type} (skipped)"
+        return True, f"Credentials saved — live connection test not yet available for {source_type} (not verified)"
 
     try:
         return tester(config)
