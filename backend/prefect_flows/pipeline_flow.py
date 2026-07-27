@@ -5,7 +5,7 @@ Provides orchestration for data pipeline runs using Prefect.
 """
 import os
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 # Set BEFORE importing dlt. dlt persists working state under DLT_DATA_DIR
 # (defaults to ~/.dlt, but the container home is read-only → "Operation not
@@ -97,6 +97,29 @@ def _get_schema_contract(schema_contract: str) -> dict:
         "data_type": "discard_rows" if schema_contract == "freeze" else "evolve",
     }
 
+
+
+def _selected_table_names(tables: Any) -> Optional[List[str]]:
+    """Normalize a source's ``tables`` config to a flat list of bare table names.
+
+    The source wizard saves tables as
+    ``[{"table": "stripe.customers", "sync_mode": "full_refresh"}, ...]``, but the
+    API connectors select resources by bare name (``["customers", ...]``). This
+    converts dict/string entries to names and strips an optional ``<schema>.``
+    (or ``<connector>.``) prefix. Returns ``None`` when nothing is selected, which
+    the connectors treat as "sync all tables".
+    """
+    if not tables:
+        return None
+    names: List[str] = []
+    for t in tables:
+        name = t.get("table") or t.get("name") if isinstance(t, dict) else t
+        if not name:
+            continue
+        if "." in name:
+            name = name.split(".")[-1]
+        names.append(name)
+    return names or None
 
 
 @task(retries=3, retry_delay_seconds=60)
@@ -243,7 +266,7 @@ def fetch_source_data(source_config: Dict[str, Any], source_type: str):
         from backend.connectors.stripe_connector import stripe_source
         source = stripe_source(
             api_key=source_config.get("api_key"),
-            tables=source_config.get("tables"),
+            tables=_selected_table_names(source_config.get("tables")),
         )
 
     elif source_type == "google_sheets":
