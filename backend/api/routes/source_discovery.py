@@ -125,6 +125,93 @@ async def test_connection(
         )
 
 
+def _tables_from_discover(raw: Any, schema_name: str) -> List["TableInfo"]:
+    """Normalize a connector's discover_schema() output into TableInfo rows.
+
+    Connectors are inconsistent: some return a ``{table: {col: type}}`` dict
+    (stripe/paystack), some a list of names, some a list of column-bearing dicts.
+    """
+    tables: List[TableInfo] = []
+
+    def _columns(cols: Any) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        if isinstance(cols, dict):
+            out = [{"name": c, "type": str(t), "nullable": True} for c, t in cols.items()]
+        elif isinstance(cols, list):
+            for c in cols:
+                if isinstance(c, dict):
+                    out.append({
+                        "name": c.get("name"),
+                        "type": str(c.get("type", "string")),
+                        "nullable": bool(c.get("nullable", True)),
+                    })
+                elif isinstance(c, str):
+                    out.append({"name": c, "type": "string", "nullable": True})
+        return [c for c in out if c.get("name")]
+
+    if isinstance(raw, dict):
+        for tname, cols in raw.items():
+            tables.append(TableInfo(schema=schema_name, table=str(tname), columns=_columns(cols)))
+    elif isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, str):
+                tables.append(TableInfo(schema=schema_name, table=item))
+            elif isinstance(item, dict):
+                tname = item.get("name") or item.get("table") or item.get("table_name")
+                if tname:
+                    tables.append(TableInfo(
+                        schema=schema_name,
+                        table=str(tname),
+                        columns=_columns(item.get("columns", [])),
+                    ))
+    return tables
+
+
+def _discover_via_connector_registry(
+    source_type: str, config: Dict[str, Any]
+) -> Optional[SchemaDiscoveryResponse]:
+    """Discover tables via a registered connector's discover_schema()/metadata.
+
+    Returns None when the type is not a registered connector. Prefers the
+    connector's discover_schema() (gives columns too); falls back to the static
+    metadata.supported_tables so the picker still gets the table names even if a
+    live discovery call fails.
+    """
+    try:
+        import backend.connectors  # noqa: F401 — populates the registry
+        from backend.connectors.sdk.registry import ConnectorRegistry
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning(f"Connector registry unavailable: {e}")
+        return None
+
+    if ConnectorRegistry.get(source_type.lower()) is None:
+        return None
+
+    schema_name = source_type.lower()
+    tables: List[TableInfo] = []
+    connector = None
+    try:
+        connector = ConnectorRegistry.instantiate(source_type.lower(), config)
+        try:
+            tables = _tables_from_discover(connector.discover_schema(), schema_name)
+        except Exception as e:
+            logger.info(f"{source_type} discover_schema failed, using metadata: {e}")
+            tables = []
+        if not tables:
+            supported = getattr(connector.metadata, "supported_tables", None) or []
+            tables = [TableInfo(schema=schema_name, table=str(t)) for t in supported if t]
+    finally:
+        if connector is not None:
+            try:
+                connector.close()
+            except Exception:
+                pass
+
+    if not tables:
+        return None
+    return SchemaDiscoveryResponse(databases=[], schemas=[schema_name], tables=tables)
+
+
 @router.post("/discover-schema", response_model=SchemaDiscoveryResponse)
 async def discover_schema(
     request: SchemaDiscoveryRequest,
@@ -148,10 +235,14 @@ async def discover_schema(
         elif request.source_type == "rest_api":
             result = await _discover_rest_api_schema(request.config)
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Schema discovery not implemented for source type: {request.source_type}",
+            # Delegate to the registered connector's discover_schema()/metadata
+            # (stripe, paystack, flutterwave, mtn_momo, mono, gocardless, ...).
+            result = await asyncio.to_thread(
+                _discover_via_connector_registry, request.source_type, request.config
             )
+            if result is None:
+                # Unknown type — return an empty schema rather than a 500.
+                result = SchemaDiscoveryResponse(databases=[], schemas=[], tables=[])
 
         return result
 
