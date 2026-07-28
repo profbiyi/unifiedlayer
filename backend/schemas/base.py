@@ -3,7 +3,7 @@ Pydantic schemas for API request/response validation.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, computed_field, field_validator, model_validator, model_serializer
@@ -36,6 +36,20 @@ def mask_secret_config(config):
 
 # ISO 8601 datetime pattern: YYYY-MM-DDTHH:MM:SS (with optional fractional seconds)
 _ISO_DATETIME_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$')
+
+
+def to_utc_z(dt: Optional[datetime]) -> Optional[str]:
+    """Serialize a datetime as ISO-8601 with a UTC 'Z' suffix.
+
+    Timestamps are stored as naive UTC. Hand-built dict responses (which bypass
+    the response models) must emit the same 'Z'-suffixed form the models do, so
+    the frontend parses them as UTC instead of the viewer's local time.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.isoformat() + "Z"
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 class UTCDatetimeMixin:
