@@ -16,6 +16,22 @@ os.environ.setdefault("DLT_DATA_DIR", "/tmp/dlt_data")
 os.environ.setdefault("AWS_REQUEST_CHECKSUM_CALCULATION", "when_required")
 os.environ.setdefault("AWS_RESPONSE_CHECKSUM_VALIDATION", "when_required")
 
+# Ensure the dlt working dir exists and is writable by whatever UID runs a
+# pipeline. dlt creates a per-pipeline subdir under DLT_DATA_DIR/pipelines with
+# exist_ok=False; if that tree was first created by a different user (e.g. a root
+# shell in the same container), the non-root app process gets EACCES creating a
+# new pipeline dir. Create it up front, sticky world-writable, best-effort.
+try:
+    _dlt_pipelines_dir = os.path.join(os.environ["DLT_DATA_DIR"], "pipelines")
+    os.makedirs(_dlt_pipelines_dir, exist_ok=True)
+    for _p in (os.environ["DLT_DATA_DIR"], _dlt_pipelines_dir):
+        try:
+            os.chmod(_p, 0o1777)
+        except OSError:
+            pass  # not the owner (dir pre-created by another UID) — leave as is
+except OSError:
+    pass
+
 import dlt
 from prefect import flow, task
 import logging
