@@ -27,6 +27,7 @@ from backend.models.billing import (
     currency_for_country,
 )
 from backend.auth import require_super_admin, get_password_hash, get_request_info
+from backend.schemas.base import to_utc_z
 from backend.schemas.rbac import (
     CreateOrganizationRequest,
     OrganizationCreatedResponse,
@@ -1228,7 +1229,7 @@ async def list_organization_pipelines(
             "is_active": pipeline.is_active,
             "schedule": pipeline.schedule,
             "last_run_status": last_run.status.value if last_run else None,
-            "last_run_at": last_run.created_at.isoformat() if last_run else None,
+            "last_run_at": to_utc_z(last_run.created_at) if last_run else None,
             "created_at": pipeline.created_at.isoformat(),
         })
 
@@ -1292,12 +1293,12 @@ async def list_organization_runs(
             "pipeline_id": run.pipeline_id,
             "pipeline_name": run.pipeline.name if run.pipeline else None,
             "status": run.status.value,
-            "started_at": run.started_at.isoformat() if run.started_at else None,
-            "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+            "started_at": to_utc_z(run.started_at),
+            "completed_at": to_utc_z(run.completed_at),
             "duration_seconds": run.duration_seconds,
             "rows_written": run.rows_written,
             "error_message": run.error_message,
-            "created_at": run.created_at.isoformat(),
+            "created_at": to_utc_z(run.created_at),
         })
 
     return {
@@ -1357,15 +1358,15 @@ async def get_organization_run_details(
         "pipeline_id": run.pipeline_id,
         "pipeline_name": run.pipeline.name if run.pipeline else None,
         "status": run.status.value,
-        "started_at": run.started_at.isoformat() if run.started_at else None,
-        "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+        "started_at": to_utc_z(run.started_at),
+        "completed_at": to_utc_z(run.completed_at),
         "duration_seconds": run.duration_seconds,
         "rows_written": run.rows_written,
         "bytes_written": run.bytes_written,
         "error_message": run.error_message,
         "error_traceback": run.error_traceback,
         "run_metadata": run.run_metadata,
-        "created_at": run.created_at.isoformat(),
+        "created_at": to_utc_z(run.created_at),
         "organization_id": org_id,
         "organization_name": org.name,
     }

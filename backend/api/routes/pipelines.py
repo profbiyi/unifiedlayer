@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.schemas import PipelineCreate, PipelineUpdate, PipelineResponse
+from backend.schemas import PipelineCreate, PipelineUpdate, PipelineResponse, PipelineRunResponse
+from backend.schemas.base import to_utc_z
 from backend.models.pipeline import Pipeline, User, PipelineStatus, PipelineRun
 from backend.models.billing import Subscription, SubscriptionStatus
 from backend.auth import get_current_user
@@ -621,7 +622,7 @@ def _submit_flow_to_prefect(pipeline_id: int, run_id: int):
         raise
 
 
-@router.get("/{pipeline_id}/runs")
+@router.get("/{pipeline_id}/runs", response_model=List[PipelineRunResponse])
 @require_permission("pipeline", "read")
 async def get_pipeline_runs(
     pipeline_id: str,
@@ -733,15 +734,15 @@ async def get_pipeline_run_details(
         "pipeline_id": str(pipeline.public_id),
         "pipeline_name": pipeline.name,
         "status": run.status,
-        "started_at": run.started_at,
-        "completed_at": run.completed_at,
+        "started_at": to_utc_z(run.started_at),
+        "completed_at": to_utc_z(run.completed_at),
         "duration_seconds": run.duration_seconds,
         "rows_written": run.rows_written,
         "bytes_written": run.bytes_written,
         "error_message": run.error_message,
         "error_traceback": run.error_traceback,
         "run_metadata": run.run_metadata,
-        "created_at": run.created_at,
+        "created_at": to_utc_z(run.created_at),
     }
 
 
