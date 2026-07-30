@@ -156,26 +156,31 @@ def _extract_from_load_packages(load_info, stats: Dict, seen_tables: set) -> boo
 
 
 def _extract_from_pipeline_trace(pipeline, stats: Dict, seen_tables: set) -> bool:
-    """Extract from pipeline.last_trace."""
+    """Extract per-table row counts from the pipeline's last normalize step.
+
+    In current dlt (1.24) ``load_info.row_counts`` is not populated for all
+    destinations, but the normalize step always records per-table counts at
+    ``pipeline.last_trace.last_normalize_info.row_counts`` — the reliable,
+    cross-destination source (verified returning ``{'customers': 12, ...}``).
+    """
     try:
-        if not hasattr(pipeline, 'last_trace') or not pipeline.last_trace:
+        trace = getattr(pipeline, 'last_trace', None)
+        if not trace:
             return False
 
-        trace = pipeline.last_trace
+        normalize_info = getattr(trace, 'last_normalize_info', None)
+        row_counts = getattr(normalize_info, 'row_counts', None) if normalize_info else None
+        if not row_counts:
+            return False
 
-        # Try to get metrics from trace
-        if hasattr(trace, 'metrics') and trace.metrics:
-            metrics = trace.metrics
-            if 'rows' in metrics:
-                stats["rows_written"] = metrics['rows']
-                return True
-
-        # Try steps in trace
-        if hasattr(trace, 'steps'):
-            for step in trace.steps:
-                if hasattr(step, 'metrics') and step.metrics:
-                    rows = step.metrics.get('rows', 0)
-                    stats["rows_written"] += rows
+        for table_name, count in row_counts.items():
+            if table_name.startswith('_dlt_'):
+                continue
+            if table_name not in seen_tables:
+                seen_tables.add(table_name)
+                stats["tables"].append({"name": table_name, "rows": count})
+                stats["rows_written"] += count
+                stats["tables_loaded"] += 1
 
         return stats["rows_written"] > 0
 
