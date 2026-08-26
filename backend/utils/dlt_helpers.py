@@ -44,22 +44,25 @@ def extract_load_stats(load_info, pipeline=None) -> Dict[str, Any]:
     # Track which tables we've seen to avoid duplicates
     seen_tables = set()
 
-    # Method 1: row_counts attribute (most reliable in recent dlt versions)
-    if _extract_from_row_counts(load_info, stats, seen_tables):
-        stats["extraction_method"] = "row_counts"
-        logger.debug(f"Extracted stats via row_counts: {stats['rows_written']} rows")
+    # Method 1 (most reliable): per-table row counts from the normalize step.
+    # This must run BEFORE load_packages — load_packages adds tables from the
+    # schema_update with rows=0 on a fresh load, which would otherwise poison
+    # seen_tables and block the real counts here.
+    if pipeline and _extract_from_pipeline_trace(pipeline, stats, seen_tables):
+        stats["extraction_method"] = "pipeline_trace"
+        logger.debug(f"Extracted stats via pipeline_trace: {stats['rows_written']} rows")
 
-    # Method 2: load_packages with jobs
+    # Method 2: row_counts attribute (populated by some dlt destinations)
+    if stats["rows_written"] == 0:
+        if _extract_from_row_counts(load_info, stats, seen_tables):
+            stats["extraction_method"] = "row_counts"
+            logger.debug(f"Extracted stats via row_counts: {stats['rows_written']} rows")
+
+    # Method 3: load_packages with jobs (also records tables touched with 0 new rows)
     if stats["rows_written"] == 0:
         if _extract_from_load_packages(load_info, stats, seen_tables):
             stats["extraction_method"] = "load_packages"
             logger.debug(f"Extracted stats via load_packages: {stats['rows_written']} rows")
-
-    # Method 3: metrics from pipeline trace
-    if stats["rows_written"] == 0 and pipeline:
-        if _extract_from_pipeline_trace(pipeline, stats, seen_tables):
-            stats["extraction_method"] = "pipeline_trace"
-            logger.debug(f"Extracted stats via pipeline_trace: {stats['rows_written']} rows")
 
     # Method 4: Parse string representation (last resort)
     if stats["rows_written"] == 0:

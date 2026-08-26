@@ -43,6 +43,33 @@ def test_no_pipeline_and_empty_load_info_is_zero_not_crash():
     assert stats["extraction_method"] == "none"
 
 
+class _SchemaUpdatePackage:
+    def __init__(self, tables):
+        self.schema_update = {t: {} for t in tables}
+        self.jobs = {}
+
+
+class _LoadInfoWithPackages:
+    """Mimics a fresh load: load_packages lists tables via schema_update with no
+    row counts, which used to poison seen_tables and zero out the real counts."""
+
+    def __init__(self, tables):
+        self.load_packages = [_SchemaUpdatePackage(tables)]
+
+
+def test_normalize_trace_wins_over_zero_row_load_packages():
+    # Regression: on a first/filesystem load, load_packages reports 'users' with
+    # no rows; the reliable normalize-trace count (10) must still win.
+    load_info = _LoadInfoWithPackages(["users"])
+    pipeline = _FakePipeline({"users": 10})
+    stats = extract_load_stats(load_info, pipeline=pipeline)
+
+    assert stats["rows_written"] == 10
+    assert stats["extraction_method"] == "pipeline_trace"
+    users = next(t for t in stats["tables"] if t["name"] == "users")
+    assert users["rows"] == 10
+
+
 def test_none_load_info_is_safe():
     stats = extract_load_stats(None)
     assert stats["rows_written"] == 0
