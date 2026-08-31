@@ -41,7 +41,7 @@ const PARTICIPATION_STEPS = [
 ];
 
 const RIGHTS = [
-  "Participation is entirely voluntary — you can decline or withdraw at any time, without giving a reason, and withdrawal does not affect any commercial relationship with UnifiedLayer",
+  "Participation is entirely voluntary. You can decline or withdraw at any time, without giving a reason, and withdrawal does not affect any commercial relationship with UnifiedLayer",
   "Your organisation is anonymised in all research outputs: the thesis refers to participants only by sector and size labels (e.g. \"a Nigerian payment provider, 11–50 staff\"), never by name",
   "Anonymised quotes from calls or feedback forms may appear in the thesis; you can ask for any quote to be excluded",
   "We collect: your form answers, discovery-call notes, platform usage measures (e.g. sources connected, rows synced), and your questionnaire responses. We do not analyse the contents of your business data for research",
@@ -88,7 +88,7 @@ export default function ResearchPilotPage() {
             data-integration trial. The trial is part of a Doctorate in
             Business Administration (DBA) research project studying how
             Africa-centric data infrastructure serves fintech SMEs. This page
-            is the participant information notice — please read it before
+            is the participant information notice. Please read it before
             applying.
           </p>
 
