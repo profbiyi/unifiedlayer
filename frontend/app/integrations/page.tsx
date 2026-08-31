@@ -39,13 +39,13 @@ const integrationCategories = [
   {
     icon: Landmark,
     title: "Banking & Open Banking",
-    description: "Connect bank accounts via Mono for African banks — plus TrueLayer for operations in Europe.",
+    description: "Connect bank accounts via Mono for African banks, plus TrueLayer for operations in Europe.",
     examples: ["Mono", "TrueLayer"],
   },
   {
     icon: Building2,
     title: "Accounting Software",
-    description: "Sync your books from Xero today — QuickBooks and Sage connectors are on the roadmap.",
+    description: "Sync your books from Xero today. QuickBooks and Sage connectors are on the roadmap.",
     examples: ["Xero", "QuickBooks (soon)", "Sage (soon)"],
   },
   {
@@ -57,7 +57,7 @@ const integrationCategories = [
   {
     icon: FileSpreadsheet,
     title: "Files & Spreadsheets",
-    description: "Upload CSV files or sync Google Sheets directly — where most SME record-keeping lives.",
+    description: "Upload CSV files or sync Google Sheets directly, where most SME record-keeping lives.",
     examples: ["CSV", "Google Sheets"],
   },
 ];
@@ -118,7 +118,7 @@ export default function IntegrationsPage() {
               Connect your tools in minutes
             </h1>
             <p className="mb-8 text-lg text-muted-foreground">
-              UnifiedLayer connects to the tools you already use—payment processors,
+              UnifiedLayer connects to the tools you already use: payment processors,
               accounting software, banks, and more. No coding required.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -166,7 +166,7 @@ export default function IntegrationsPage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">What can you connect?</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              From payment processors to accounting software to your bank—bring all your business data together.
+              From payment processors to accounting software to your bank. Bring all your business data together.
             </p>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

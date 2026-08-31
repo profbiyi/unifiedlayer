@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PricingSection } from "@/components/pricing/PricingSection";
 import {
   ArrowRight,
   Check,
@@ -82,7 +81,7 @@ const solutionFeatures = [
     icon: Globe,
     title: "Built for Africa First",
     description:
-      "Native connectors for Paystack, Flutterwave, M-Pesa, MTN MoMo, Mono, and WhatsApp — the systems African businesses actually run on. Plus Stripe and bank connections for operations in France and the EU.",
+      "Native connectors for Paystack, Flutterwave, M-Pesa, MTN MoMo, Mono, and WhatsApp, the systems African businesses actually run on. Plus Stripe and bank connections for operations in France and the EU.",
   },
   {
     icon: Shield,
@@ -118,7 +117,7 @@ const whyUnifiedLayer = [
 export default function Home() {
   return (
     <div className="force-light flex min-h-screen flex-col bg-background text-foreground">
-      {/* Research pilot announcement — direct path to the study */}
+      {/* Research pilot announcement: direct path to the study */}
       <Link
         href="/research-pilot"
         className="block bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -139,11 +138,6 @@ export default function Home() {
               className="text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               Integrations
-            </Link>
-            <Link href="#pricing">
-              <Button variant="ghost" size="sm">
-                Pricing
-              </Button>
             </Link>
             <Link href="/login">
               <Button variant="ghost" size="sm">
@@ -333,7 +327,7 @@ export default function Home() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Your data lives on encrypted cloud infrastructure you
-                  control access to — and in-country hosting for Nigeria is
+                  control access to, and in-country hosting for Nigeria is
                   on our roadmap, so your data won&apos;t have to leave your
                   jurisdiction to be useful.
                 </p>
@@ -372,9 +366,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Pricing Section — purchasing-power pricing per market */}
-      <PricingSection />
 
       {/* Footer */}
       <footer className="border-t py-12">

@@ -365,7 +365,7 @@ export default function RequestAccessPage() {
                         participant information notice
                       </Link>{" "}
                       and agree to be contacted about the fintech SME research
-                      pilot. <span className="text-xs">(Optional — you can request a regular trial without joining the study.)</span>
+                      pilot. <span className="text-xs">(Optional: you can request a regular trial without joining the study.)</span>
                     </span>
                   </label>
 
