@@ -122,8 +122,8 @@ export default function Home() {
         href="/research-pilot"
         className="block bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
-        Recruiting African fintech SMEs for a free 15-day research pilot
-        &mdash; learn more &rarr;
+        Recruiting African fintech SMEs for a free 15-day research pilot.
+        Learn more &rarr;
       </Link>
       {/* Navigation */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -343,8 +343,8 @@ export default function Home() {
               <CardContent>
                 <p className="text-sm text-muted-foreground">
                   Designed with the Nigeria Data Protection Act 2023, GDPR
-                  (EU), and local financial reporting requirements in mind
-                  &mdash; compliance is built into the platform, not bolted on.
+                  (EU), and local financial reporting requirements in mind.
+                  Compliance is built into the platform, not bolted on.
                 </p>
               </CardContent>
             </Card>

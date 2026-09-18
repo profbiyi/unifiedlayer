@@ -26,23 +26,23 @@ export default function PrivacyPolicyPage() {
           <h2>1. What We Collect</h2>
           <ul>
             <li>
-              <strong>Account information</strong> &mdash; email address, username, full name, and
+              <strong>Account information</strong>: email address, username, full name, and
               hashed password.
             </li>
             <li>
-              <strong>Organisation data</strong> &mdash; organisation name, billing email, and
+              <strong>Organisation data</strong>: organisation name, billing email, and
               subscription details.
             </li>
             <li>
-              <strong>Usage data</strong> &mdash; pipeline configurations, run history, data source
+              <strong>Usage data</strong>: pipeline configurations, run history, data source
               and destination metadata, API request logs, and login timestamps.
             </li>
             <li>
-              <strong>Technical data</strong> &mdash; IP address, browser type, and device
+              <strong>Technical data</strong>: IP address, browser type, and device
               information collected automatically via server logs.
             </li>
             <li>
-              <strong>Billing data</strong> &mdash; billing email and subscription plan. Payments
+              <strong>Billing data</strong>: billing email and subscription plan. Payments
               may be processed by Paystack (for customers billed in NGN, KES, or GHS) or Stripe
               (for customers billed in GBP or EUR). Full payment card details are never stored on
               our servers.
@@ -101,23 +101,23 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul>
             <li>
-              <strong>Access</strong> &mdash; request a copy of your personal data.
+              <strong>Access</strong>: request a copy of your personal data.
             </li>
             <li>
-              <strong>Rectification</strong> &mdash; correct inaccurate or incomplete data.
+              <strong>Rectification</strong>: correct inaccurate or incomplete data.
             </li>
             <li>
-              <strong>Erasure</strong> &mdash; request deletion of your personal data (right to be
+              <strong>Erasure</strong>: request deletion of your personal data (right to be
               forgotten).
             </li>
             <li>
-              <strong>Portability</strong> &mdash; receive your data in a machine-readable format.
+              <strong>Portability</strong>: receive your data in a machine-readable format.
             </li>
             <li>
-              <strong>Objection</strong> &mdash; object to processing based on legitimate interest.
+              <strong>Objection</strong>: object to processing based on legitimate interest.
             </li>
             <li>
-              <strong>Withdraw consent</strong> &mdash; where processing is based on consent, you
+              <strong>Withdraw consent</strong>: where processing is based on consent, you
               may withdraw it at any time.
             </li>
           </ul>
@@ -129,11 +129,11 @@ export default function PrivacyPolicyPage() {
           <h2>5. Third Parties</h2>
           <ul>
             <li>
-              <strong>Paystack and Stripe</strong> &mdash; payment processing. We share your
+              <strong>Paystack and Stripe</strong>: payment processing. We share your
               billing email and subscription events with the processor handling your currency.
             </li>
             <li>
-              <strong>Cloud infrastructure provider</strong> &mdash; all platform data is stored on
+              <strong>Cloud infrastructure provider</strong>: all platform data is stored on
               encrypted infrastructure within the provider&apos;s data centres.
             </li>
           </ul>
