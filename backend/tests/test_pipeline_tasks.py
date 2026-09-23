@@ -17,6 +17,7 @@ from backend.models.pipeline import PipelineStatus
 # guard it in CI since the worker itself isn't exercised there.
 CELERY_TASK_MODULES = [
     "backend.tasks.pipeline_tasks",
+    "backend.tasks.backfill_tasks",
     "backend.tasks.dbt_tasks",
     "backend.tasks.health_checks",
     "backend.tasks.pipeline_scheduler",
