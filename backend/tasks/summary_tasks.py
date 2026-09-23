@@ -14,6 +14,7 @@ To include this module in the Celery worker, add
 to the `include` list in backend/celery_app.py.
 """
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict
 
@@ -70,6 +71,16 @@ class SummaryTask(BaseTask):
 # Tasks
 # ---------------------------------------------------------------------------
 
+def _summaries_enabled() -> bool:
+    """Whether org-wide summary emails may be sent.
+
+    Off by default: these email EVERY active org and call OpenAI per org, so they
+    must be opted into explicitly (SUMMARIES_ENABLED=true) rather than firing the
+    moment a beat scheduler exists. (Per-org opt-in is the richer follow-up.)
+    """
+    return os.getenv("SUMMARIES_ENABLED", "false").strip().lower() == "true"
+
+
 @celery_app.task(
     bind=True,
     base=SummaryTask,
@@ -83,6 +94,9 @@ def send_weekly_summaries(self) -> Dict[str, Any]:
 
     Returns a dict with per-org send results for monitoring / beat result inspection.
     """
+    if not _summaries_enabled():
+        logger.info("Summaries disabled (SUMMARIES_ENABLED != true); skipping weekly send")
+        return {"skipped": True, "reason": "SUMMARIES_ENABLED not set"}
     db = SessionLocal()
     try:
         start = datetime.now(timezone.utc)
@@ -165,6 +179,9 @@ def send_daily_summaries(self) -> Dict[str, Any]:
 
     Returns a dict with per-org send results.
     """
+    if not _summaries_enabled():
+        logger.info("Summaries disabled (SUMMARIES_ENABLED != true); skipping daily send")
+        return {"skipped": True, "reason": "SUMMARIES_ENABLED not set"}
     db = SessionLocal()
     try:
         start = datetime.now(timezone.utc)
