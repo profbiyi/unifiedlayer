@@ -2,10 +2,9 @@
 Pipeline API routes.
 """
 import logging
-from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -15,7 +14,6 @@ from backend.schemas.base import to_utc_z
 from backend.models.pipeline import Pipeline, User, PipelineStatus, PipelineRun
 from backend.models.billing import Subscription, SubscriptionStatus
 from backend.auth import get_current_user
-from backend.prefect_flows.pipeline_flow import execute_pipeline_flow
 from backend.rbac.permissions import require_permission
 from backend.utils.cron_utils import (
     validate_cron_expression,
@@ -470,7 +468,6 @@ async def clone_pipeline(
 @require_permission("pipeline", "execute")
 async def trigger_pipeline_run(
     pipeline_id: str,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -481,7 +478,6 @@ async def trigger_pipeline_run(
 
     Args:
         pipeline_id: Pipeline ID (UUID string)
-        background_tasks: FastAPI background tasks
         current_user: Current authenticated user
         db: Database session
 
@@ -565,61 +561,20 @@ async def trigger_pipeline_run(
 
     logger.info(f"Pipeline run triggered: {run.id} for pipeline {pipeline.id}")
 
-    # Submit flow execution to Prefect (production-grade with full logging)
-    background_tasks.add_task(
-        _submit_flow_to_prefect,
-        pipeline.id,
-        run.id
-    )
+    # Enqueue execution to a Celery worker so the sync runs OFF the web process.
+    # This keeps the API responsive and lets task_acks_late / reject_on_worker_lost
+    # requeue the run if a worker dies, instead of a web restart orphaning it.
+    from backend.tasks.pipeline_tasks import run_pipeline
+    run_pipeline.delay(pipeline.id, run.id)
 
-    logger.info(f"Submitted run {run.id} to Prefect for pipeline {pipeline.id}")
+    logger.info(f"Enqueued run {run.id} for pipeline {pipeline.id} (queue=pipelines)")
 
     return {
         "run_id": run.id,
         "pipeline_id": str(pipeline.public_id),  # Return UUID string
         "status": run.status,
-        "message": "Pipeline run submitted to Prefect",
+        "message": "Pipeline run queued for execution",
     }
-
-
-def _submit_flow_to_prefect(pipeline_id: int, run_id: int):
-    """
-    Submit flow run to Prefect for execution.
-
-    Prefect flows are automatically tracked in Prefect UI with full logging.
-    On failure, updates the pipeline run status to FAILED.
-    """
-    from backend.database import get_db_session
-
-    try:
-        # Execute the Prefect flow
-        # Prefect automatically:
-        # - Logs all execution details
-        # - Tracks flow runs in the UI
-        # - Handles retries and failures
-        # - Stores metrics and state
-        result = execute_pipeline_flow(pipeline_id, run_id)
-        logger.info(f"Flow run completed for pipeline_id={pipeline_id}, run_id={run_id}")
-        return result
-    except Exception as e:
-        error_msg = str(e)
-        logger.error(f"Flow run failed for pipeline_id={pipeline_id}, run_id={run_id}: {error_msg}", exc_info=True)
-
-        # Update run status to FAILED on submission/execution error
-        try:
-            db = get_db_session()
-            run = db.query(PipelineRun).filter(PipelineRun.id == run_id).first()
-            if run and run.status in [PipelineStatus.PENDING, PipelineStatus.RUNNING]:
-                run.status = PipelineStatus.FAILED
-                run.error_message = f"Flow execution failed: {error_msg[:500]}"
-                run.completed_at = datetime.now(timezone.utc)
-                db.commit()
-                logger.info(f"Marked run {run_id} as FAILED due to execution error")
-            db.close()
-        except Exception as db_error:
-            logger.error(f"Failed to update run status after error: {db_error}")
-
-        raise
 
 
 @router.get("/{pipeline_id}/runs", response_model=List[PipelineRunResponse])
