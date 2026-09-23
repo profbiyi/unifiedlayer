@@ -30,12 +30,15 @@ export default function BasicInfoStep({ data, onUpdate }: BasicInfoStepProps) {
     return Array.from(cats) as ConnectorCategory[];
   }, []);
 
+  // Hide connectors not yet fully working (e.g. OAuth flow not built).
+  const available = useMemo(() => SOURCE_CONNECTORS.filter((c) => !c.comingSoon), []);
+
   const popular = useMemo(() => {
-    return SOURCE_CONNECTORS.filter((c) => c.popular);
-  }, []);
+    return available.filter((c) => c.popular);
+  }, [available]);
 
   const filtered = useMemo(() => {
-    let result = SOURCE_CONNECTORS;
+    let result = available;
 
     if (activeCategory) {
       result = result.filter((c) => c.category === activeCategory);
@@ -52,7 +55,7 @@ export default function BasicInfoStep({ data, onUpdate }: BasicInfoStepProps) {
     }
 
     return result;
-  }, [activeCategory, search]);
+  }, [available, activeCategory, search]);
 
   const selectedMeta = SOURCE_CONNECTORS.find((c) => c.id === data.source_type);
   const showPopular = !search && !activeCategory && popular.length > 0;

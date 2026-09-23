@@ -26,7 +26,11 @@ export default function ConnectorPicker({ mode, selected, onSelect }: ConnectorP
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<ConnectorCategory | null>(null);
 
-  const connectors = mode === "source" ? SOURCE_CONNECTORS : DESTINATION_CONNECTORS;
+  // Hide connectors not yet fully working (e.g. OAuth flow not built) so users
+  // can't pick one that will fail.
+  const connectors = (mode === "source" ? SOURCE_CONNECTORS : DESTINATION_CONNECTORS).filter(
+    (c) => !c.comingSoon,
+  );
 
   const categories = useMemo(() => {
     if (mode === "destination") return [];

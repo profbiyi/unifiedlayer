@@ -37,10 +37,15 @@ export default function AskPage() {
     }
   }, [conversationDetail]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive. shadcn's ScrollArea forwards
+  // `ref` to its ROOT element, but the element that actually scrolls is the inner
+  // Radix viewport — so set scrollTop on the viewport, not the root.
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const viewport = scrollRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]"
+    ) as HTMLElement | null;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }, [localMessages, askMutation.isPending]);
 

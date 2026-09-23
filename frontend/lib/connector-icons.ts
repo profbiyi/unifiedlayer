@@ -36,6 +36,9 @@ export interface ConnectorMeta {
   fields: FieldDef[];   // Credential fields needed
   popular?: boolean;
   isNew?: boolean;
+  // Hidden from the connector pickers until fully working (e.g. OAuth flow not
+  // built yet). Metadata is kept so existing sources of this type still render.
+  comingSoon?: boolean;
 }
 
 export interface FieldDef {
@@ -156,6 +159,7 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
   // ── Accounting ──
   {
     id: "xero",
+    comingSoon: true,
     name: "Xero",
     description: "Accounting data — accounts, contacts, invoices",
     icon: Receipt,
@@ -193,6 +197,7 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
   },
   {
     id: "open_banking",
+    comingSoon: true,
     name: "Open Banking",
     description: "EU bank accounts via TrueLayer",
     icon: Landmark,
@@ -206,6 +211,7 @@ export const SOURCE_CONNECTORS: ConnectorMeta[] = [
   },
   {
     id: "hmrc_mtd",
+    comingSoon: true,
     name: "HMRC MTD",
     description: "Making Tax Digital — UK VAT & tax data",
     icon: Building2,
