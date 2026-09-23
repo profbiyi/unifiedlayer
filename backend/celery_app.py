@@ -70,6 +70,11 @@ celery_app.conf.update(
             "schedule": 600.0,  # every 10 minutes
             "options": {"queue": "pipelines"},
         },
+        "run-health-checks": {
+            "task": "backend.tasks.health_checks.run_all_health_checks",
+            "schedule": 900.0,  # every 15 minutes
+            "options": {"queue": "health"},
+        },
     },
 )
 

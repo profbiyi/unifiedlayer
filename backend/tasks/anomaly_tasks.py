@@ -32,19 +32,48 @@ from backend.database import SessionLocal
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Deduplication store
+# Deduplication store (Redis-backed, shared across workers)
 # ---------------------------------------------------------------------------
+#
+# The dedup key is f"{pipeline_id}:{alert_type}". Redis SET-with-TTL gives us a
+# store that is shared across ALL workers (so a second worker won't re-send an
+# alert the first already sent) and self-expiring (no unbounded growth, no manual
+# prune). Falls back to a per-process in-memory dict only if Redis is unreachable.
 
-# key  → f"{pipeline_id}:{alert_type}"
-# value → datetime (UTC) of when the alert was last fired
-_sent_alerts: Dict[str, datetime] = {}
+_sent_alerts: Dict[str, datetime] = {}  # in-memory fallback only
 
 # How long (in hours) before the same (pipeline, alert_type) is re-alerted.
 DEDUP_TTL_HOURS: int = 4
 
+_DEDUP_PREFIX = "anomaly_dedup:"
+_redis_client: Any = None  # None = not tried; False = unavailable; else a client
+
+
+def _get_redis() -> Any:
+    global _redis_client
+    if _redis_client is None:
+        try:
+            import redis
+
+            from backend.config import settings
+
+            client = redis.Redis.from_url(settings.REDIS_URL, socket_connect_timeout=2)
+            client.ping()
+            _redis_client = client
+        except Exception as exc:  # noqa: BLE001 — degrade to in-memory, never crash
+            logger.warning("Anomaly dedup: Redis unavailable (%s); using in-memory fallback", exc)
+            _redis_client = False
+    return _redis_client or None
+
 
 def _is_duplicate(dedup_key: str) -> bool:
     """Return True if this alert was already sent within DEDUP_TTL_HOURS."""
+    r = _get_redis()
+    if r is not None:
+        try:
+            return bool(r.exists(_DEDUP_PREFIX + dedup_key))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Anomaly dedup Redis read failed (%s); using in-memory", exc)
     last_sent = _sent_alerts.get(dedup_key)
     if last_sent is None:
         return False
@@ -52,20 +81,21 @@ def _is_duplicate(dedup_key: str) -> bool:
 
 
 def _mark_sent(dedup_key: str) -> None:
-    """Record the current timestamp for this alert key."""
+    """Record that this alert fired, with a TTL so it self-expires."""
+    r = _get_redis()
+    if r is not None:
+        try:
+            r.set(_DEDUP_PREFIX + dedup_key, "1", ex=DEDUP_TTL_HOURS * 3600)
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Anomaly dedup Redis write failed (%s); using in-memory", exc)
     _sent_alerts[dedup_key] = datetime.now(timezone.utc)
 
 
 def _prune_dedup_store() -> None:
-    """
-    Remove stale entries from the in-memory dedup store.
-
-    Keeps the dict from growing unboundedly in long-running workers.
-    Entries older than 2× TTL are safe to evict.
-    """
+    """Prune the in-memory fallback (Redis entries auto-expire via TTL)."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=DEDUP_TTL_HOURS * 2)
-    stale_keys = [k for k, v in _sent_alerts.items() if v < cutoff]
-    for k in stale_keys:
+    for k in [k for k, v in _sent_alerts.items() if v < cutoff]:
         del _sent_alerts[k]
 
 

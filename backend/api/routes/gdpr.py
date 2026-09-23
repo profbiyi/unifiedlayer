@@ -6,6 +6,7 @@ endpoints to comply with GDPR, POPIA, and NDPR regulations.
 """
 import json
 import logging
+import secrets
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.auth import get_current_user, verify_password
+from backend.auth import get_current_user, verify_password, get_password_hash
 from backend.models.pipeline import (
     User,
     Organization,
@@ -210,7 +211,9 @@ async def delete_my_account(
     current_user.email = f"deleted_{current_user.id}@deleted.local"
     current_user.username = f"deleted_user_{current_user.id}"
     current_user.full_name = None
-    current_user.hashed_password = "DELETED"
+    # A valid bcrypt hash of a random secret → login is impossible AND
+    # verify_password() won't raise on a malformed hash (unlike the literal "DELETED").
+    current_user.hashed_password = get_password_hash(secrets.token_urlsafe(32))
     current_user.email_verification_token = None
     current_user.password_reset_token = None
     current_user.password_reset_expires = None
