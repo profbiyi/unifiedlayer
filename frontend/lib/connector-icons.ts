@@ -333,6 +333,8 @@ export interface DestinationMeta {
   textColor: string;
   fields: FieldDef[];
   popular?: boolean;
+  // Hidden from the pickers until fully working (parity with ConnectorMeta).
+  comingSoon?: boolean;
 }
 
 export const DESTINATION_CONNECTORS: DestinationMeta[] = [
