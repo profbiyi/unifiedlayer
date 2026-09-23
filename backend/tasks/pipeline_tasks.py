@@ -11,6 +11,7 @@ responsive under load and means a web restart no longer orphans a running sync
 PENDING/RUNNING beyond a cutoff (e.g. a worker was OOM-killed).
 """
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 from backend.celery_app import celery_app
@@ -20,6 +21,14 @@ logger = logging.getLogger(__name__)
 # A single run should never legitimately exceed the flow/load time limits
 # (flow timeout 1800s, load task time_limit 3900s). Give generous headroom.
 DEFAULT_STUCK_RUN_HOURS = 2
+
+# Task time limits are env-configurable so a large single-table load (or a
+# backfill chunk over a wide window) can be given more room without a code
+# change. Defaults are unchanged from before. Once chunked backfill lands, each
+# chunk is small and these defaults are plenty; this is the escape hatch for a
+# one-shot big load in the meantime.
+_TASK_SOFT_TIME_LIMIT = int(os.getenv("PIPELINE_TASK_SOFT_TIME_LIMIT", "3600"))
+_TASK_HARD_TIME_LIMIT = int(os.getenv("PIPELINE_TASK_TIME_LIMIT", "3900"))
 
 
 def _mark_run_failed(run_id: int, message: str) -> None:
@@ -46,8 +55,8 @@ def _mark_run_failed(run_id: int, message: str) -> None:
 @celery_app.task(
     bind=True,
     name="backend.tasks.pipeline_tasks.run_pipeline",
-    soft_time_limit=3600,
-    time_limit=3900,
+    soft_time_limit=_TASK_SOFT_TIME_LIMIT,
+    time_limit=_TASK_HARD_TIME_LIMIT,
 )
 def run_pipeline(self, pipeline_id: int, run_id: int):
     """Execute one pipeline run in a worker. Marks the run FAILED on error.
