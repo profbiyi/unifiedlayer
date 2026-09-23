@@ -1778,3 +1778,71 @@ async def get_super_admin_access_logs(
         "logs": result,
         "total": len(result),
     }
+
+
+def _inspect_workers():
+    """Best-effort Celery worker liveness + total concurrency (may be None)."""
+    try:
+        from backend.celery_app import celery_app
+
+        stats = celery_app.control.inspect(timeout=3).stats() or {}
+        return [
+            {"name": name, "concurrency": (s.get("pool") or {}).get("max-concurrency")}
+            for name, s in stats.items()
+        ]
+    except Exception:  # noqa: BLE001 — observability must never 500
+        return None
+
+
+@router.get("/system/sync-capacity")
+async def get_sync_capacity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """Live sync capacity — is the platform backed up right now?
+
+    Super-admin ops view: how many pipeline runs are executing vs queued, how
+    many worker slots exist, and last-hour throughput. DB counts are the source
+    of truth; worker inspection is best-effort.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from backend.models.pipeline import PipelineStatus
+
+    now = datetime.now(timezone.utc)
+    hour_ago = now - timedelta(hours=1)
+
+    def _count(*filters):
+        return db.query(PipelineRun).filter(*filters).count()
+
+    running = _count(PipelineRun.status == PipelineStatus.RUNNING)
+    pending = _count(PipelineRun.status == PipelineStatus.PENDING)
+    completed_last_hour = _count(
+        PipelineRun.status == PipelineStatus.COMPLETED,
+        PipelineRun.completed_at >= hour_ago,
+    )
+    failed_last_hour = _count(
+        PipelineRun.status == PipelineStatus.FAILED,
+        PipelineRun.completed_at >= hour_ago,
+    )
+
+    workers = _inspect_workers()
+    total_slots = (
+        sum(w["concurrency"] for w in workers if w.get("concurrency"))
+        if workers
+        else None
+    )
+
+    return {
+        "running": running,
+        "pending": pending,
+        "worker_count": len(workers) if workers is not None else None,
+        "total_concurrency": total_slots,
+        # Backlogged = queued work AND all known slots busy (or slots unknown).
+        "backlogged": pending > 0 and (total_slots is None or running >= total_slots),
+        "throughput_last_hour": {
+            "completed": completed_last_hour,
+            "failed": failed_last_hour,
+        },
+        "checked_at": now.isoformat().replace("+00:00", "Z"),
+    }
