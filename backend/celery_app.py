@@ -13,6 +13,7 @@ celery_app = Celery(
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=[
+        "backend.tasks.pipeline_tasks",
         "backend.tasks.dbt_tasks",
         "backend.tasks.health_checks",
         "backend.tasks.pipeline_scheduler",
@@ -44,6 +45,7 @@ celery_app.conf.update(
 
     # Task routes (optional, for task prioritization)
     task_routes={
+        "backend.tasks.pipeline_tasks.*": {"queue": "pipelines"},
         "backend.tasks.dbt_tasks.*": {"queue": "dbt"},
         "backend.tasks.health_checks.*": {"queue": "health"},
         "backend.tasks.pipeline_scheduler.*": {"queue": "default"},
@@ -60,6 +62,11 @@ celery_app.conf.update(
             "task": "backend.tasks.pipeline_scheduler.check_and_run_scheduled_pipelines",
             "schedule": 60.0,  # every 60 seconds
             "options": {"queue": "default"},
+        },
+        "reconcile-stuck-runs": {
+            "task": "backend.tasks.pipeline_tasks.reconcile_stuck_runs",
+            "schedule": 600.0,  # every 10 minutes
+            "options": {"queue": "pipelines"},
         },
     },
 )

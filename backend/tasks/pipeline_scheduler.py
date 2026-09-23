@@ -180,42 +180,42 @@ def _maybe_trigger_pipeline(db, pipeline: Pipeline, now: datetime) -> bool:
 
 def _submit_to_prefect(db, pipeline: Pipeline, run: PipelineRun, now: datetime) -> None:
     """
-    Submit the pipeline flow to Prefect and handle failures.
+    Enqueue the pipeline run to a Celery worker for execution.
 
-    Mirrors the logic in routes/pipelines.py::_submit_flow_to_prefect but
-    runs synchronously inside the Celery worker (Celery already provides
-    the async context via its own worker process).
+    The scheduler only creates the PipelineRun and hands it off to the
+    ``pipelines`` queue (run_pipeline); the sync itself runs in a worker, so a
+    long sync never blocks the scheduler beat. (Name kept for call-site symmetry.)
 
     Args:
-        db: Open SQLAlchemy session (used only to mark run FAILED on error).
+        db: Open SQLAlchemy session (used only to mark run FAILED on enqueue error).
         pipeline: Pipeline ORM instance.
         run: Newly created PipelineRun instance.
         now: Current UTC timestamp (unused here, kept for symmetry).
     """
-    from backend.prefect_flows.pipeline_flow import execute_pipeline_flow
+    from backend.tasks.pipeline_tasks import run_pipeline
 
     try:
-        execute_pipeline_flow(pipeline.id, run.id)
+        run_pipeline.delay(pipeline.id, run.id)
         logger.info(
-            "Pipeline scheduler: Prefect flow submitted for pipeline %d, run %d",
-            pipeline.id, run.id,
+            "Pipeline scheduler: enqueued run %d for pipeline %d",
+            run.id, pipeline.id,
         )
     except Exception as exc:
         error_msg = str(exc)
         logger.error(
-            "Pipeline scheduler: Prefect submission failed for pipeline %d, run %d: %s",
-            pipeline.id, run.id, error_msg,
+            "Pipeline scheduler: failed to enqueue run %d for pipeline %d: %s",
+            run.id, pipeline.id, error_msg,
             exc_info=True,
         )
         # Mark run FAILED so it doesn't stay as PENDING forever
         try:
             run.status = PipelineStatus.FAILED
-            run.error_message = f"Scheduler failed to submit to Prefect: {error_msg[:500]}"
+            run.error_message = f"Scheduler failed to enqueue run: {error_msg[:500]}"
             run.completed_at = datetime.now(timezone.utc)
             db.commit()
         except Exception as db_exc:
             logger.error(
-                "Pipeline scheduler: could not mark run %d as FAILED after submission error: %s",
+                "Pipeline scheduler: could not mark run %d as FAILED after enqueue error: %s",
                 run.id, db_exc,
             )
         # Re-raise so the caller can record this as an error in the summary

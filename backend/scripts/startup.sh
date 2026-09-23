@@ -96,6 +96,27 @@ python3 -m backend.scripts.create_super_admin --env || {
 }
 
 echo ""
-echo "Step 4: Starting uvicorn on port ${PORT:-8000}..."
+# ── Background worker ───────────────────────────────────────────────────────
+# Pipeline syncs run in a Celery worker, NOT in the web process, so a big sync
+# can't block/OOM the API and a web restart can't orphan a run. By default we
+# run the worker + beat inside this container (simple, single-service). For
+# horizontal scale, deploy a dedicated worker service with backend/scripts/
+# worker.sh and set RUN_WORKER_IN_WEB=false here so beat runs in exactly one place.
+if [ "${RUN_WORKER_IN_WEB:-true}" = "true" ]; then
+    echo "Step 4: Starting in-container Celery worker + beat (RUN_WORKER_IN_WEB=true)..."
+    python3 -m celery -A backend.celery_app worker \
+        --loglevel=info \
+        -Q pipelines,default,dbt,health \
+        --concurrency="${CELERY_CONCURRENCY:-2}" \
+        --without-gossip --without-mingle --without-heartbeat &
+    python3 -m celery -A backend.celery_app beat \
+        --loglevel=info \
+        --schedule=/tmp/celerybeat-schedule &
+else
+    echo "Step 4: RUN_WORKER_IN_WEB=false - syncs handled by a dedicated worker service."
+fi
+
+echo ""
+echo "Step 5: Starting uvicorn on port ${PORT:-8000}..."
 echo "=========================================="
 exec python3 -m uvicorn backend.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
