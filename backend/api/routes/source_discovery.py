@@ -602,6 +602,7 @@ async def _preview_postgres_table(
 ) -> TablePreviewResponse:
     """Preview PostgreSQL table data."""
     import psycopg2
+    from psycopg2 import sql
     from psycopg2.extras import RealDictCursor
 
     conn = psycopg2.connect(
@@ -614,12 +615,16 @@ async def _preview_postgres_table(
 
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
+    # Quote identifiers safely (schema/table come from the request) — never
+    # string-interpolate them into SQL.
+    tbl = sql.Identifier(schema, table)
+
     # Get total row count
-    cursor.execute(f"SELECT COUNT(*) FROM {schema}.{table};")
+    cursor.execute(sql.SQL("SELECT COUNT(*) FROM {}").format(tbl))
     total_rows = cursor.fetchone()["count"]
 
     # Get sample data
-    cursor.execute(f"SELECT * FROM {schema}.{table} LIMIT %s;", (limit,))
+    cursor.execute(sql.SQL("SELECT * FROM {} LIMIT %s").format(tbl), (limit,))
     rows = cursor.fetchall()
 
     columns = list(rows[0].keys()) if rows else []
@@ -636,6 +641,15 @@ async def _preview_postgres_table(
 
 
 # MySQL Implementation
+def _mysql_ident(name: str) -> str:
+    """Backtick-quote a MySQL identifier, escaping embedded backticks.
+
+    Used so a request-supplied (or DB-sourced) table name is never interpolated
+    raw into SQL.
+    """
+    return "`" + str(name).replace("`", "``") + "`"
+
+
 async def _test_mysql_connection(config: Dict[str, Any]) -> ConnectionTestResponse:
     """Test MySQL connection."""
     import pymysql
@@ -691,7 +705,7 @@ async def _discover_mysql_schema(config: Dict[str, Any]) -> SchemaDiscoveryRespo
     tables = []
     for table_name in table_names:
         # Get columns
-        cursor.execute(f"DESCRIBE {table_name};")
+        cursor.execute(f"DESCRIBE {_mysql_ident(table_name)}")
         columns = [
             {
                 "name": row[0],
@@ -702,7 +716,7 @@ async def _discover_mysql_schema(config: Dict[str, Any]) -> SchemaDiscoveryRespo
         ]
 
         # Get row count
-        cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
+        cursor.execute(f"SELECT COUNT(*) FROM {_mysql_ident(table_name)}")
         row_count = cursor.fetchone()[0]
 
         tables.append(TableInfo(
@@ -742,15 +756,15 @@ async def _preview_mysql_table(
     cursor = conn.cursor()
 
     # Get total row count
-    cursor.execute(f"SELECT COUNT(*) FROM {table};")
+    cursor.execute(f"SELECT COUNT(*) FROM {_mysql_ident(table)}")
     total_rows = cursor.fetchone()[0]
 
     # Get sample data
-    cursor.execute(f"SELECT * FROM {table} LIMIT %s;", (limit,))
+    cursor.execute(f"SELECT * FROM {_mysql_ident(table)} LIMIT %s", (limit,))
     rows = cursor.fetchall()
 
     # Get column names
-    cursor.execute(f"DESCRIBE {table};")
+    cursor.execute(f"DESCRIBE {_mysql_ident(table)}")
     columns = [row[0] for row in cursor.fetchall()]
 
     cursor.close()

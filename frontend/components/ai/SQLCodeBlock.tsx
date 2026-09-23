@@ -34,9 +34,17 @@ export function SQLCodeBlock({ sql, defaultExpanded = false }: SQLCodeBlockProps
 
     const keywordPattern = new RegExp(`\\b(${keywords.join("|")})\\b`, "gi");
 
+    // Escape HTML FIRST so SQL text (which can come from the LLM or user input and
+    // is stored in conversation history other users/admins may view) can never
+    // inject markup through dangerouslySetInnerHTML. The highlight spans below are
+    // added after escaping; their regexes match keywords/quotes/digits, none of
+    // which contain <, > or &, so escaping does not break highlighting.
+    const escapeHtml = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
     return sql.split("\n").map((line, i) => {
-      // Highlight keywords
-      const highlighted = line.replace(keywordPattern, '<span class="text-blue-500 font-medium">$1</span>');
+      // Highlight keywords (on the escaped line)
+      const highlighted = escapeHtml(line).replace(keywordPattern, '<span class="text-blue-500 font-medium">$1</span>');
       // Highlight strings
       const withStrings = highlighted.replace(/'[^']*'/g, '<span class="text-green-500">$&</span>');
       // Highlight numbers
