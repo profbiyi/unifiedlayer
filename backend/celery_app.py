@@ -14,6 +14,7 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "backend.tasks.pipeline_tasks",
+        "backend.tasks.backfill_tasks",
         "backend.tasks.dbt_tasks",
         "backend.tasks.health_checks",
         "backend.tasks.pipeline_scheduler",
@@ -46,6 +47,7 @@ celery_app.conf.update(
     # Task routes (optional, for task prioritization)
     task_routes={
         "backend.tasks.pipeline_tasks.*": {"queue": "pipelines"},
+        "backend.tasks.backfill_tasks.*": {"queue": "pipelines"},
         "backend.tasks.dbt_tasks.*": {"queue": "dbt"},
         "backend.tasks.health_checks.*": {"queue": "health"},
         "backend.tasks.pipeline_scheduler.*": {"queue": "default"},
