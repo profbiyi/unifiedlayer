@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,17 @@ _VALID_STRATEGIES = {"partial", "redact", "hash", "null"}
 
 
 def _looks_like_pii(col_lower: str) -> bool:
-    return any(hint in col_lower for hint in _PII_HINTS)
+    """Match on whole tokens, not naive substrings — so 'company' doesn't match
+    'pan' and 'running' doesn't match 'nin'. Single-word hints must equal a token
+    (split on non-alphanumerics); multi-word hints (with '_') match as a phrase."""
+    tokens = {t for t in re.split(r"[^a-z0-9]+", col_lower) if t}
+    for hint in _PII_HINTS:
+        if "_" in hint:
+            if hint in col_lower:
+                return True
+        elif hint in tokens:
+            return True
+    return False
 
 
 def _partial_mask(s: str) -> str:
