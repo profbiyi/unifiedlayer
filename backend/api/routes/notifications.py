@@ -58,7 +58,7 @@ async def list_notifications(
         Notification.user_id == current_user.id,
     )
     if unread_only:
-        query = query.filter(not Notification.is_read)
+        query = query.filter(Notification.is_read.is_(False))
 
     total = query.count()
     items = query.order_by(Notification.created_at.desc()).offset(skip).limit(limit).all()
@@ -79,7 +79,7 @@ async def unread_count(
     """Return the number of unread notifications for the current user."""
     count = db.query(Notification).filter(
         Notification.user_id == current_user.id,
-        not Notification.is_read,
+        Notification.is_read.is_(False),
     ).count()
     return UnreadCountResponse(unread=count)
 
@@ -113,7 +113,7 @@ async def mark_all_read(
     """Mark all notifications as read for the current user."""
     updated = db.query(Notification).filter(
         Notification.user_id == current_user.id,
-        not Notification.is_read,
+        Notification.is_read.is_(False),
     ).update({"is_read": True})
     db.commit()
     return {"marked": updated}
