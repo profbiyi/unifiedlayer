@@ -113,7 +113,7 @@ async def mark_all_read(
     """Mark all notifications as read for the current user."""
     updated = db.query(Notification).filter(
         Notification.user_id == current_user.id,
-        not Notification.is_read,
+        Notification.is_read.is_(False),
     ).update({"is_read": True})
     db.commit()
     return {"marked": updated}

@@ -193,3 +193,13 @@ class TestUnreadFilteringRealDB:
         resp = client.get("/notifications")
         assert resp.status_code == 200
         assert resp.json()["total"] == 3
+
+    def test_mark_all_read_actually_marks_unread(self, db, test_user):
+        self._seed(db, test_user)
+        app = _make_app(db, test_user)
+        client = TestClient(app)
+        resp = client.post("/notifications/mark-all-read")
+        assert resp.status_code == 200
+        assert resp.json()["marked"] == 2  # the 2 unread, not 0
+        # and now nothing is unread
+        assert client.get("/notifications/count").json()["unread"] == 0
