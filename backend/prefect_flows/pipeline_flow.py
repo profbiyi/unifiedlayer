@@ -1351,8 +1351,20 @@ def execute_pipeline_flow(pipeline_id: int, run_id: int) -> Dict[str, Any]:
                 current_step="Source data fetched successfully",
             )
 
-            # Step 1.5: Apply transformations if configured (Progress: 50-55%)
             pipeline_config = pipeline.config or {}
+
+            # Step 1.4: PII masking (before other transforms so raw PII never
+            # reaches the destination). Config: pipeline.config["pii_masking"].
+            _pii_cfg = pipeline_config.get("pii_masking") or {}
+            if _pii_cfg.get("enabled"):
+                from backend.services.pii_masking import apply_masking_to_source
+                source = apply_masking_to_source(source, _pii_cfg)
+                logger.info(
+                    "PII masking applied to source stream (strategy=%s)",
+                    _pii_cfg.get("strategy", "partial"),
+                )
+
+            # Step 1.5: Apply transformations if configured (Progress: 50-55%)
             if pipeline_config.get("transformations"):
                 update_run_progress(
                     run_id,
