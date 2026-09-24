@@ -100,27 +100,35 @@ def test_reconcile_stuck_runs_noop_when_none():
     db.commit.assert_not_called()
 
 
-def _fake_capacity_db(running_count, pipe_org=5):
+def _fake_fairness_db(org_running, others_waiting, pipe_org=5):
+    """count() is called for org_running first, then others_waiting."""
     db = MagicMock()
     q = db.query.return_value
     q.filter.return_value.first.return_value = MagicMock(organization_id=pipe_org)
-    q.join.return_value.filter.return_value.count.return_value = running_count
+    q.join.return_value.filter.return_value.count.side_effect = [org_running, others_waiting]
     return db
 
 
-def test_org_at_capacity_true_when_at_cap(monkeypatch):
+def test_fairness_allows_within_fair_share(monkeypatch):
     monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 3)
-    with patch("backend.database.get_db_session", return_value=_fake_capacity_db(3)):
-        assert pt._org_at_capacity(1, 99) is True
+    # org running 2 (< 3) -> allowed regardless of who else is waiting
+    with patch("backend.database.get_db_session", return_value=_fake_fairness_db(2, 9)):
+        assert pt._should_defer_for_fairness(1, 99) is False
 
 
-def test_org_at_capacity_false_when_under_cap(monkeypatch):
+def test_fairness_defers_when_over_share_and_others_waiting(monkeypatch):
     monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 3)
-    with patch("backend.database.get_db_session", return_value=_fake_capacity_db(2)):
-        assert pt._org_at_capacity(1, 99) is False
+    with patch("backend.database.get_db_session", return_value=_fake_fairness_db(5, 2)):
+        assert pt._should_defer_for_fairness(1, 99) is True
 
 
-def test_org_at_capacity_disabled_when_zero(monkeypatch):
+def test_fairness_allows_burst_when_no_one_waiting(monkeypatch):
+    monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 3)
+    # org bursting to 10 (over share) but NO other org waiting -> allowed
+    with patch("backend.database.get_db_session", return_value=_fake_fairness_db(10, 0)):
+        assert pt._should_defer_for_fairness(1, 99) is False
+
+
+def test_fairness_disabled_when_zero(monkeypatch):
     monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 0)
-    # Cap disabled -> never at capacity, no DB call needed.
-    assert pt._org_at_capacity(1, 99) is False
+    assert pt._should_defer_for_fairness(1, 99) is False

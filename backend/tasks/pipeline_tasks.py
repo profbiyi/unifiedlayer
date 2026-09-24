@@ -30,17 +30,23 @@ DEFAULT_STUCK_RUN_HOURS = 2
 _TASK_SOFT_TIME_LIMIT = int(os.getenv("PIPELINE_TASK_SOFT_TIME_LIMIT", "3600"))
 _TASK_HARD_TIME_LIMIT = int(os.getenv("PIPELINE_TASK_TIME_LIMIT", "3900"))
 
-# Per-org fairness: cap how many syncs ONE org may run concurrently, so a single
-# tenant can't grab every worker slot and starve the others. A run over the cap is
-# deferred (re-queued) — it still runs, just not at the expense of other orgs.
-# 0 disables the cap. Tune per total worker slots (e.g. cap 3 with 12 slots lets
-# 4 orgs run at full tilt at once, the rest cycle in fairly).
+# Work-conserving per-org fairness.
+#
+# MAX_ORG_CONCURRENT_SYNCS is a GUARANTEED share, not a hard cap: an org may
+# always run up to this many syncs. ABOVE that share, an org may keep bursting
+# into idle capacity — UNLESS another org has work waiting, in which case the
+# bursting org's extra run is deferred so the waiting tenant gets the slot.
+#
+# So: platform quiet → one company can run 10+ at once (uses the idle workers);
+# another company queues work → the burster is throttled back to its fair share
+# and the newcomer runs. No org is ever starved by another. 0 disables fairness.
 _MAX_ORG_CONCURRENCY = int(os.getenv("MAX_ORG_CONCURRENT_SYNCS", "3"))
 _ORG_DEFER_SECONDS = int(os.getenv("ORG_DEFER_SECONDS", "15"))
 
 
-def _org_at_capacity(pipeline_id: int, run_id: int) -> bool:
-    """True if this run's org already has _MAX_ORG_CONCURRENCY syncs RUNNING."""
+def _should_defer_for_fairness(pipeline_id: int, run_id: int) -> bool:
+    """Defer this run only if the org is OVER its fair share AND another org is
+    waiting. Within the fair share, or when no one else is waiting, allow it."""
     if _MAX_ORG_CONCURRENCY <= 0:
         return False
     from backend.database import get_db_session
@@ -51,19 +57,36 @@ def _org_at_capacity(pipeline_id: int, run_id: int) -> bool:
         pipe = db.query(Pipeline).filter(Pipeline.id == pipeline_id).first()
         if not pipe:
             return False
-        running = (
+        org_id = pipe.organization_id
+
+        org_running = (
             db.query(PipelineRun)
             .join(Pipeline, PipelineRun.pipeline_id == Pipeline.id)
             .filter(
-                Pipeline.organization_id == pipe.organization_id,
+                Pipeline.organization_id == org_id,
                 PipelineRun.status == PipelineStatus.RUNNING,
                 PipelineRun.id != run_id,
             )
             .count()
         )
-        return running >= _MAX_ORG_CONCURRENCY
+        # Within the guaranteed share → always allow.
+        if org_running < _MAX_ORG_CONCURRENCY:
+            return False
+
+        # Over the share → only yield if ANOTHER org has a run waiting to start.
+        others_waiting = (
+            db.query(PipelineRun)
+            .join(Pipeline, PipelineRun.pipeline_id == Pipeline.id)
+            .filter(
+                Pipeline.organization_id != org_id,
+                PipelineRun.status == PipelineStatus.PENDING,
+                PipelineRun.id != run_id,
+            )
+            .count()
+        )
+        return others_waiting > 0
     except Exception as exc:  # noqa: BLE001 — fairness check must never block a run
-        logger.warning("org-capacity check failed (%s); allowing run", exc)
+        logger.warning("fairness check failed (%s); allowing run", exc)
         return False
     finally:
         db.close()
@@ -105,13 +128,13 @@ def run_pipeline(self, pipeline_id: int, run_id: int):
     """
     from backend.prefect_flows.pipeline_flow import execute_pipeline_flow
 
-    # Per-org fairness: if this org is already at its concurrency cap, defer this
-    # run (re-queue) so other tenants' syncs get the slot. It runs when the org
-    # frees up — no org can monopolise the workers.
-    if _org_at_capacity(pipeline_id, run_id):
+    # Work-conserving per-org fairness: defer this run only if the org is over its
+    # fair share AND another tenant is waiting for a slot. An org can still burst
+    # into idle capacity; it just yields the moment someone else needs to run.
+    if _should_defer_for_fairness(pipeline_id, run_id):
         logger.info(
-            "run_pipeline: org for pipeline=%s at concurrency cap; deferring run=%s by %ss",
-            pipeline_id, run_id, _ORG_DEFER_SECONDS,
+            "run_pipeline: deferring run=%s (pipeline=%s) — org over fair share and another tenant waiting",
+            run_id, pipeline_id,
         )
         raise self.retry(countdown=_ORG_DEFER_SECONDS, max_retries=None)
 
