@@ -30,6 +30,44 @@ DEFAULT_STUCK_RUN_HOURS = 2
 _TASK_SOFT_TIME_LIMIT = int(os.getenv("PIPELINE_TASK_SOFT_TIME_LIMIT", "3600"))
 _TASK_HARD_TIME_LIMIT = int(os.getenv("PIPELINE_TASK_TIME_LIMIT", "3900"))
 
+# Per-org fairness: cap how many syncs ONE org may run concurrently, so a single
+# tenant can't grab every worker slot and starve the others. A run over the cap is
+# deferred (re-queued) — it still runs, just not at the expense of other orgs.
+# 0 disables the cap. Tune per total worker slots (e.g. cap 3 with 12 slots lets
+# 4 orgs run at full tilt at once, the rest cycle in fairly).
+_MAX_ORG_CONCURRENCY = int(os.getenv("MAX_ORG_CONCURRENT_SYNCS", "3"))
+_ORG_DEFER_SECONDS = int(os.getenv("ORG_DEFER_SECONDS", "15"))
+
+
+def _org_at_capacity(pipeline_id: int, run_id: int) -> bool:
+    """True if this run's org already has _MAX_ORG_CONCURRENCY syncs RUNNING."""
+    if _MAX_ORG_CONCURRENCY <= 0:
+        return False
+    from backend.database import get_db_session
+    from backend.models.pipeline import Pipeline, PipelineRun, PipelineStatus
+
+    db = get_db_session()
+    try:
+        pipe = db.query(Pipeline).filter(Pipeline.id == pipeline_id).first()
+        if not pipe:
+            return False
+        running = (
+            db.query(PipelineRun)
+            .join(Pipeline, PipelineRun.pipeline_id == Pipeline.id)
+            .filter(
+                Pipeline.organization_id == pipe.organization_id,
+                PipelineRun.status == PipelineStatus.RUNNING,
+                PipelineRun.id != run_id,
+            )
+            .count()
+        )
+        return running >= _MAX_ORG_CONCURRENCY
+    except Exception as exc:  # noqa: BLE001 — fairness check must never block a run
+        logger.warning("org-capacity check failed (%s); allowing run", exc)
+        return False
+    finally:
+        db.close()
+
 
 def _mark_run_failed(run_id: int, message: str) -> None:
     """Best-effort: mark a run FAILED if it is still PENDING/RUNNING."""
@@ -66,6 +104,16 @@ def run_pipeline(self, pipeline_id: int, run_id: int):
     (which Celery does at worker start) stays cheap.
     """
     from backend.prefect_flows.pipeline_flow import execute_pipeline_flow
+
+    # Per-org fairness: if this org is already at its concurrency cap, defer this
+    # run (re-queue) so other tenants' syncs get the slot. It runs when the org
+    # frees up — no org can monopolise the workers.
+    if _org_at_capacity(pipeline_id, run_id):
+        logger.info(
+            "run_pipeline: org for pipeline=%s at concurrency cap; deferring run=%s by %ss",
+            pipeline_id, run_id, _ORG_DEFER_SECONDS,
+        )
+        raise self.retry(countdown=_ORG_DEFER_SECONDS, max_retries=None)
 
     logger.info("run_pipeline: executing pipeline=%s run=%s", pipeline_id, run_id)
     try:

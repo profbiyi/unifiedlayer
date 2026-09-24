@@ -98,3 +98,29 @@ def test_reconcile_stuck_runs_noop_when_none():
 
     assert out["failed"] == 0
     db.commit.assert_not_called()
+
+
+def _fake_capacity_db(running_count, pipe_org=5):
+    db = MagicMock()
+    q = db.query.return_value
+    q.filter.return_value.first.return_value = MagicMock(organization_id=pipe_org)
+    q.join.return_value.filter.return_value.count.return_value = running_count
+    return db
+
+
+def test_org_at_capacity_true_when_at_cap(monkeypatch):
+    monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 3)
+    with patch("backend.database.get_db_session", return_value=_fake_capacity_db(3)):
+        assert pt._org_at_capacity(1, 99) is True
+
+
+def test_org_at_capacity_false_when_under_cap(monkeypatch):
+    monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 3)
+    with patch("backend.database.get_db_session", return_value=_fake_capacity_db(2)):
+        assert pt._org_at_capacity(1, 99) is False
+
+
+def test_org_at_capacity_disabled_when_zero(monkeypatch):
+    monkeypatch.setattr(pt, "_MAX_ORG_CONCURRENCY", 0)
+    # Cap disabled -> never at capacity, no DB call needed.
+    assert pt._org_at_capacity(1, 99) is False
