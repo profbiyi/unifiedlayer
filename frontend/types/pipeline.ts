@@ -11,6 +11,7 @@ export interface Pipeline {
   is_active: boolean;
   write_mode?: WriteMode;
   schema_contract?: SchemaContract;
+  config?: Record<string, any>;
   created_at: string;
   updated_at: string;
   source?: Source;
@@ -102,4 +103,5 @@ export interface UpdatePipelineRequest {
   is_active?: boolean;
   write_mode?: WriteMode;
   schema_contract?: SchemaContract;
+  config?: Record<string, any>;
 }
