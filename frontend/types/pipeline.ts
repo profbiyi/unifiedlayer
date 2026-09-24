@@ -102,4 +102,5 @@ export interface UpdatePipelineRequest {
   is_active?: boolean;
   write_mode?: WriteMode;
   schema_contract?: SchemaContract;
+  config?: Record<string, any>;
 }

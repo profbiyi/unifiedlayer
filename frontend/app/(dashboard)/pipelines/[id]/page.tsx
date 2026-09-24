@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { usePipeline, useTriggerPipeline, usePipelineRuns } from "@/hooks/queries/usePipelines";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PiiMaskingPanel } from "@/components/pipelines/PiiMaskingPanel";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -203,6 +204,9 @@ export default function PipelineDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Privacy / PII masking */}
+      <PiiMaskingPanel pipelineId={pipelineId} config={pipeline.config} />
 
       {/* Recent Runs */}
       <Card>
