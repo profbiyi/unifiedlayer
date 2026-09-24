@@ -48,6 +48,15 @@ import time
 
 logger = logging.getLogger(__name__)
 
+# Retry budget for the extract/load tasks. A doomed source (bad config /
+# unreachable host) otherwise retries 3× at 60s = ~3 min while HOLDING a worker
+# slot — which starves other tenants' syncs. Fail faster by default (2× at 20s ≈
+# 40s) and keep it env-tunable. Genuinely transient blips still get a retry.
+_FETCH_RETRIES = int(os.getenv("PIPELINE_FETCH_RETRIES", "2"))
+_FETCH_RETRY_DELAY = int(os.getenv("PIPELINE_FETCH_RETRY_DELAY", "20"))
+_LOAD_RETRIES = int(os.getenv("PIPELINE_LOAD_RETRIES", "2"))
+_LOAD_RETRY_DELAY = int(os.getenv("PIPELINE_LOAD_RETRY_DELAY", "20"))
+
 # Sensitive keys that should be redacted from logs
 SENSITIVE_KEYS = {"password", "secret", "api_key", "token", "credentials", "secret_key", "access_key", "private_key"}
 
@@ -138,7 +147,7 @@ def _selected_table_names(tables: Any) -> Optional[List[str]]:
     return names or None
 
 
-@task(retries=3, retry_delay_seconds=60)
+@task(retries=_FETCH_RETRIES, retry_delay_seconds=_FETCH_RETRY_DELAY)
 def fetch_source_data(source_config: Dict[str, Any], source_type: str):
     """
     Fetch data from source using appropriate connector.
@@ -507,7 +516,7 @@ def sanitize_pipeline_name(name: str) -> str:
     return sanitized.lower()
 
 
-@task(retries=2, retry_delay_seconds=30, timeout_seconds=3600)
+@task(retries=_LOAD_RETRIES, retry_delay_seconds=_LOAD_RETRY_DELAY, timeout_seconds=3600)
 def load_to_destination(
     source,
     destination_config: Dict[str, Any],
