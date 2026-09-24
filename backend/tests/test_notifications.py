@@ -135,3 +135,61 @@ class TestRequiresAuth:
         client = TestClient(app)
         resp = client.get("/notifications")
         assert resp.status_code in (401, 403, 422, 500)
+
+
+class TestUnreadFilteringRealDB:
+    """Regression tests against a real session.
+
+    The MagicMock-based tests above cannot catch a broken filter expression
+    because the mock swallows whatever is passed to ``.filter()``. These use
+    the real SQLite session so the actual SQL runs. Guards against the
+    ``filter(not Notification.is_read)`` bug, which compiled to ``WHERE false``
+    and made the unread count (bell badge) and the unread-only list always
+    return zero rows.
+    """
+
+    def _seed(self, db, user):
+        from backend.models.notification import Notification
+
+        for i in range(2):
+            db.add(Notification(
+                user_id=user.id,
+                organization_id=user.organization_id,
+                type="pipeline_success",
+                title=f"Unread {i}",
+                message="m",
+                is_read=False,
+            ))
+        db.add(Notification(
+            user_id=user.id,
+            organization_id=user.organization_id,
+            type="pipeline_success",
+            title="Read",
+            message="m",
+            is_read=True,
+        ))
+        db.flush()
+
+    def test_unread_count_returns_only_unread(self, db, test_user):
+        self._seed(db, test_user)
+        app = _make_app(db, test_user)
+        client = TestClient(app)
+        resp = client.get("/notifications/count")
+        assert resp.status_code == 200
+        assert resp.json()["unread"] == 2  # not 0
+
+    def test_unread_only_list_returns_only_unread(self, db, test_user):
+        self._seed(db, test_user)
+        app = _make_app(db, test_user)
+        client = TestClient(app)
+        resp = client.get("/notifications?unread_only=true")
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 2  # not 0
+
+    def test_list_without_filter_returns_all(self, db, test_user):
+        self._seed(db, test_user)
+        app = _make_app(db, test_user)
+        client = TestClient(app)
+        resp = client.get("/notifications")
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 3
