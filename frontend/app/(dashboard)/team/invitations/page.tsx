@@ -58,6 +58,7 @@ export default function InvitationsPage() {
 
   useEffect(() => {
     fetchInvitations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const handleCancelInvitation = async (invitationId: number, email: string) => {

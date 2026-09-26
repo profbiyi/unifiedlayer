@@ -211,6 +211,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchOrganizations();
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const generateSlug = (name: string) => {

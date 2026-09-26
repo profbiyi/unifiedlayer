@@ -265,6 +265,7 @@ export default function OrganizationDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               {organization.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- logo is an arbitrary external URL; next/image would need per-domain config
                 <img
                   src={organization.logo_url}
                   alt={organization.name}

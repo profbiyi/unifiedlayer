@@ -54,6 +54,7 @@ export default function SourcesPage() {
         console.error("Failed to parse auto-dashboard notification:", e);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- read the one-shot notification once on mount
   }, []);
 
   const handleDelete = async (id: string) => {
