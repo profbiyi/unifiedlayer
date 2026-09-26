@@ -694,10 +694,10 @@ async def refresh_transformation_column_lineage(
         )
 
     except Exception as e:
-        logger.error(f"Error refreshing transformation lineage: {e}")
+        logger.error(f"Error refreshing transformation lineage: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error refreshing lineage: {str(e)}",
+            detail="Error refreshing lineage. Please try again or contact support.",
         )
 
 

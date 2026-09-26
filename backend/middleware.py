@@ -7,13 +7,13 @@ request validation middleware, and request correlation IDs.
 import time
 import uuid
 import ipaddress
-from typing import Dict, Optional, Set, Union
-from collections import defaultdict
+from typing import Optional, Set, Union
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 
 from backend.config import settings
+from backend.utils import rate_limit_store
 
 logger = logging.getLogger(__name__)
 
@@ -167,42 +167,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_minute = requests_per_minute
         self.window_size = 60  # 1 minute in seconds
 
-        # Storage: {ip_address: [(timestamp, count)]}
-        self.request_counts: Dict[str, list] = defaultdict(list)
-
-    def _clean_old_requests(self, ip_address: str, current_time: float) -> None:
-        """
-        Remove requests outside the current time window.
-
-        Args:
-            ip_address: Client IP address
-            current_time: Current timestamp
-        """
-        if ip_address in self.request_counts:
-            self.request_counts[ip_address] = [
-                (timestamp, count)
-                for timestamp, count in self.request_counts[ip_address]
-                if current_time - timestamp < self.window_size
-            ]
-
-    def _get_request_count(self, ip_address: str, current_time: float) -> int:
-        """
-        Get number of requests in current window.
-
-        Args:
-            ip_address: Client IP address
-            current_time: Current timestamp
-
-        Returns:
-            Number of requests in current window
-        """
-        self._clean_old_requests(ip_address, current_time)
-
-        if ip_address not in self.request_counts:
-            return 0
-
-        return sum(count for _, count in self.request_counts[ip_address])
-
     async def dispatch(self, request: Request, call_next):
         """
         Process request with rate limiting.
@@ -229,10 +193,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
         current_time = time.time()
 
-        # Check rate limit
-        request_count = self._get_request_count(client_ip, current_time)
+        # Shared (Redis-backed) counter so the limit holds across all replicas.
+        request_count = rate_limit_store.hit(
+            f"global:{client_ip}", self.window_size, current_time
+        )
 
-        if request_count >= self.requests_per_minute:
+        if request_count > self.requests_per_minute:
             logger.warning(f"Rate limit exceeded for IP: {client_ip}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -240,18 +206,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": str(self.window_size)},
             )
 
-        # Record this request
-        self.request_counts[client_ip].append((current_time, 1))
-
         # Process request
         response = await call_next(request)
 
         # Add rate limit headers
+        window_reset = (int(current_time // self.window_size) + 1) * self.window_size
         response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
         response.headers["X-RateLimit-Remaining"] = str(
-            max(0, self.requests_per_minute - request_count - 1)
+            max(0, self.requests_per_minute - request_count)
         )
-        response.headers["X-RateLimit-Reset"] = str(int(current_time + self.window_size))
+        response.headers["X-RateLimit-Reset"] = str(int(window_reset))
 
         return response
 
@@ -359,8 +323,6 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
         """Initialize auth rate limiter."""
         super().__init__(app)
         self.window_size = 60  # 1 minute in seconds
-        # Storage: {endpoint: {ip_address: [(timestamp, count)]}}
-        self.request_counts: Dict[str, Dict[str, list]] = defaultdict(lambda: defaultdict(list))
 
     def _get_endpoint_key(self, path: str) -> Optional[str]:
         """Check if path matches any auth endpoint."""
@@ -368,24 +330,6 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
             if path.startswith(endpoint):
                 return endpoint
         return None
-
-    def _clean_old_requests(self, endpoint: str, ip_address: str, current_time: float) -> None:
-        """Remove requests outside the current time window."""
-        if ip_address in self.request_counts[endpoint]:
-            self.request_counts[endpoint][ip_address] = [
-                (timestamp, count)
-                for timestamp, count in self.request_counts[endpoint][ip_address]
-                if current_time - timestamp < self.window_size
-            ]
-
-    def _get_request_count(self, endpoint: str, ip_address: str, current_time: float) -> int:
-        """Get number of requests in current window for specific endpoint."""
-        self._clean_old_requests(endpoint, ip_address, current_time)
-
-        if ip_address not in self.request_counts[endpoint]:
-            return 0
-
-        return sum(count for _, count in self.request_counts[endpoint][ip_address])
 
     async def dispatch(self, request: Request, call_next):
         """Process request with auth-specific rate limiting."""
@@ -403,10 +347,13 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
         current_time = time.time()
         limit = self.AUTH_ENDPOINTS[endpoint_key]
 
-        # Check rate limit
-        request_count = self._get_request_count(endpoint_key, client_ip, current_time)
+        # Shared (Redis-backed) counter, keyed per endpoint + IP, so brute-force
+        # limits hold across all replicas rather than per-process.
+        request_count = rate_limit_store.hit(
+            f"auth:{endpoint_key}:{client_ip}", self.window_size, current_time
+        )
 
-        if request_count >= limit:
+        if request_count > limit:
             logger.warning(
                 f"Auth rate limit exceeded for IP: {client_ip} on endpoint: {endpoint_key}"
             )
@@ -416,16 +363,14 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": str(self.window_size)},
             )
 
-        # Record this request
-        self.request_counts[endpoint_key][client_ip].append((current_time, 1))
-
         # Process request
         response = await call_next(request)
 
         # Add rate limit headers for auth endpoints
+        window_reset = (int(current_time // self.window_size) + 1) * self.window_size
         response.headers["X-Auth-RateLimit-Limit"] = str(limit)
-        response.headers["X-Auth-RateLimit-Remaining"] = str(max(0, limit - request_count - 1))
-        response.headers["X-Auth-RateLimit-Reset"] = str(int(current_time + self.window_size))
+        response.headers["X-Auth-RateLimit-Remaining"] = str(max(0, limit - request_count))
+        response.headers["X-Auth-RateLimit-Reset"] = str(int(window_reset))
 
         return response
 
