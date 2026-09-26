@@ -26,16 +26,16 @@ def _is_prod() -> bool:
     return settings.ENVIRONMENT == "production"
 
 
-def _domain():
-    # Share across localhost ports in dev; host-only in production.
-    return "localhost" if not _is_prod() else None
+# Cookies are host-only (no Domain attribute). With the same-origin Next.js proxy
+# the app and API share a host, so a host-only cookie is attached correctly in dev,
+# test, and production — and it avoids the domain-mismatch pitfalls of pinning a
+# Domain (e.g. "localhost") that a different request host would reject.
 
 
 def set_access_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=ACCESS_COOKIE,
         value=token,
-        domain=_domain(),
         httponly=True,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
@@ -48,7 +48,6 @@ def set_refresh_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=REFRESH_COOKIE,
         value=token,
-        domain=_domain(),
         httponly=True,
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         samesite="lax",
@@ -69,6 +68,5 @@ def clear_auth_cookies(response: Response) -> None:
         response.delete_cookie(
             key=key,
             path="/",
-            domain=_domain(),
             samesite="lax",
         )
