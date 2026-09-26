@@ -17,12 +17,14 @@ from backend.schemas import UserCreate, UserResponse
 from backend.auth import (
     authenticate_user,
     create_access_token,
+    create_refresh_token,
     get_password_hash,
     get_current_user,
     require_super_admin,
 )
 from backend.models.pipeline import User
 from backend.config import settings
+from backend.utils.auth_cookies import set_auth_cookies, clear_auth_cookies
 from backend.utils.email import send_verification_email
 import redis
 import json
@@ -201,17 +203,12 @@ async def login(
         data={"sub": str(user.id), "email": user.email},  # sub must be string
         expires_delta=access_token_expires,
     )
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
-    # Set HTTPOnly cookie for security (prevents XSS attacks)
-    response.set_cookie(
-        key="token",
-        value=access_token,
-        domain="localhost" if settings.ENVIRONMENT != "production" else None,  # Share across ports in dev
-        httponly=True,  # Prevents JavaScript access
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # seconds
-        samesite="lax",  # CSRF protection
-        secure=settings.ENVIRONMENT == "production",  # HTTPS only in production
-    )
+    # Set both tokens as HTTPOnly cookies (JS cannot read them → XSS can't steal
+    # the session). The frontend relies on these; the access token in the body is
+    # kept for API/test clients and is never persisted by the browser app.
+    set_auth_cookies(response, access_token, refresh_token)
 
     return {"access_token": access_token, "token_type": "bearer", "user": UserResponse.from_orm_with_roles(user)}
 
@@ -342,15 +339,73 @@ async def logout(
         except Exception as e:
             logger.warning(f"Could not blacklist token on logout: {e}")
 
-    # Clear the authentication cookie
-    response.delete_cookie(
-        key="token",
-        path="/",
-        domain="localhost" if settings.ENVIRONMENT != "production" else None,
-        samesite="lax"
-    )
+    # Clear both authentication cookies
+    clear_auth_cookies(response)
 
     return {"message": "Successfully logged out"}
+
+
+@router.post("/refresh")
+async def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
+    """
+    Exchange a valid refresh token (httpOnly cookie) for a fresh access token.
+
+    Rotates the refresh token on every use. Reads the refresh token from the
+    ``refresh_token`` cookie, falling back to a JSON body ``{"refresh_token": ...}``
+    for non-browser clients.
+    """
+    from jose import jwt, JWTError
+
+    rt = request.cookies.get("refresh_token")
+    if not rt:
+        try:
+            body = await request.json()
+            rt = body.get("refresh_token") if isinstance(body, dict) else None
+        except Exception:
+            rt = None
+
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+    )
+    if not rt:
+        raise invalid
+
+    try:
+        payload = jwt.decode(rt, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        raise invalid
+
+    # Must be a refresh token, and not revoked.
+    if payload.get("type") != "refresh":
+        raise invalid
+
+    from backend.utils.token_blacklist import is_token_blacklisted
+    if is_token_blacklisted(rt, payload.get("jti")):
+        raise invalid
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise invalid
+
+    try:
+        user_id = int(user_id_str)
+    except (TypeError, ValueError):
+        raise invalid
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.is_active:
+        raise invalid
+
+    # Issue a fresh access token and rotate the refresh token.
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    new_refresh = create_refresh_token(data={"sub": str(user.id)})
+    set_auth_cookies(response, access_token, new_refresh)
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/forgot-password")
