@@ -48,6 +48,7 @@ function AcceptInvitationContent() {
     }
 
     fetchInvitationDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-fetch only when the token changes
   }, [token]);
 
   const fetchInvitationDetails = async () => {

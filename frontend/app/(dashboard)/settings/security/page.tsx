@@ -164,6 +164,7 @@ export default function SecuritySettingsPage() {
           <div className="space-y-4">
             {qrCode && (
               <div className="flex justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- QR code is a data URI, not optimizable by next/image */}
                 <img
                   src={qrCode}
                   alt="2FA QR Code"

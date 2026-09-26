@@ -258,6 +258,7 @@ export default function LineageView() {
 
   useEffect(() => {
     fetchLineage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const fetchLineage = async () => {

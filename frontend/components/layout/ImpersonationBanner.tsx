@@ -80,6 +80,7 @@ export default function ImpersonationBanner({ session, onEnd }: ImpersonationBan
 
           <div className="flex items-center gap-2 bg-amber-400/50 rounded-full px-3 py-1">
             {session.target_org_logo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- logo is an arbitrary external URL; next/image would need per-domain config
               <img
                 src={session.target_org_logo}
                 alt={session.target_org_name}

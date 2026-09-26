@@ -57,6 +57,7 @@ export default function SchemaDiscoveryStep({
       // Group tables by schema
       groupTablesBySchema(data.discoveredTables);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- discover/group only when the connection-tested flag flips
   }, [data.connectionTested]);
 
   const discoverSchema = async () => {
@@ -216,6 +217,7 @@ export default function SchemaDiscoveryStep({
         tables: group.tables.filter(matchesSearch),
       }))
       .filter((group) => group.tables.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- matchesSearch only reads searchTerm, already a dependency
   }, [schemaGroups, searchTerm]);
 
   const selectedCount = data.selectedTables.size;

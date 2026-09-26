@@ -86,6 +86,7 @@ export default function PipelineDbtConfig({
     } else if (!enabled) {
       onChange(undefined);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onChange is a parent callback; syncing on config changes only, not on its identity
   }, [enabled, projectId, models, fullRefresh, runOnSuccess, failPipelineOnError]);
 
   const handleAddModel = () => {

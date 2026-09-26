@@ -87,6 +87,7 @@ export default function TeamPage() {
 
   useEffect(() => {
     fetchTeamMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const handleInvite = async () => {

@@ -67,6 +67,7 @@ export function AutoDashboardNotification({
         clearTimeout(dismissTimer);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleDismiss is stable; re-run only when the notification changes
   }, [notification, autoDismissMs]);
 
   const handleDismiss = () => {
