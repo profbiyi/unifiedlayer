@@ -250,7 +250,7 @@ async def discover_schema(
         logger.error(f"Schema discovery failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Schema discovery failed: {str(e)}",
+            detail="Schema discovery failed. Please verify the source configuration and try again.",
         )
 
 
@@ -301,7 +301,7 @@ async def preview_table(
         logger.error(f"Table preview failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Table preview failed: {str(e)}",
+            detail="Table preview failed. Please verify the source configuration and try again.",
         )
 
 

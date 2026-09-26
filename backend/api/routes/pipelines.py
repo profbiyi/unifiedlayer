@@ -799,7 +799,7 @@ async def set_pipeline_schedule(
         logger.error(f"Failed to set schedule: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to set schedule: {str(e)}"
+            detail="Failed to set schedule. Please try again or contact support."
         )
 
 
@@ -966,9 +966,10 @@ async def enable_pipeline_schedule(
         )
         pipeline.next_scheduled_run = next_run
     except Exception as e:
+        logger.error(f"Failed to calculate next run: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to calculate next run: {str(e)}"
+            detail="Failed to calculate next run. Please check the schedule and try again."
         )
 
     db.commit()

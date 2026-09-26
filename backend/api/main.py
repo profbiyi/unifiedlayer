@@ -178,9 +178,11 @@ Authorization: Bearer <your_token>
 - **Python:** `pip install unifiedlayer-sdk` (coming soon)
 - **JavaScript:** `npm install @unifiedlayer/sdk` (coming soon)
 """,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    # Interactive API docs expose the full endpoint surface, so disable them in
+    # production (set to None). They stay on in dev/staging for convenience.
+    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
+    openapi_url=None if settings.ENVIRONMENT == "production" else "/openapi.json",
     default_response_class=CustomJSONResponse,
     openapi_tags=[
         {"name": "Authentication", "description": "Login, register, JWT tokens"},

@@ -152,10 +152,10 @@ async def analyze_sources(
         )
 
     except Exception as e:
-        logger.error(f"Cross-source analysis failed: {e}")
+        logger.error(f"Cross-source analysis failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Analysis failed: {str(e)}",
+            detail="Analysis failed. Please try again or contact support.",
         )
 
 
@@ -222,10 +222,10 @@ async def generate_unified_models(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Unified model generation failed: {e}")
+        logger.error(f"Unified model generation failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Model generation failed: {str(e)}",
+            detail="Model generation failed. Please try again or contact support.",
         )
 
 

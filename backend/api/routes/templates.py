@@ -127,5 +127,5 @@ def deploy_template(
         logger.error(f"Failed to deploy template '{template_id}': {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deploy template: {str(e)}",
+            detail="Failed to deploy template. Please try again or contact support.",
         )
