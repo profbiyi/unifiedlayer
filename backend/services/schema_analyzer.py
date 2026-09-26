@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 
+from backend.utils.sql_identifiers import quote_ident
+
 logger = logging.getLogger(__name__)
 
 
@@ -283,8 +285,8 @@ class SchemaAnalyzer:
         """Get approximate row count for a table."""
         try:
             with self.engine.connect() as conn:
-                # Use quoted identifiers
-                query = text(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}"')
+                # Use quoted identifiers (escapes embedded quotes / reserved words)
+                query = text(f"SELECT COUNT(*) FROM {quote_ident(schema_name)}.{quote_ident(table_name)}")
                 result = conn.execute(query)
                 return result.scalar() or 0
         except Exception as e:
@@ -300,7 +302,11 @@ class SchemaAnalyzer:
         """Get sample rows from a table."""
         try:
             with self.engine.connect() as conn:
-                query = text(f'SELECT * FROM "{schema_name}"."{table_name}" LIMIT {limit}')
+                # Identifiers quoted; LIMIT is coerced to int so it can never carry SQL.
+                query = text(
+                    f"SELECT * FROM {quote_ident(schema_name)}.{quote_ident(table_name)} "
+                    f"LIMIT {int(limit)}"
+                )
                 result = conn.execute(query)
                 rows = result.fetchall()
                 columns = result.keys()
