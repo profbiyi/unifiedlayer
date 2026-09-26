@@ -16,6 +16,7 @@ from backend.models.quality import (
     QualityCheckType,
     QualityCheckStatus,
 )
+from backend.utils.sql_identifiers import quote_ident, quote_qualified
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,11 @@ class QualityValidator:
         self.db = db
         self.table_name = table_name
 
+    @property
+    def _table(self) -> str:
+        """The table name safely quoted for interpolation into SQL."""
+        return quote_qualified(self.table_name)
+
     def validate(self, check: QualityCheck) -> QualityCheckResult:
         """
         Execute the quality check.
@@ -87,7 +93,7 @@ class RowCountValidator(QualityValidator):
 
         try:
             # Count rows
-            query = text(f"SELECT COUNT(*) FROM {self.table_name}")
+            query = text(f"SELECT COUNT(*) FROM {self._table}")
             result = self.db.execute(query)
             actual_count = result.scalar()
 
@@ -174,7 +180,7 @@ class NullCheckValidator(QualityValidator):
 
         try:
             # Get total row count
-            count_query = text(f"SELECT COUNT(*) FROM {self.table_name}")
+            count_query = text(f"SELECT COUNT(*) FROM {self._table}")
             total_rows = self.db.execute(count_query).scalar()
 
             if total_rows == 0:
@@ -191,7 +197,7 @@ class NullCheckValidator(QualityValidator):
 
             for column in columns:
                 null_query = text(
-                    f"SELECT COUNT(*) FROM {self.table_name} WHERE {column} IS NULL"
+                    f"SELECT COUNT(*) FROM {self._table} WHERE {quote_ident(column)} IS NULL"
                 )
                 null_count = self.db.execute(null_query).scalar()
                 null_pct = (null_count / total_rows) * 100
@@ -252,12 +258,12 @@ class UniquenessValidator(QualityValidator):
 
         try:
             # Count total rows
-            total_query = text(f"SELECT COUNT(*) FROM {self.table_name}")
+            total_query = text(f"SELECT COUNT(*) FROM {self._table}")
             total_rows = self.db.execute(total_query).scalar()
 
             # Count distinct values
             distinct_query = text(
-                f"SELECT COUNT(DISTINCT {column}) FROM {self.table_name}"
+                f"SELECT COUNT(DISTINCT {quote_ident(column)}) FROM {self._table}"
             )
             distinct_count = self.db.execute(distinct_query).scalar()
 
@@ -320,15 +326,20 @@ class ValueRangeValidator(QualityValidator):
 
         try:
             # Count total rows
-            total_query = text(f"SELECT COUNT(*) FROM {self.table_name}")
+            total_query = text(f"SELECT COUNT(*) FROM {self._table}")
             total_rows = self.db.execute(total_query).scalar()
 
-            # Build WHERE clause
+            # Build WHERE clause. Column is a quoted identifier; the bounds are
+            # bound parameters, never interpolated into the SQL text.
+            qcol = quote_ident(column)
             conditions = []
+            params: Dict[str, Any] = {}
             if min_value is not None:
-                conditions.append(f"{column} < {min_value}")
+                conditions.append(f"{qcol} < :min_value")
+                params["min_value"] = min_value
             if max_value is not None:
-                conditions.append(f"{column} > {max_value}")
+                conditions.append(f"{qcol} > :max_value")
+                params["max_value"] = max_value
 
             if not conditions:
                 return QualityCheckResult(
@@ -339,9 +350,9 @@ class ValueRangeValidator(QualityValidator):
 
             where_clause = " OR ".join(conditions)
             out_of_range_query = text(
-                f"SELECT COUNT(*) FROM {self.table_name} WHERE {where_clause}"
+                f"SELECT COUNT(*) FROM {self._table} WHERE {where_clause}"
             )
-            out_of_range_count = self.db.execute(out_of_range_query).scalar()
+            out_of_range_count = self.db.execute(out_of_range_query, params).scalar()
 
             passed = out_of_range_count == 0
 
@@ -411,12 +422,12 @@ class PatternMatchValidator(QualityValidator):
             # For production, you might want to fetch all values and check in Python
             # or use PostgreSQL's regex operators
 
-            total_query = text(f"SELECT COUNT(*) FROM {self.table_name}")
+            total_query = text(f"SELECT COUNT(*) FROM {self._table}")
             total_rows = self.db.execute(total_query).scalar()
 
             # Using PostgreSQL ~ operator for regex
             matching_query = text(
-                f"SELECT COUNT(*) FROM {self.table_name} WHERE {column}::text ~ :pattern"
+                f"SELECT COUNT(*) FROM {self._table} WHERE {quote_ident(column)}::text ~ :pattern"
             )
             matching_rows = self.db.execute(matching_query, {"pattern": pattern}).scalar()
 
@@ -474,7 +485,7 @@ class FreshnessValidator(QualityValidator):
         try:
             # Get most recent timestamp
             max_ts_query = text(
-                f"SELECT MAX({timestamp_column}) FROM {self.table_name}"
+                f"SELECT MAX({quote_ident(timestamp_column)}) FROM {self._table}"
             )
             max_timestamp = self.db.execute(max_ts_query).scalar()
 

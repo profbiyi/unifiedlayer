@@ -732,7 +732,8 @@ async def delete_model(
                 )
 
                 with analyzer.engine.connect() as conn:
-                    conn.execute(text(f"DROP VIEW IF EXISTS {model.name}"))
+                    from backend.utils.sql_identifiers import quote_qualified
+                    conn.execute(text(f"DROP VIEW IF EXISTS {quote_qualified(model.name)}"))
                     conn.commit()
 
                 analyzer.close()

@@ -30,28 +30,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/pipelines", tags=["Pipelines"])
 
 
-def check_subscription_active(org_id: int, db: Session) -> bool:
-    """
-    Check if an organization has an active subscription.
-
-    Args:
-        org_id: Organization ID
-        db: Database session
-
-    Returns:
-        True if subscription status is ACTIVE or TRIALING, False otherwise
-    """
-    subscription = db.query(Subscription).filter(
-        Subscription.organization_id == org_id
-    ).first()
-
-    if not subscription:
-        # No subscription record found - treat as inactive
-        return False
-
-    return subscription.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING)
-
-
 @router.get("", response_model=List[PipelineResponse])
 @require_permission("pipeline", "read")
 async def list_pipelines(
@@ -519,7 +497,6 @@ async def trigger_pipeline_run(
         )
 
     # Check subscription status - block execution if subscription is inactive
-    from backend.models.billing import Subscription, SubscriptionStatus
     subscription = db.query(Subscription).filter(
         Subscription.organization_id == current_user.organization_id
     ).first()
