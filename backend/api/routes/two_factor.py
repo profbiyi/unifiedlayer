@@ -13,7 +13,7 @@ from typing import Optional
 import pyotp
 import qrcode
 import redis
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -21,12 +21,14 @@ from backend.database import get_db
 from backend.auth import (
     get_current_user,
     create_access_token,
+    create_refresh_token,
     decode_access_token,
     verify_password,
     AuthError,
 )
 from backend.models.pipeline import User
 from backend.config import settings
+from backend.utils.auth_cookies import set_auth_cookies
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +291,7 @@ async def disable_2fa(
 @router.post("/verify")
 async def verify_2fa_login(
     payload: Verify2FALoginRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     """
@@ -345,12 +348,14 @@ async def verify_2fa_login(
     # Clear rate limit counter on successful verification
     clear_rate_limit(user_id, action="verify")
 
-    # Issue full access token
+    # Issue full access token + refresh token, delivered as httpOnly cookies.
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id), "email": user.email},
         expires_delta=access_token_expires,
     )
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    set_auth_cookies(response, access_token, refresh_token)
 
     return {
         "access_token": access_token,

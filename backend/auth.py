@@ -101,6 +101,37 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     return encoded_jwt
 
 
+def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create a long-lived JWT refresh token.
+
+    Carries ``type: "refresh"`` so it is only accepted by the /auth/refresh
+    endpoint and rejected by ``get_current_user`` (which serves API access).
+
+    Args:
+        data: Data to encode in token (typically {"sub": <user id>})
+        expires_delta: Optional override for the refresh lifetime
+
+    Returns:
+        Encoded JWT refresh token
+    """
+    to_encode = data.copy()
+
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    to_encode.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "jti": str(uuid.uuid4()),
+        "type": "refresh",
+    })
+
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def decode_access_token(token: str) -> Dict[str, Any]:
     """
     Decode and validate a JWT token.
@@ -199,6 +230,12 @@ async def get_current_user(
 
     try:
         payload = decode_access_token(token)
+
+        # Refresh tokens must never authenticate an API request — they are only
+        # valid at /auth/refresh.
+        if payload.get("type") == "refresh":
+            raise credentials_exception
+
         user_id_str: str = payload.get("sub")
 
         if user_id_str is None:

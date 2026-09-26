@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     )
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Long-lived refresh token (httpOnly cookie) so sessions survive access-token
+    # expiry without re-login. Rotated on every /auth/refresh.
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Database
     DATABASE_URL: str = Field(
