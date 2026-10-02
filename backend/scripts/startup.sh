@@ -117,6 +117,12 @@ else
 fi
 
 echo ""
-echo "Step 5: Starting uvicorn on port ${PORT:-8000}..."
+# Run multiple uvicorn worker processes = multiple event loops, so one request's
+# synchronous DB query no longer serializes every other request on a single loop.
+# Safe across workers because rate limiting is Redis-backed (not per-process) and
+# Celery/beat run as their own processes above (not forked by uvicorn). Scale via
+# WEB_CONCURRENCY; keep it modest since each worker loads the full app in memory.
+WEB_CONCURRENCY="${WEB_CONCURRENCY:-2}"
+echo "Step 5: Starting uvicorn on port ${PORT:-8000} with ${WEB_CONCURRENCY} worker(s)..."
 echo "=========================================="
-exec python3 -m uvicorn backend.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
+exec python3 -m uvicorn backend.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers "${WEB_CONCURRENCY}"
