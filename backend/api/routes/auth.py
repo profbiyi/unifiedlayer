@@ -23,6 +23,7 @@ from backend.auth import (
 )
 from backend.models.pipeline import User
 from backend.config import settings
+from backend.utils.datetimes import ensure_aware
 from backend.utils.email import send_verification_email
 import redis
 import json
@@ -449,8 +450,10 @@ async def reset_password(
             detail="Invalid or expired reset token"
         )
 
-    # Check if token is expired
-    if not user.password_reset_expires or user.password_reset_expires < datetime.now(timezone.utc):
+    # Check if token is expired. password_reset_expires is a naive DateTime column
+    # (naive when read back from Postgres), so normalize before comparing to an
+    # aware now() — otherwise naive-vs-aware raises TypeError.
+    if not user.password_reset_expires or ensure_aware(user.password_reset_expires) < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reset token has expired"
