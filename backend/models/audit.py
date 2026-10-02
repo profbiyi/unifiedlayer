@@ -148,7 +148,8 @@ class ImpersonationSession(Base):
     @property
     def is_expired(self):
         """Check if session has expired"""
-        return datetime.now(timezone.utc) > self.expires_at
+        from backend.utils.datetimes import ensure_aware
+        return datetime.now(timezone.utc) > ensure_aware(self.expires_at)
 
     @property
     def is_valid(self):

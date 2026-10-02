@@ -152,7 +152,9 @@ class UserInvitation(Base):
     @property
     def is_expired(self):
         """Check if invitation has expired"""
-        return datetime.utcnow() > self.expires_at
+        from backend.utils.datetimes import ensure_aware
+        from datetime import timezone
+        return datetime.now(timezone.utc) > ensure_aware(self.expires_at)
 
     @property
     def is_valid(self):

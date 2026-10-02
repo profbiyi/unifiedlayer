@@ -49,7 +49,8 @@ class APIKey(Base):
         """Check if the key has expired."""
         if self.expires_at is None:
             return False
-        return datetime.now(timezone.utc) > self.expires_at.replace(tzinfo=timezone.utc) if self.expires_at.tzinfo is None else datetime.now(timezone.utc) > self.expires_at
+        from backend.utils.datetimes import ensure_aware
+        return datetime.now(timezone.utc) > ensure_aware(self.expires_at)
 
     @property
     def is_valid(self):
