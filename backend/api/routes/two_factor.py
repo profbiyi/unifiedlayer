@@ -135,7 +135,7 @@ class Verify2FALoginRequest(BaseModel):
 
 
 @router.post("/setup")
-async def setup_2fa(
+def setup_2fa(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -183,7 +183,7 @@ async def setup_2fa(
 
 
 @router.post("/verify-setup")
-async def verify_setup(
+def verify_setup(
     payload: VerifyCodeRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -227,7 +227,7 @@ async def verify_setup(
 
 
 @router.post("/disable")
-async def disable_2fa(
+def disable_2fa(
     payload: DisableRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -287,7 +287,7 @@ async def disable_2fa(
 
 
 @router.post("/verify")
-async def verify_2fa_login(
+def verify_2fa_login(
     payload: Verify2FALoginRequest,
     db: Session = Depends(get_db),
 ):

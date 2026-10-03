@@ -117,7 +117,7 @@ class CategoryInfo(BaseModel):
 # ============================================================
 
 @router.get("/categories")
-async def list_categories(
+def list_categories(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict[str, CategoryInfo]:
@@ -129,7 +129,7 @@ async def list_categories(
 
 
 @router.get("", response_model=List[RecipeSummary])
-async def list_recipes(
+def list_recipes(
     category: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -153,7 +153,7 @@ async def list_recipes(
 
 
 @router.get("/{recipe_id}")
-async def get_recipe(
+def get_recipe(
     recipe_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -181,7 +181,7 @@ async def get_recipe(
 
 
 @router.get("/{recipe_id}/requirements", response_model=RecipeRequirements)
-async def check_recipe_requirements(
+def check_recipe_requirements(
     recipe_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -208,7 +208,7 @@ async def check_recipe_requirements(
 
 
 @router.post("/{recipe_id}/apply", response_model=ApplyRecipeResponse)
-async def apply_recipe(
+def apply_recipe(
     recipe_id: str,
     request: ApplyRecipeRequest,
     current_user: User = Depends(get_current_user),

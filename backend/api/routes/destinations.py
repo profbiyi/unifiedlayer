@@ -21,7 +21,7 @@ router = APIRouter(prefix="/destinations", tags=["Destinations"])
 
 @router.get("", response_model=List[DestinationResponse])
 @require_permission("destination", "read")
-async def list_destinations(
+def list_destinations(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -67,7 +67,7 @@ async def list_destinations(
 
 @router.get("/{destination_id}", response_model=DestinationResponse)
 @require_permission("destination", "read")
-async def get_destination(
+def get_destination(
     request: Request,
     destination_id: str,
     org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
@@ -126,7 +126,7 @@ async def get_destination(
 
 @router.post("", response_model=DestinationResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("destination", "create")
-async def create_destination(
+def create_destination(
     destination_data: DestinationCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -176,7 +176,7 @@ async def create_destination(
 
 
 @router.get("/managed/status")
-async def managed_storage_status(
+def managed_storage_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -194,7 +194,7 @@ async def managed_storage_status(
 
 @router.post("/managed/provision", response_model=DestinationResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("destination", "create")
-async def provision_managed_destination(
+def provision_managed_destination(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -222,7 +222,7 @@ async def provision_managed_destination(
 
 @router.put("/{destination_id}", response_model=DestinationResponse)
 @require_permission("destination", "update")
-async def update_destination(
+def update_destination(
     destination_id: str,
     destination_data: DestinationUpdate,
     current_user: User = Depends(get_current_user),
@@ -276,7 +276,7 @@ async def update_destination(
 
 @router.delete("/{destination_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("destination", "delete")
-async def delete_destination(
+def delete_destination(
     destination_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -327,7 +327,7 @@ async def delete_destination(
 
 @router.post("/{destination_id}/test")
 @require_permission("destination", "read")
-async def test_destination_connection(
+def test_destination_connection(
     destination_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

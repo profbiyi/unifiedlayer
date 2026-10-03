@@ -116,7 +116,7 @@ class HealthHistoryResponse(BaseModel):
 # --- Endpoints ---
 
 @router.get("/overview", response_model=HealthOverviewResponse)
-async def get_health_overview(
+def get_health_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -130,7 +130,7 @@ async def get_health_overview(
 
 
 @router.get("/sources", response_model=List[SourceHealthResponse])
-async def get_sources_health(
+def get_sources_health(
     status_filter: Optional[str] = Query(None, description="Filter by status (healthy, warning, critical)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -181,7 +181,7 @@ async def get_sources_health(
 
 
 @router.get("/pipelines", response_model=List[PipelineHealthResponse])
-async def get_pipelines_health(
+def get_pipelines_health(
     status_filter: Optional[str] = Query(None, description="Filter by status (healthy, warning, critical)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -229,7 +229,7 @@ async def get_pipelines_health(
 
 
 @router.get("/destinations", response_model=List[DestinationHealthResponse])
-async def get_destinations_health(
+def get_destinations_health(
     status_filter: Optional[str] = Query(None, description="Filter by status (healthy, warning, critical)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -280,7 +280,7 @@ async def get_destinations_health(
 
 
 @router.get("/source/{source_id}", response_model=SourceHealthResponse)
-async def get_source_health_detail(
+def get_source_health_detail(
     source_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -334,7 +334,7 @@ async def get_source_health_detail(
 
 
 @router.get("/pipeline/{pipeline_id}", response_model=PipelineHealthResponse)
-async def get_pipeline_health_detail(
+def get_pipeline_health_detail(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -385,7 +385,7 @@ async def get_pipeline_health_detail(
 
 
 @router.post("/source/{source_id}/check", response_model=HealthCheckTriggerResponse)
-async def trigger_source_health_check(
+def trigger_source_health_check(
     source_id: str,
     run_connection_test: bool = Query(True, description="Whether to run actual connection test"),
     current_user: User = Depends(get_current_user),
@@ -430,7 +430,7 @@ async def trigger_source_health_check(
 
 
 @router.post("/pipeline/{pipeline_id}/check", response_model=HealthCheckTriggerResponse)
-async def trigger_pipeline_health_check(
+def trigger_pipeline_health_check(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -472,7 +472,7 @@ async def trigger_pipeline_health_check(
 
 
 @router.get("/history/{resource_type}/{resource_id}", response_model=HealthHistoryResponse)
-async def get_health_history(
+def get_health_history(
     resource_type: str,
     resource_id: str,
     skip: int = Query(0, ge=0),

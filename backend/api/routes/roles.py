@@ -24,7 +24,7 @@ router = APIRouter(prefix="/organizations/me", tags=["roles"])
 
 
 @router.get("/users", response_model=List[UserListItem])
-async def list_organization_users(
+def list_organization_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -55,7 +55,7 @@ async def list_organization_users(
 
 
 @router.put("/users/{user_id}/role", response_model=UserWithRoles)
-async def change_user_role(
+def change_user_role(
     request: Request,
     user_id: int,
     role_request: ChangeUserRoleRequest,
@@ -159,7 +159,7 @@ async def change_user_role(
 
 
 @router.delete("/users/{user_id}")
-async def remove_user_from_organization(
+def remove_user_from_organization(
     request: Request,
     user_id: int,
     db: Session = Depends(get_db),
@@ -220,7 +220,7 @@ async def remove_user_from_organization(
 
 
 @router.patch("/users/{user_id}/deactivate")
-async def deactivate_user(
+def deactivate_user(
     request: Request,
     user_id: int,
     db: Session = Depends(get_db),
@@ -269,7 +269,7 @@ async def deactivate_user(
 
 
 @router.patch("/users/{user_id}/activate")
-async def activate_user(
+def activate_user(
     request: Request,
     user_id: int,
     db: Session = Depends(get_db),

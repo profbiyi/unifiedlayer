@@ -184,7 +184,7 @@ def _get_org_key(user: User) -> str:
 # --- Endpoints ---
 
 @router.get("/settings/notifications", response_model=NotificationChannelsResponse)
-async def get_notification_channels(
+def get_notification_channels(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -214,7 +214,7 @@ async def get_notification_channels(
 
 
 @router.put("/settings/notifications", response_model=NotificationChannelsResponse)
-async def update_notification_channels(
+def update_notification_channels(
     config: NotificationChannelsConfig,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -294,7 +294,7 @@ async def test_slack_webhook(
 
 
 @router.get("/rules", response_model=AlertRulesResponse)
-async def get_alert_rules(
+def get_alert_rules(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -316,7 +316,7 @@ async def get_alert_rules(
 
 
 @router.patch("/rules/{rule_id}", response_model=AlertRuleConfig)
-async def update_alert_rule(
+def update_alert_rule(
     rule_id: str,
     update: UpdateAlertRuleRequest,
     current_user: User = Depends(get_current_user),
@@ -352,7 +352,7 @@ async def update_alert_rule(
 
 
 @router.get("/history", response_model=PaginatedAlertHistory)
-async def get_alert_history(
+def get_alert_history(
     severity: Optional[str] = Query(None, description="Filter by severity (critical, warning, info)"),
     alert_status: Optional[str] = Query(None, description="Filter by status (triggered, acknowledged, resolved)"),
     skip: int = Query(0, ge=0),
@@ -390,7 +390,7 @@ async def get_alert_history(
 
 
 @router.patch("/history/{alert_id}/acknowledge")
-async def acknowledge_alert(
+def acknowledge_alert(
     alert_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -411,7 +411,7 @@ async def acknowledge_alert(
 
 
 @router.patch("/history/{alert_id}/resolve")
-async def resolve_alert(
+def resolve_alert(
     alert_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

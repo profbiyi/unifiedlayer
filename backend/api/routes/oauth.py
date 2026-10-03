@@ -31,7 +31,7 @@ XERO_CONNECTIONS_URL = "https://api.xero.com/connections"
 
 
 @router.get("/xero/authorize")
-async def xero_authorize(current_user: User = Depends(get_current_user)):
+def xero_authorize(current_user: User = Depends(get_current_user)):
     """Generate Xero OAuth2 authorization URL with secure state token."""
     if not settings.XERO_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Xero OAuth not configured")
@@ -150,7 +150,7 @@ def _truelayer_urls() -> tuple[str, str]:
 
 
 @router.get("/truelayer/authorize")
-async def truelayer_authorize(current_user: User = Depends(get_current_user)):
+def truelayer_authorize(current_user: User = Depends(get_current_user)):
     """Generate TrueLayer OAuth2 authorization URL with secure state token."""
     if not settings.TRUELAYER_CLIENT_ID:
         raise HTTPException(status_code=500, detail="TrueLayer OAuth not configured")
@@ -263,7 +263,7 @@ def _hmrc_urls() -> tuple[str, str]:
 
 
 @router.get("/hmrc/authorize")
-async def hmrc_authorize(current_user: User = Depends(get_current_user)):
+def hmrc_authorize(current_user: User = Depends(get_current_user)):
     """Generate HMRC MTD OAuth2 authorization URL with secure state token."""
     if not settings.HMRC_CLIENT_ID:
         raise HTTPException(status_code=500, detail="HMRC OAuth not configured")

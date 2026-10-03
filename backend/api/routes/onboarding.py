@@ -72,7 +72,7 @@ class RoleOption(BaseModel):
 # ============================================================
 
 @router.get("/roles", response_model=List[RoleOption])
-async def get_role_options():
+def get_role_options():
     """
     Get available role options for onboarding.
     """
@@ -117,7 +117,7 @@ async def get_role_options():
 
 
 @router.get("/status", response_model=OnboardingStatusResponse)
-async def get_onboarding_status(
+def get_onboarding_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -129,7 +129,7 @@ async def get_onboarding_status(
 
 
 @router.post("/role")
-async def set_role(
+def set_role(
     request: SetRoleRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -160,7 +160,7 @@ async def set_role(
 
 
 @router.get("/recommendations/sources", response_model=List[SourceRecommendation])
-async def get_source_recommendations(
+def get_source_recommendations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -172,7 +172,7 @@ async def get_source_recommendations(
 
 
 @router.get("/recommendations/dashboards")
-async def get_dashboard_recommendations(
+def get_dashboard_recommendations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -188,7 +188,7 @@ async def get_dashboard_recommendations(
 
 
 @router.post("/step")
-async def mark_step_complete(
+def mark_step_complete(
     request: MarkStepRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -214,7 +214,7 @@ async def mark_step_complete(
 
 
 @router.post("/skip")
-async def skip_onboarding(
+def skip_onboarding(
     request: SkipOnboardingRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -240,7 +240,7 @@ async def skip_onboarding(
 
 
 @router.post("/sync")
-async def sync_progress(
+def sync_progress(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

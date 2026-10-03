@@ -36,7 +36,7 @@ router = APIRouter(prefix="/invitations", tags=["invitations"])
 
 
 @router.post("/invite", response_model=InvitationResponse)
-async def invite_user(
+def invite_user(
     request: Request,
     invitation_request: CreateInvitationRequest,
     db: Session = Depends(get_db),
@@ -169,7 +169,7 @@ async def invite_user(
 
 
 @router.get("/pending", response_model=List[InvitationResponse])
-async def list_pending_invitations(
+def list_pending_invitations(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_org_admin),
 ):
@@ -208,7 +208,7 @@ async def list_pending_invitations(
 
 
 @router.delete("/{invitation_id}")
-async def cancel_invitation(
+def cancel_invitation(
     request: Request,
     invitation_id: int,
     db: Session = Depends(get_db),
@@ -257,7 +257,7 @@ async def cancel_invitation(
 
 
 @router.get("/validate/{token}", response_model=InvitationPublicResponse)
-async def validate_invitation_token(
+def validate_invitation_token(
     token: str,
     db: Session = Depends(get_db),
 ):
@@ -290,7 +290,7 @@ async def validate_invitation_token(
 
 
 @router.post("/accept", response_model=UserWithRoles)
-async def accept_invitation(
+def accept_invitation(
     request: Request,
     accept_request: AcceptInvitationRequest,
     db: Session = Depends(get_db),

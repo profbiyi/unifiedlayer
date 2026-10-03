@@ -310,7 +310,7 @@ def get_pipeline_or_404(
 
 @router.get("/projects", response_model=List[DbtProjectResponse])
 @require_permission("dbt_project", "read")
-async def list_dbt_projects(
+def list_dbt_projects(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     is_active: Optional[bool] = Query(None),
@@ -335,7 +335,7 @@ async def list_dbt_projects(
 
 @router.post("/projects", response_model=DbtProjectResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("dbt_project", "create")
-async def create_dbt_project(
+def create_dbt_project(
     project_data: DbtProjectCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -384,7 +384,7 @@ async def create_dbt_project(
 
 @router.get("/projects/{project_id}", response_model=DbtProjectResponse)
 @require_permission("dbt_project", "read")
-async def get_dbt_project(
+def get_dbt_project(
     project_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -400,7 +400,7 @@ async def get_dbt_project(
 
 @router.put("/projects/{project_id}", response_model=DbtProjectResponse)
 @require_permission("dbt_project", "update")
-async def update_dbt_project(
+def update_dbt_project(
     project_id: str,
     project_data: DbtProjectUpdate,
     current_user: User = Depends(get_current_user),
@@ -449,7 +449,7 @@ async def update_dbt_project(
 
 @router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("dbt_project", "delete")
-async def delete_dbt_project(
+def delete_dbt_project(
     project_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -484,7 +484,7 @@ async def delete_dbt_project(
 
 @router.post("/projects/{project_id}/test-connection", response_model=TestConnectionResult)
 @require_permission("dbt_project", "read")
-async def test_git_connection(
+def test_git_connection(
     project_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -674,7 +674,7 @@ def _test_git_connection(
 
 @router.get("/projects/{project_id}/models", response_model=List[DbtModelInfo])
 @require_permission("dbt_project", "read")
-async def list_dbt_models(
+def list_dbt_models(
     project_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -740,7 +740,7 @@ def _parse_manifest_models(manifest: Dict[str, Any]) -> List[DbtModelInfo]:
 
 @router.post("/projects/{project_id}/run", response_model=DbtRunResponse, status_code=status.HTTP_202_ACCEPTED)
 @require_permission("dbt_project", "execute")
-async def trigger_dbt_run(
+def trigger_dbt_run(
     project_id: str,
     run_config: DbtRunCreate,
     current_user: User = Depends(get_current_user),
@@ -808,7 +808,7 @@ async def trigger_dbt_run(
 
 @router.post("/runs/{run_id}/cancel", response_model=DbtRunResponse)
 @require_permission("dbt_project", "execute")
-async def cancel_dbt_run(
+def cancel_dbt_run(
     run_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -872,7 +872,7 @@ async def cancel_dbt_run(
 
 @router.get("/runs", response_model=List[DbtRunResponse])
 @require_permission("dbt_project", "read")
-async def list_dbt_runs(
+def list_dbt_runs(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     project_id: Optional[str] = Query(None, description="Filter by project ID"),
@@ -902,7 +902,7 @@ async def list_dbt_runs(
 
 @router.get("/runs/{run_id}", response_model=DbtRunDetailResponse)
 @require_permission("dbt_project", "read")
-async def get_dbt_run(
+def get_dbt_run(
     run_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

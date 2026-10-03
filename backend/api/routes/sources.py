@@ -44,7 +44,7 @@ router = APIRouter(prefix="/sources", tags=["Data Sources"])
 
 @router.get("", response_model=List[DataSourceResponse])
 @require_permission("source", "read")
-async def list_sources(
+def list_sources(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -90,7 +90,7 @@ async def list_sources(
 
 @router.get("/{source_id}", response_model=DataSourceResponse)
 @require_permission("source", "read")
-async def get_source(
+def get_source(
     request: Request,
     source_id: str,
     org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
@@ -149,7 +149,7 @@ async def get_source(
 
 @router.post("", response_model=DataSourceCreateResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("source", "create")
-async def create_source(
+def create_source(
     source_data: DataSourceCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -251,7 +251,7 @@ async def create_source(
 
 @router.put("/{source_id}", response_model=DataSourceResponse)
 @require_permission("source", "update")
-async def update_source(
+def update_source(
     source_id: str,
     source_data: DataSourceUpdate,
     current_user: User = Depends(get_current_user),
@@ -304,7 +304,7 @@ async def update_source(
 
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("source", "delete")
-async def delete_source(
+def delete_source(
     source_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -355,7 +355,7 @@ async def delete_source(
 
 @router.post("/{source_id}/test")
 @require_permission("source", "read")
-async def test_source_connection(
+def test_source_connection(
     source_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

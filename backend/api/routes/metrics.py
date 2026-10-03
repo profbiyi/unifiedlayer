@@ -17,7 +17,7 @@ router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
 
 @router.get("/overview")
-async def get_overview_metrics(
+def get_overview_metrics(
     timerange: str = Query("24h", regex="^(24h|7d|30d)$"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -157,7 +157,7 @@ async def get_overview_metrics(
 
 
 @router.get("/pipeline/{pipeline_id}/performance")
-async def get_pipeline_performance(
+def get_pipeline_performance(
     pipeline_id: int,
     timerange: str = Query("7d", regex="^(24h|7d|30d)$"),
     current_user: User = Depends(get_current_user),
@@ -255,7 +255,7 @@ async def get_pipeline_performance(
 
 
 @router.get("/system-health")
-async def get_system_health(
+def get_system_health(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:

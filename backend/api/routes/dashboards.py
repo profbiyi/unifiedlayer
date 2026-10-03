@@ -118,7 +118,7 @@ class TemplateRecommendationResponse(BaseModel):
 # ============================================================
 
 @router.get("/templates", response_model=List[TemplateSummary])
-async def list_templates(
+def list_templates(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -134,7 +134,7 @@ async def list_templates(
 
 
 @router.get("/templates/{template_id}")
-async def get_template(
+def get_template(
     template_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -162,7 +162,7 @@ async def get_template(
 
 
 @router.get("/templates/{template_id}/requirements", response_model=TemplateRequirements)
-async def check_template_requirements(
+def check_template_requirements(
     template_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -186,7 +186,7 @@ async def check_template_requirements(
 
 
 @router.get("/templates/{template_id}/data")
-async def get_dashboard_data(
+def get_dashboard_data(
     template_id: str,
     source_type: Optional[str] = None,
     current_user: User = Depends(get_current_user),
@@ -262,7 +262,7 @@ async def refresh_dashboard_data(
 # ============================================================
 
 @router.get("/industry-templates", response_model=List[IndustryTemplateSummary])
-async def list_industry_templates(
+def list_industry_templates(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -285,7 +285,7 @@ async def list_industry_templates(
 
 
 @router.post("/from-industry-template", response_model=IndustryDashboardResponse)
-async def create_from_industry_template(
+def create_from_industry_template(
     request: IndustryDashboardCreateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -343,7 +343,7 @@ async def create_from_industry_template(
 
 
 @router.get("/recommend-template", response_model=TemplateRecommendationResponse)
-async def recommend_industry_template(
+def recommend_industry_template(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

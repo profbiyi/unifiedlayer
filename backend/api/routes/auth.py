@@ -114,7 +114,7 @@ def _get_oauth_state(state: str) -> dict | None:
 
 
 @router.post("/login")
-async def login(
+def login(
     request: Request,
     response: Response,
     username: str = Form(...),
@@ -218,7 +218,7 @@ async def login(
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(
+def register(
     user_data: UserCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin),
@@ -283,7 +283,7 @@ async def register(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(
+def get_current_user_info(
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -299,7 +299,7 @@ async def get_current_user_info(
 
 
 @router.post("/logout")
-async def logout(
+def logout(
     request: Request,
     response: Response,
     current_user: User = Depends(get_current_user),
@@ -355,7 +355,7 @@ async def logout(
 
 
 @router.post("/forgot-password")
-async def forgot_password(
+def forgot_password(
     email: str = Form(...),
     db: Session = Depends(get_db),
 ):
@@ -420,7 +420,7 @@ async def forgot_password(
 
 
 @router.post("/reset-password")
-async def reset_password(
+def reset_password(
     token: str = Form(...),
     new_password: str = Form(...),
     db: Session = Depends(get_db),
@@ -487,7 +487,7 @@ class ResendVerificationRequest(BaseModel):
 
 
 @router.post("/verify-email")
-async def verify_email(
+def verify_email(
     payload: VerifyEmailRequest,
     db: Session = Depends(get_db),
 ):
@@ -522,7 +522,7 @@ async def verify_email(
 
 
 @router.post("/resend-verification")
-async def resend_verification(
+def resend_verification(
     payload: ResendVerificationRequest,
     db: Session = Depends(get_db),
 ):
@@ -569,7 +569,7 @@ class GoogleLinkRequest(BaseModel):
 
 
 @router.get("/google/login")
-async def google_login(
+def google_login(
     redirect_uri: str = Query(None, description="Optional custom redirect URI after OAuth"),
 ):
     """
@@ -767,7 +767,7 @@ async def google_callback(
 
 
 @router.post("/google/link")
-async def google_link_account(
+def google_link_account(
     response: Response,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -931,7 +931,7 @@ async def google_link_callback(
 
 
 @router.delete("/google/unlink")
-async def google_unlink_account(
+def google_unlink_account(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

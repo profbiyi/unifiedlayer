@@ -104,7 +104,7 @@ class AutoModelSettingsResponse(BaseModel):
 # ============================================================
 
 @router.post("/analyze", response_model=CrossSourceAnalysisResponse)
-async def analyze_sources(
+def analyze_sources(
     request: AnalyzeSourcesRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -160,7 +160,7 @@ async def analyze_sources(
 
 
 @router.post("/generate", response_model=UnifiedModelResponse)
-async def generate_unified_models(
+def generate_unified_models(
     request: ConfirmJoinsRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -230,7 +230,7 @@ async def generate_unified_models(
 
 
 @router.get("/settings", response_model=AutoModelSettingsResponse)
-async def get_auto_model_settings(
+def get_auto_model_settings(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -268,7 +268,7 @@ async def get_auto_model_settings(
 
 
 @router.put("/settings", response_model=AutoModelSettingsResponse)
-async def update_auto_model_settings(
+def update_auto_model_settings(
     request: AutoModelSettingsRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -328,7 +328,7 @@ async def update_auto_model_settings(
 
 
 @router.get("/sources")
-async def list_available_sources(
+def list_available_sources(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

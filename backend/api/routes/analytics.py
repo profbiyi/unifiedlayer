@@ -28,7 +28,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
 @router.get("/overview")
-async def get_overview(
+def get_overview(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -115,7 +115,7 @@ async def get_overview(
 
 
 @router.get("/runs/timeline")
-async def get_runs_timeline(
+def get_runs_timeline(
     days: int = Query(default=30, ge=1, le=90),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -152,7 +152,7 @@ async def get_runs_timeline(
 
 
 @router.get("/rows/timeline")
-async def get_rows_timeline(
+def get_rows_timeline(
     days: int = Query(default=30, ge=1, le=90),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -179,7 +179,7 @@ async def get_rows_timeline(
 
 
 @router.get("/pipelines/performance")
-async def get_pipeline_performance(
+def get_pipeline_performance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -226,7 +226,7 @@ async def get_pipeline_performance(
 
 
 @router.get("/sources/breakdown")
-async def get_source_breakdown(
+def get_source_breakdown(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -261,7 +261,7 @@ async def get_source_breakdown(
 
 
 @router.get("/usage/history")
-async def get_usage_history(
+def get_usage_history(
     months: int = Query(default=6, ge=1, le=12),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

@@ -46,7 +46,7 @@ class PaginatedNotifications(BaseModel):
 # --- Endpoints ---
 
 @router.get("", response_model=PaginatedNotifications)
-async def list_notifications(
+def list_notifications(
     unread_only: bool = Query(False),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -72,7 +72,7 @@ async def list_notifications(
 
 
 @router.get("/count", response_model=UnreadCountResponse)
-async def unread_count(
+def unread_count(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -85,7 +85,7 @@ async def unread_count(
 
 
 @router.patch("/{notification_id}/read", response_model=NotificationResponse)
-async def mark_as_read(
+def mark_as_read(
     notification_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -106,7 +106,7 @@ async def mark_as_read(
 
 
 @router.post("/mark-all-read")
-async def mark_all_read(
+def mark_all_read(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

@@ -63,7 +63,7 @@ def _create_org_subscription(db: Session, organization: Organization, plan_str: 
 
 
 @router.post("/organizations", response_model=OrganizationCreatedResponse)
-async def create_organization(
+def create_organization(
     request: Request,
     org_request: CreateOrganizationRequest,
     db: Session = Depends(get_db),
@@ -225,7 +225,7 @@ async def create_organization(
 
 
 @router.post("/onboard-organization", response_model=OrganizationCreatedResponse)
-async def onboard_organization(
+def onboard_organization(
     request: Request,
     org_request: CreateOrganizationRequest,
     db: Session = Depends(get_db),
@@ -423,7 +423,7 @@ async def onboard_organization(
 
 
 @router.get("/organizations", response_model=List[OrganizationWithStats])
-async def list_all_organizations(
+def list_all_organizations(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -471,7 +471,7 @@ async def list_all_organizations(
 
 
 @router.put("/organizations/{org_id}/subscription", response_model=OrganizationWithStats)
-async def update_organization_subscription(
+def update_organization_subscription(
     request: Request,
     org_id: int,
     subscription: OrganizationSubscriptionUpdate,
@@ -545,7 +545,7 @@ async def update_organization_subscription(
 
 
 @router.get("/stats", response_model=PlatformStats)
-async def get_platform_statistics(
+def get_platform_statistics(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin),
 ):
@@ -613,7 +613,7 @@ async def get_platform_statistics(
 
 
 @router.patch("/organizations/{org_id}/disable-sync")
-async def disable_organization_sync(
+def disable_organization_sync(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -660,7 +660,7 @@ async def disable_organization_sync(
 
 
 @router.patch("/organizations/{org_id}/enable-sync")
-async def enable_organization_sync(
+def enable_organization_sync(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -703,7 +703,7 @@ async def enable_organization_sync(
 
 
 @router.patch("/organizations/{org_id}/deactivate")
-async def deactivate_organization(
+def deactivate_organization(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -753,7 +753,7 @@ async def deactivate_organization(
 
 
 @router.patch("/organizations/{org_id}/activate")
-async def activate_organization(
+def activate_organization(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -804,7 +804,7 @@ class BillingCurrencyUpdate(BaseModel):
 
 
 @router.patch("/organizations/{org_id}/billing-currency")
-async def update_billing_currency(
+def update_billing_currency(
     request: Request,
     org_id: int,
     payload: BillingCurrencyUpdate,
@@ -865,7 +865,7 @@ async def update_billing_currency(
 
 
 @router.delete("/organizations/{org_id}")
-async def delete_pending_organization(
+def delete_pending_organization(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -935,7 +935,7 @@ class ForceDeleteRequest(BaseModel):
 
 
 @router.delete("/organizations/{org_id}/force")
-async def force_delete_organization(
+def force_delete_organization(
     request: Request,
     org_id: int,
     body: ForceDeleteRequest,
@@ -1001,7 +1001,7 @@ async def force_delete_organization(
 
 
 @router.delete("/organizations/by-slug/{slug}")
-async def force_delete_organization_by_slug(
+def force_delete_organization_by_slug(
     request: Request,
     slug: str,
     db: Session = Depends(get_db),
@@ -1110,7 +1110,7 @@ class ImpersonationResponse(BaseModel):
 
 
 @router.get("/organizations/{org_id}/details", response_model=OrganizationDetailResponse)
-async def get_organization_details(
+def get_organization_details(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -1177,7 +1177,7 @@ async def get_organization_details(
 
 
 @router.get("/organizations/{org_id}/pipelines")
-async def list_organization_pipelines(
+def list_organization_pipelines(
     request: Request,
     org_id: int,
     skip: int = 0,
@@ -1242,7 +1242,7 @@ async def list_organization_pipelines(
 
 
 @router.get("/organizations/{org_id}/runs")
-async def list_organization_runs(
+def list_organization_runs(
     request: Request,
     org_id: int,
     skip: int = 0,
@@ -1310,7 +1310,7 @@ async def list_organization_runs(
 
 
 @router.get("/organizations/{org_id}/runs/{run_id}")
-async def get_organization_run_details(
+def get_organization_run_details(
     request: Request,
     org_id: int,
     run_id: int,
@@ -1373,7 +1373,7 @@ async def get_organization_run_details(
 
 
 @router.get("/organizations/{org_id}/sources")
-async def list_organization_sources(
+def list_organization_sources(
     request: Request,
     org_id: int,
     skip: int = 0,
@@ -1432,7 +1432,7 @@ async def list_organization_sources(
 
 
 @router.get("/organizations/{org_id}/destinations")
-async def list_organization_destinations(
+def list_organization_destinations(
     request: Request,
     org_id: int,
     skip: int = 0,
@@ -1491,7 +1491,7 @@ async def list_organization_destinations(
 
 
 @router.get("/organizations/{org_id}/team")
-async def list_organization_team(
+def list_organization_team(
     request: Request,
     org_id: int,
     skip: int = 0,
@@ -1555,7 +1555,7 @@ IMPERSONATION_TOKEN_EXPIRY_MINUTES = 15
 
 
 @router.post("/impersonate/{org_id}", response_model=ImpersonationResponse)
-async def start_impersonation(
+def start_impersonation(
     request: Request,
     org_id: int,
     db: Session = Depends(get_db),
@@ -1649,7 +1649,7 @@ async def start_impersonation(
 
 
 @router.post("/stop-impersonate")
-async def stop_impersonation(
+def stop_impersonation(
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin),
@@ -1697,7 +1697,7 @@ async def stop_impersonation(
 
 
 @router.get("/impersonation/current")
-async def get_current_impersonation(
+def get_current_impersonation(
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin),
@@ -1734,7 +1734,7 @@ async def get_current_impersonation(
 
 
 @router.get("/access-logs")
-async def get_super_admin_access_logs(
+def get_super_admin_access_logs(
     request: Request,
     skip: int = 0,
     limit: int = 100,
@@ -1795,7 +1795,7 @@ def _inspect_workers():
 
 
 @router.get("/system/sync-capacity")
-async def get_sync_capacity(
+def get_sync_capacity(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_super_admin),
 ):

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/runs", tags=["Pipeline Runs"])
 
 
 @router.get("", response_model=List[PipelineRunResponse])
-async def list_runs(
+def list_runs(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -60,7 +60,7 @@ async def list_runs(
 
 
 @router.get("/{run_id}", response_model=PipelineRunResponse)
-async def get_run(
+def get_run(
     request: Request,
     run_id: int,
     org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
@@ -107,7 +107,7 @@ async def get_run(
 
 
 @router.put("/{run_id}", response_model=PipelineRunResponse)
-async def update_run(
+def update_run(
     run_id: int,
     run_data: PipelineRunUpdate,
     current_user: User = Depends(get_current_user),

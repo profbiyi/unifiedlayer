@@ -42,7 +42,7 @@ router = APIRouter(prefix="/billing", tags=["Billing"])
 
 
 @router.get("/plans", response_model=AllPlansResponse)
-async def list_plans():
+def list_plans():
     """List all available subscription plans with their features and limits.
 
     Professional carries purchasing-power prices per market — each price is
@@ -77,7 +77,7 @@ async def list_plans():
 
 
 @router.get("/subscription", response_model=SubscriptionResponse)
-async def get_subscription(
+def get_subscription(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -96,7 +96,7 @@ async def get_subscription(
 
 
 @router.post("/checkout", response_model=CheckoutResponse)
-async def create_checkout(
+def create_checkout(
     request: CreateCheckoutRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -136,7 +136,7 @@ async def create_checkout(
 
 
 @router.post("/portal", response_model=PortalResponse)
-async def create_portal_session(
+def create_portal_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -155,7 +155,7 @@ async def create_portal_session(
 
 
 @router.get("/usage", response_model=DetailedUsageResponse)
-async def get_usage(
+def get_usage(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -184,7 +184,7 @@ async def get_usage(
 
 
 @router.get("/usage/history", response_model=UsageHistoryResponse)
-async def get_usage_history(
+def get_usage_history(
     months: int = 6,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -227,7 +227,7 @@ async def get_usage_history(
 
 
 @router.get("/usage/check/{metric}", response_model=UsageLimitCheck)
-async def check_usage_limit(
+def check_usage_limit(
     metric: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -241,7 +241,7 @@ async def check_usage_limit(
 
 
 @router.get("/invoices", response_model=list[InvoiceResponse])
-async def list_invoices(
+def list_invoices(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -253,7 +253,7 @@ async def list_invoices(
 
 
 @router.post("/paystack/checkout")
-async def create_paystack_checkout(
+def create_paystack_checkout(
     request: CreateCheckoutRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -302,7 +302,7 @@ async def create_paystack_checkout(
 
 
 @router.get("/paystack/verify/{reference}")
-async def verify_paystack_transaction(
+def verify_paystack_transaction(
     reference: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
