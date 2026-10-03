@@ -7,7 +7,9 @@ dependency) against the CI Postgres.
 
 
 def test_async_db_roundtrip(client):
-    resp = client.get("/health/async-db")
+    # /health/async-db is an app-root endpoint; the client fixture's base_url is
+    # .../api/v1, so use an absolute URL to bypass that prefix.
+    resp = client.get("http://testserver/health/async-db")
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
