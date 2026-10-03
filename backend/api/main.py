@@ -17,10 +17,13 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
+from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import settings
 from backend.database import get_db, init_db, DatabaseHealthCheck
+from backend.async_database import get_async_db
 from backend.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, AuthRateLimitMiddleware, RequestIDMiddleware
 from backend.utils.errors import ErrorResponse, ErrorCodes, get_request_id
 from backend.auth import get_current_user
@@ -497,6 +500,24 @@ async def readiness_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
     return {
         "status": "ready" if all_healthy else "not ready",
         "checks": checks,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/health/async-db", tags=["Health"])
+async def async_db_check(db: AsyncSession = Depends(get_async_db)) -> Dict[str, Any]:
+    """
+    Async database round-trip check.
+
+    Exercises the async request path end-to-end (asyncpg + AsyncSession): the query
+    is awaited, so it never blocks the event loop. This is the template the rest of
+    the routes are being migrated onto.
+    """
+    result = await db.execute(text("SELECT 1"))
+    ok = result.scalar() == 1
+    return {
+        "status": "ok" if ok else "error",
+        "driver": "async (asyncpg)",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
