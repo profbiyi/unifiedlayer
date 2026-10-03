@@ -292,7 +292,7 @@ async def ask_question(
 
 
 @router.get("/conversations", response_model=List[ConversationSummary])
-async def list_conversations(
+def list_conversations(
     limit: int = 50,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -320,7 +320,7 @@ async def list_conversations(
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
-async def get_conversation(
+def get_conversation(
     conversation_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -374,7 +374,7 @@ async def get_conversation(
 
 
 @router.delete("/conversations/{conversation_id}")
-async def delete_conversation(
+def delete_conversation(
     conversation_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -401,7 +401,7 @@ async def delete_conversation(
 
 
 @router.get("/suggestions", response_model=List[SuggestedQuestion])
-async def get_suggested_questions(
+def get_suggested_questions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

@@ -43,7 +43,7 @@ def _serialize_datetime(obj):
 
 
 @router.get("/export-my-data")
-async def export_my_data(
+def export_my_data(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -156,7 +156,7 @@ async def export_my_data(
 
 
 @router.delete("/delete-my-account")
-async def delete_my_account(
+def delete_my_account(
     payload: DeleteAccountRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -228,7 +228,7 @@ async def delete_my_account(
 
 
 @router.get("/data-processing-info")
-async def data_processing_info():
+def data_processing_info():
     """
     Public endpoint describing what personal data is collected,
     the purposes of processing, data retention periods, and third parties.

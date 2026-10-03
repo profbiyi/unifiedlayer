@@ -17,7 +17,7 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 @router.get("", response_model=List[UserResponse])
-async def list_users(
+def list_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
@@ -32,7 +32,7 @@ async def list_users(
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-async def get_user(
+def get_user(
     user_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -53,7 +53,7 @@ async def get_user(
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-async def update_user(
+def update_user(
     user_id: int,
     user_data: UserUpdate,
     current_user: User = Depends(get_current_user),
@@ -90,7 +90,7 @@ async def update_user(
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(
+def delete_user(
     user_id: int,
     current_user: User = Depends(get_current_superuser),
     db: Session = Depends(get_db),

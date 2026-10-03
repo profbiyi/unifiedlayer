@@ -325,7 +325,7 @@ def run_model_generation(
 
 @router.post("/generate/{pipeline_id}", response_model=GenerateModelsResponse, status_code=status.HTTP_202_ACCEPTED)
 @require_permission("pipeline", "update")
-async def generate_models(
+def generate_models(
     pipeline_id: str,
     request: GenerateModelsRequest,
     background_tasks: BackgroundTasks,
@@ -415,7 +415,7 @@ async def generate_models(
 
 @router.get("/generations", response_model=List[ModelGenerationResponse])
 @require_permission("pipeline", "read")
-async def list_generations(
+def list_generations(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     pipeline_id: Optional[str] = Query(None, description="Filter by pipeline"),
@@ -445,7 +445,7 @@ async def list_generations(
 
 @router.get("/generations/{generation_id}", response_model=ModelGenerationResponse)
 @require_permission("pipeline", "read")
-async def get_generation(
+def get_generation(
     generation_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -479,7 +479,7 @@ async def get_generation(
 
 @router.get("", response_model=List[GeneratedModelResponse])
 @require_permission("pipeline", "read")
-async def list_models(
+def list_models(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     pipeline_id: Optional[str] = Query(None, description="Filter by pipeline"),
@@ -521,7 +521,7 @@ async def list_models(
 
 @router.get("/{model_id}", response_model=GeneratedModelDetailResponse)
 @require_permission("pipeline", "read")
-async def get_model(
+def get_model(
     model_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -562,7 +562,7 @@ async def get_model(
 
 @router.put("/{model_id}", response_model=GeneratedModelDetailResponse)
 @require_permission("pipeline", "update")
-async def update_model(
+def update_model(
     model_id: str,
     update_data: ModelUpdateRequest,
     current_user: User = Depends(get_current_user),
@@ -625,7 +625,7 @@ async def update_model(
 
 @router.post("/{model_id}/materialize", response_model=MaterializeResponse)
 @require_permission("pipeline", "update")
-async def materialize_model(
+def materialize_model(
     model_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -703,7 +703,7 @@ async def materialize_model(
 
 @router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("pipeline", "delete")
-async def delete_model(
+def delete_model(
     model_id: str,
     drop_view: bool = Query(False, description="Also drop the view from destination"),
     current_user: User = Depends(get_current_user),
@@ -751,7 +751,7 @@ async def delete_model(
 
 @router.get("/pipeline/{pipeline_id}/questions", response_model=BusinessQuestionsResponse)
 @require_permission("pipeline", "read")
-async def get_pipeline_questions(
+def get_pipeline_questions(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

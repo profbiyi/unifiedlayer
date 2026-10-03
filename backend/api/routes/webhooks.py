@@ -259,7 +259,7 @@ async def receive_webhook(
 
 
 @router.get("/events", status_code=status.HTTP_200_OK)
-async def list_webhook_events(
+def list_webhook_events(
     source_type: Optional[str] = Query(None, description="Filter by source type"),
     event_status: Optional[str] = Query(None, alias="status", description="Filter by status"),
     limit: int = Query(50, ge=1, le=200),

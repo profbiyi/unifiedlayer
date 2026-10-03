@@ -66,7 +66,7 @@ class APIKeyRevokeResponse(BaseModel):
 # --- Endpoints ---
 
 @router.post("", response_model=APIKeyCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_api_key(
+def create_api_key(
     body: APIKeyCreateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -112,7 +112,7 @@ async def create_api_key(
 
 
 @router.get("", response_model=List[APIKeyListItem])
-async def list_api_keys(
+def list_api_keys(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -129,7 +129,7 @@ async def list_api_keys(
 
 
 @router.delete("/{key_id}", response_model=APIKeyRevokeResponse)
-async def revoke_api_key(
+def revoke_api_key(
     key_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

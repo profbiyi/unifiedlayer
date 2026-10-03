@@ -37,7 +37,7 @@ router = APIRouter(prefix="/insights", tags=["Business Insights"])
 
 
 @router.get("/dashboard")
-async def get_sme_dashboard(
+def get_sme_dashboard(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -145,7 +145,7 @@ async def get_sme_dashboard(
 
 
 @router.get("/cash-flow")
-async def get_cash_flow_insights(
+def get_cash_flow_insights(
     days: int = Query(default=30, ge=7, le=90),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -193,7 +193,7 @@ async def get_cash_flow_insights(
 
 
 @router.get("/revenue")
-async def get_revenue_insights(
+def get_revenue_insights(
     days: int = Query(default=30, ge=7, le=90),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -241,7 +241,7 @@ async def get_revenue_insights(
 
 
 @router.get("/invoicing")
-async def get_invoicing_insights(
+def get_invoicing_insights(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -283,7 +283,7 @@ async def get_invoicing_insights(
 
 
 @router.get("/tax-readiness")
-async def get_tax_readiness(
+def get_tax_readiness(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -321,7 +321,7 @@ async def get_tax_readiness(
 
 
 @router.get("/roi")
-async def get_roi_summary(
+def get_roi_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

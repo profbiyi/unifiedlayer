@@ -32,7 +32,7 @@ router = APIRouter(prefix="/pipelines", tags=["Pipelines"])
 
 @router.get("", response_model=List[PipelineResponse])
 @require_permission("pipeline", "read")
-async def list_pipelines(
+def list_pipelines(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -90,7 +90,7 @@ async def list_pipelines(
 
 @router.get("/{pipeline_id}", response_model=PipelineResponse)
 @require_permission("pipeline", "read")
-async def get_pipeline(
+def get_pipeline(
     request: Request,
     pipeline_id: str,
     org_id: Optional[int] = Query(None, description="Organization ID (super admin only)"),
@@ -159,7 +159,7 @@ async def get_pipeline(
 
 @router.post("", response_model=PipelineResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("pipeline", "create")
-async def create_pipeline(
+def create_pipeline(
     pipeline_data: PipelineCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -251,7 +251,7 @@ async def create_pipeline(
 
 @router.put("/{pipeline_id}", response_model=PipelineResponse)
 @require_permission("pipeline", "update")
-async def update_pipeline(
+def update_pipeline(
     pipeline_id: str,
     pipeline_data: PipelineUpdate,
     current_user: User = Depends(get_current_user),
@@ -335,7 +335,7 @@ async def update_pipeline(
 
 @router.delete("/{pipeline_id}", status_code=status.HTTP_204_NO_CONTENT)
 @require_permission("pipeline", "delete")
-async def delete_pipeline(
+def delete_pipeline(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -380,7 +380,7 @@ async def delete_pipeline(
 
 @router.post("/{pipeline_id}/clone", response_model=PipelineResponse, status_code=status.HTTP_201_CREATED)
 @require_permission("pipeline", "create")
-async def clone_pipeline(
+def clone_pipeline(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -444,7 +444,7 @@ async def clone_pipeline(
 
 @router.post("/{pipeline_id}/run", status_code=status.HTTP_202_ACCEPTED)
 @require_permission("pipeline", "execute")
-async def trigger_pipeline_run(
+def trigger_pipeline_run(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -556,7 +556,7 @@ async def trigger_pipeline_run(
 
 @router.get("/{pipeline_id}/runs", response_model=List[PipelineRunResponse])
 @require_permission("pipeline", "read")
-async def get_pipeline_runs(
+def get_pipeline_runs(
     pipeline_id: str,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -608,7 +608,7 @@ async def get_pipeline_runs(
 
 @router.get("/{pipeline_id}/runs/{run_id}")
 @require_permission("pipeline", "read")
-async def get_pipeline_run_details(
+def get_pipeline_run_details(
     pipeline_id: str,
     run_id: int,
     current_user: User = Depends(get_current_user),
@@ -712,7 +712,7 @@ class ScheduleResponse(BaseModel):
 
 @router.put("/{pipeline_id}/schedule")
 @require_permission("pipeline", "update")
-async def set_pipeline_schedule(
+def set_pipeline_schedule(
     pipeline_id: str,
     schedule_request: SetScheduleRequest,
     current_user: User = Depends(get_current_user),
@@ -805,7 +805,7 @@ async def set_pipeline_schedule(
 
 @router.get("/{pipeline_id}/schedule", response_model=ScheduleResponse)
 @require_permission("pipeline", "read")
-async def get_pipeline_schedule(
+def get_pipeline_schedule(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -858,7 +858,7 @@ async def get_pipeline_schedule(
 
 @router.delete("/{pipeline_id}/schedule")
 @require_permission("pipeline", "update")
-async def delete_pipeline_schedule(
+def delete_pipeline_schedule(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -911,7 +911,7 @@ async def delete_pipeline_schedule(
 
 @router.post("/{pipeline_id}/schedule/enable")
 @require_permission("pipeline", "update")
-async def enable_pipeline_schedule(
+def enable_pipeline_schedule(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -991,7 +991,7 @@ async def enable_pipeline_schedule(
 
 @router.post("/{pipeline_id}/schedule/disable")
 @require_permission("pipeline", "update")
-async def disable_pipeline_schedule(
+def disable_pipeline_schedule(
     pipeline_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1051,7 +1051,7 @@ async def disable_pipeline_schedule(
 
 
 @router.get("/schedules/predefined")
-async def get_predefined_schedules():
+def get_predefined_schedules():
     """
     Get list of predefined schedule templates.
 

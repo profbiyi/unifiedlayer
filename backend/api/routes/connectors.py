@@ -10,7 +10,7 @@ router = APIRouter(prefix="/connectors", tags=["Connector SDK"])
 
 
 @router.get("/")
-async def list_connectors():
+def list_connectors():
     """List all available connectors with their metadata."""
     connectors = ConnectorRegistry.list_all()
     return {
@@ -38,13 +38,13 @@ async def list_connectors():
 
 
 @router.get("/categories")
-async def list_categories():
+def list_categories():
     """List all connector categories."""
     return {"categories": ConnectorRegistry.get_categories()}
 
 
 @router.get("/{connector_name}")
-async def get_connector_details(connector_name: str):
+def get_connector_details(connector_name: str):
     """Get details and config schema for a specific connector."""
     connector_class = ConnectorRegistry.get(connector_name)
     if not connector_class:

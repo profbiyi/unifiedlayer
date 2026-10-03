@@ -34,7 +34,7 @@ class DestinationTestResponse(BaseModel):
 
 
 @router.post("/test-connection", response_model=DestinationTestResponse)
-async def test_connection(
+def test_connection(
     request: DestinationTestRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

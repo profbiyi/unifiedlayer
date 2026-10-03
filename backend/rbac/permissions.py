@@ -5,6 +5,7 @@ This module provides functions to check user permissions and enforce
 role-based access control throughout the application.
 """
 
+import inspect
 from typing import List, Optional
 from functools import wraps
 from fastapi import HTTPException, status
@@ -102,9 +103,8 @@ def require_permission(resource: str, action: str):
         HTTPException: 403 if user doesn't have permission
     """
     def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract current_user and db from kwargs
+        def _check(kwargs):
+            """Run the auth + permission gate; raise HTTPException on failure."""
             current_user = kwargs.get('current_user')
             db = kwargs.get('db')
 
@@ -120,10 +120,7 @@ def require_permission(resource: str, action: str):
                     detail="Database session not available"
                 )
 
-            # Check permission
-            has_perm = user_has_permission(current_user, resource, action, db)
-
-            if not has_perm:
+            if not user_has_permission(current_user, resource, action, db):
                 # Log failed permission check
                 from backend.rbac.audit import log_audit
                 log_audit(
@@ -144,8 +141,22 @@ def require_permission(resource: str, action: str):
                     detail=f"Missing required permission: {resource}:{action}"
                 )
 
-            return await func(*args, **kwargs)
-        return wrapper
+        # Preserve the wrapped handler's sync/async nature so FastAPI keeps running
+        # sync (def) handlers in its threadpool instead of on the event loop. An
+        # async wrapper would otherwise force every permission-gated handler back
+        # onto the loop (and `await`ing a sync handler's result would crash).
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                _check(kwargs)
+                return await func(*args, **kwargs)
+            return async_wrapper
+
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            _check(kwargs)
+            return func(*args, **kwargs)
+        return sync_wrapper
     return decorator
 
 

@@ -63,7 +63,7 @@ class APIPreviewResponse(BaseModel):
 
 
 @router.post("/preview", response_model=APIPreviewResponse)
-async def preview_api_source(
+def preview_api_source(
     request: APIPreviewRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

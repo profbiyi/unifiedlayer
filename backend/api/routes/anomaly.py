@@ -108,7 +108,7 @@ def _run_detector_for_org(
         "user's organisation.  Super-admins see anomalies across all orgs."
     ),
 )
-async def list_anomalies(
+def list_anomalies(
     severity: Optional[str] = Query(
         None,
         description="Filter by severity: 'warning' or 'critical'",
@@ -180,7 +180,7 @@ async def list_anomalies(
         "pipelines that belong to their organisation."
     ),
 )
-async def list_pipeline_anomalies(
+def list_pipeline_anomalies(
     pipeline_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

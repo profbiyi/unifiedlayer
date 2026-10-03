@@ -55,7 +55,7 @@ class SummaryGenerateResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.post("/generate", response_model=SummaryGenerateResponse)
-async def generate_summary(
+def generate_summary(
     request: SummaryGenerateRequest,
     current_user: User = Depends(require_org_admin),
     db: Session = Depends(get_db),
@@ -128,7 +128,7 @@ async def generate_summary(
 
 
 @router.get("/preview")
-async def preview_summary_stats(
+def preview_summary_stats(
     frequency: str = "weekly",
     current_user: User = Depends(require_org_admin),
     db: Session = Depends(get_db),

@@ -18,7 +18,7 @@ router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
 
 @router.get("", response_model=List[OrganizationResponse])
-async def list_organizations(
+def list_organizations(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_superuser),
@@ -30,7 +30,7 @@ async def list_organizations(
 
 
 @router.get("/me", response_model=OrganizationResponse)
-async def get_my_organization(
+def get_my_organization(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -49,7 +49,7 @@ async def get_my_organization(
 
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)
-async def get_organization(
+def get_organization(
     organization_id: int,
     current_user: User = Depends(get_current_superuser),
     db: Session = Depends(get_db),
@@ -69,7 +69,7 @@ async def get_organization(
 
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
-async def create_organization(
+def create_organization(
     org_data: OrganizationCreate,
     current_user: User = Depends(get_current_superuser),
     db: Session = Depends(get_db),
@@ -102,7 +102,7 @@ async def create_organization(
 
 
 @router.put("/{organization_id}", response_model=OrganizationResponse)
-async def update_organization(
+def update_organization(
     organization_id: int,
     org_data: OrganizationUpdate,
     current_user: User = Depends(get_current_superuser),
@@ -131,7 +131,7 @@ async def update_organization(
 
 
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_organization(
+def delete_organization(
     organization_id: int,
     current_user: User = Depends(get_current_superuser),
     db: Session = Depends(get_db),
@@ -162,7 +162,7 @@ async def delete_organization(
 
 
 @router.patch("/me/branding", response_model=OrganizationResponse)
-async def update_my_organization_branding(
+def update_my_organization_branding(
     branding: OrganizationBrandingUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

@@ -40,7 +40,7 @@ router = APIRouter(prefix="/lineage", tags=["Data Lineage"])
 
 
 @router.get("/nodes", response_model=List[LineageNodeResponse])
-async def list_nodes(
+def list_nodes(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     node_type: str = Query(None),
@@ -58,7 +58,7 @@ async def list_nodes(
 
 
 @router.get("/nodes/{node_id}", response_model=LineageNodeResponse)
-async def get_node(
+def get_node(
     node_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -76,7 +76,7 @@ async def get_node(
 
 
 @router.post("/nodes", response_model=LineageNodeResponse, status_code=status.HTTP_201_CREATED)
-async def create_node(
+def create_node(
     node_data: LineageNodeCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -112,7 +112,7 @@ async def create_node(
 
 
 @router.get("/edges", response_model=List[LineageEdgeResponse])
-async def list_edges(
+def list_edges(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
@@ -124,7 +124,7 @@ async def list_edges(
 
 
 @router.post("/edges", response_model=LineageEdgeResponse, status_code=status.HTTP_201_CREATED)
-async def create_edge(
+def create_edge(
     edge_data: LineageEdgeCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -148,7 +148,7 @@ async def create_edge(
 
 
 @router.get("/graph/{table_fqn}", response_model=LineageGraphResponse)
-async def get_lineage_graph(
+def get_lineage_graph(
     table_fqn: str,
     depth: int = Query(3, ge=1, le=10),
     current_user: User = Depends(get_current_user),
@@ -184,7 +184,7 @@ async def get_lineage_graph(
 
 
 @router.get("/upstream/{table_fqn}", response_model=List[LineageNodeResponse])
-async def get_upstream_lineage(
+def get_upstream_lineage(
     table_fqn: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -211,7 +211,7 @@ async def get_upstream_lineage(
 
 
 @router.get("/downstream/{table_fqn}", response_model=List[LineageNodeResponse])
-async def get_downstream_lineage(
+def get_downstream_lineage(
     table_fqn: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -238,7 +238,7 @@ async def get_downstream_lineage(
 
 
 @router.get("/impact/{node_id}")
-async def get_impact_analysis(
+def get_impact_analysis(
     node_id: int,
     max_depth: int = Query(10, ge=1, le=20),
     current_user: User = Depends(get_current_user),
@@ -256,7 +256,7 @@ async def get_impact_analysis(
 
 
 @router.post("/refresh")
-async def refresh_all_lineage(
+def refresh_all_lineage(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
@@ -268,7 +268,7 @@ async def refresh_all_lineage(
 
 
 @router.post("/refresh/{pipeline_id}")
-async def refresh_pipeline_lineage(
+def refresh_pipeline_lineage(
     pipeline_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -282,7 +282,7 @@ async def refresh_pipeline_lineage(
 
 
 @router.get("/pipeline-graph")
-async def get_pipeline_lineage_graph(
+def get_pipeline_lineage_graph(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
@@ -471,7 +471,7 @@ async def get_pipeline_lineage_graph(
 
 
 @router.get("/columns/{table_name}", response_model=List[ColumnLineageResponse])
-async def get_column_lineage_for_table(
+def get_column_lineage_for_table(
     table_name: str,
     column_name: str = Query(None, description="Optional specific column"),
     current_user: User = Depends(get_current_user),
@@ -496,7 +496,7 @@ async def get_column_lineage_for_table(
     "/columns/{table_name}/{column_name}/upstream",
     response_model=List[ColumnDependencyResponse]
 )
-async def get_column_upstream(
+def get_column_upstream(
     table_name: str,
     column_name: str,
     max_depth: int = Query(10, ge=1, le=50, description="Maximum traversal depth"),
@@ -523,7 +523,7 @@ async def get_column_upstream(
     "/columns/{table_name}/{column_name}/downstream",
     response_model=List[ColumnDependencyResponse]
 )
-async def get_column_downstream(
+def get_column_downstream(
     table_name: str,
     column_name: str,
     max_depth: int = Query(10, ge=1, le=50, description="Maximum traversal depth"),
@@ -550,7 +550,7 @@ async def get_column_downstream(
     "/columns/{table_name}/{column_name}/impact",
     response_model=ColumnImpactAnalysisResponse
 )
-async def get_column_impact_analysis(
+def get_column_impact_analysis(
     table_name: str,
     column_name: str,
     max_depth: int = Query(10, ge=1, le=50, description="Maximum traversal depth"),
@@ -577,7 +577,7 @@ async def get_column_impact_analysis(
     "/columns/{table_name}/graph",
     response_model=ColumnLineageGraphResponse
 )
-async def get_column_lineage_graph(
+def get_column_lineage_graph(
     table_name: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -597,7 +597,7 @@ async def get_column_lineage_graph(
 
 
 @router.post("/columns/parse-sql", response_model=ParseSQLResponse)
-async def parse_sql_for_lineage(
+def parse_sql_for_lineage(
     request: ParseSQLRequest = Body(...),
     current_user: User = Depends(get_current_user),
 ):
@@ -645,7 +645,7 @@ async def parse_sql_for_lineage(
     "/columns/transformation/{transformation_id}/refresh",
     response_model=RefreshLineageResponse
 )
-async def refresh_transformation_column_lineage(
+def refresh_transformation_column_lineage(
     transformation_id: int,
     dialect: str = Query("postgres", description="SQL dialect"),
     current_user: User = Depends(get_current_user),
@@ -705,7 +705,7 @@ async def refresh_transformation_column_lineage(
     "/columns/dbt/{model_name}/metadata",
     response_model=List[DbtColumnMetadataResponse]
 )
-async def get_dbt_column_metadata(
+def get_dbt_column_metadata(
     model_name: str,
     dbt_project_id: int = Query(..., description="dbt project ID"),
     current_user: User = Depends(get_current_user),
@@ -740,7 +740,7 @@ async def get_dbt_column_metadata(
 
 
 @router.delete("/columns/transformation/{transformation_id}")
-async def delete_transformation_column_lineage(
+def delete_transformation_column_lineage(
     transformation_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -780,7 +780,7 @@ async def delete_transformation_column_lineage(
 
 
 @router.delete("/columns/pipeline/{pipeline_id}")
-async def delete_pipeline_column_lineage(
+def delete_pipeline_column_lineage(
     pipeline_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

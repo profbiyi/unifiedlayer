@@ -61,7 +61,7 @@ class WhatsAppTestResponse(BaseModel):
         "Only accessible to super admins."
     ),
 )
-async def test_whatsapp(
+def test_whatsapp(
     request: WhatsAppTestRequest,
     current_user: User = Depends(require_super_admin),
 ) -> WhatsAppTestResponse:
