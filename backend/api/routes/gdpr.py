@@ -12,9 +12,10 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
+from backend.async_database import get_async_db
 from backend.auth import get_current_user, verify_password, get_password_hash
 from backend.models.pipeline import (
     User,
@@ -43,9 +44,9 @@ def _serialize_datetime(obj):
 
 
 @router.get("/export-my-data")
-def export_my_data(
+async def export_my_data(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Export all data associated with the authenticated user.
@@ -53,26 +54,39 @@ def export_my_data(
     Returns a downloadable JSON file containing the user's profile,
     organization, sources, destinations, pipelines, and pipeline runs.
     """
-    org = db.query(Organization).filter(
-        Organization.id == current_user.organization_id
-    ).first()
+    org = (
+        await db.execute(
+            select(Organization).where(Organization.id == current_user.organization_id)
+        )
+    ).scalar_one_or_none()
 
-    sources = db.query(DataSource).filter(
-        DataSource.organization_id == current_user.organization_id
-    ).all()
+    sources = (
+        await db.execute(
+            select(DataSource).where(DataSource.organization_id == current_user.organization_id)
+        )
+    ).scalars().all()
 
-    destinations = db.query(Destination).filter(
-        Destination.organization_id == current_user.organization_id
-    ).all()
+    destinations = (
+        await db.execute(
+            select(Destination).where(Destination.organization_id == current_user.organization_id)
+        )
+    ).scalars().all()
 
-    pipelines = db.query(Pipeline).filter(
-        Pipeline.organization_id == current_user.organization_id
-    ).all()
+    pipelines = (
+        await db.execute(
+            select(Pipeline).where(Pipeline.organization_id == current_user.organization_id)
+        )
+    ).scalars().all()
 
     pipeline_ids = [p.id for p in pipelines]
-    runs = db.query(PipelineRun).filter(
-        PipelineRun.pipeline_id.in_(pipeline_ids)
-    ).all() if pipeline_ids else []
+    runs = (
+        (
+            await db.execute(
+                select(PipelineRun).where(PipelineRun.pipeline_id.in_(pipeline_ids))
+            )
+        ).scalars().all()
+        if pipeline_ids else []
+    )
 
     export_data = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
@@ -156,10 +170,10 @@ def export_my_data(
 
 
 @router.delete("/delete-my-account")
-def delete_my_account(
+async def delete_my_account(
     payload: DeleteAccountRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Permanently delete (anonymise) the authenticated user's account.
@@ -186,18 +200,18 @@ def delete_my_account(
     if current_user.is_org_admin():
         from backend.models.rbac import UserRole, Role
 
-        admin_count = (
-            db.query(User)
+        admin_count = await db.scalar(
+            select(func.count())
+            .select_from(User)
             .join(UserRole, UserRole.user_id == User.id)
             .join(Role, Role.id == UserRole.role_id)
-            .filter(
+            .where(
                 User.organization_id == current_user.organization_id,
                 User.is_active,
                 Role.slug == "org_admin",
                 User.id != current_user.id,
             )
-            .count()
-        )
+        ) or 0
 
         if admin_count == 0:
             raise HTTPException(
@@ -206,23 +220,29 @@ def delete_my_account(
                        "Please transfer admin rights to another user before deleting your account.",
             )
 
+    # current_user is attached to the sync auth session; re-fetch into THIS async
+    # session so the mutations actually persist on commit.
+    user = (
+        await db.execute(select(User).where(User.id == current_user.id))
+    ).scalar_one()
+
     # Anonymise the user
-    current_user.is_active = False
-    current_user.email = f"deleted_{current_user.id}@deleted.local"
-    current_user.username = f"deleted_user_{current_user.id}"
-    current_user.full_name = None
+    user.is_active = False
+    user.email = f"deleted_{user.id}@deleted.local"
+    user.username = f"deleted_user_{user.id}"
+    user.full_name = None
     # A valid bcrypt hash of a random secret → login is impossible AND
     # verify_password() won't raise on a malformed hash (unlike the literal "DELETED").
-    current_user.hashed_password = get_password_hash(secrets.token_urlsafe(32))
-    current_user.email_verification_token = None
-    current_user.password_reset_token = None
-    current_user.password_reset_expires = None
-    current_user.invitation_token = None
-    current_user.updated_at = datetime.now(timezone.utc)
+    user.hashed_password = get_password_hash(secrets.token_urlsafe(32))
+    user.email_verification_token = None
+    user.password_reset_token = None
+    user.password_reset_expires = None
+    user.invitation_token = None
+    user.updated_at = datetime.now(timezone.utc)
 
-    db.commit()
+    await db.commit()
 
-    logger.info("User %s account anonymised (GDPR deletion)", current_user.id)
+    logger.info("User %s account anonymised (GDPR deletion)", user.id)
 
     return {"message": "Your account has been permanently deleted and your data anonymised."}
 
