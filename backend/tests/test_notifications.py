@@ -13,13 +13,25 @@ import uuid
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from backend.api.main import app
 from backend.auth import get_current_user
-from backend.async_database import get_async_db, AsyncSessionLocal
+from backend.async_database import get_async_db, ASYNC_DATABASE_URL
 from backend.database import SessionLocal
 from backend.models.notification import Notification
 from backend.models.pipeline import User, Organization
+
+# Async tests must NOT reuse pooled connections: pytest-asyncio runs each test on
+# its own event loop, and an asyncpg connection is bound to the loop it was opened
+# on — a pooled connection reused on another test's loop raises a greenlet/loop
+# error. NullPool opens a fresh connection per session (on the current loop) and
+# closes it on exit, so every test is loop-clean.
+_test_async_engine = create_async_engine(ASYNC_DATABASE_URL, poolclass=NullPool)
+_TestAsyncSessionLocal = async_sessionmaker(
+    _test_async_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 class _AuthUser:
@@ -63,7 +75,7 @@ async def seeded():
         sync.close()
 
     async def _override_async_db():
-        async with AsyncSessionLocal() as session:
+        async with _TestAsyncSessionLocal() as session:
             yield session
 
     app.dependency_overrides[get_current_user] = lambda: _AuthUser(user_id, org_id)
