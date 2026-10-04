@@ -3,9 +3,10 @@ Organization API routes.
 """
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
+from backend.async_database import get_async_db
 from backend.schemas import OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from backend.schemas.rbac import OrganizationBrandingUpdate
 from backend.models.pipeline import Organization, User
@@ -18,26 +19,28 @@ router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
 
 @router.get("", response_model=List[OrganizationResponse])
-def list_organizations(
+async def list_organizations(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_superuser),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """List all organizations (superuser only)."""
-    organizations = db.query(Organization).offset(skip).limit(limit).all()
-    return organizations
+    result = await db.execute(select(Organization).offset(skip).limit(limit))
+    return result.scalars().all()
 
 
 @router.get("/me", response_model=OrganizationResponse)
-def get_my_organization(
+async def get_my_organization(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get current user's organization."""
-    organization = db.query(Organization).filter(
-        Organization.id == current_user.organization_id
-    ).first()
+    organization = (
+        await db.execute(
+            select(Organization).where(Organization.id == current_user.organization_id)
+        )
+    ).scalar_one_or_none()
 
     if not organization:
         raise HTTPException(
@@ -49,15 +52,15 @@ def get_my_organization(
 
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)
-def get_organization(
+async def get_organization(
     organization_id: int,
     current_user: User = Depends(get_current_superuser),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get a specific organization by ID (superuser only)."""
-    organization = db.query(Organization).filter(
-        Organization.id == organization_id
-    ).first()
+    organization = (
+        await db.execute(select(Organization).where(Organization.id == organization_id))
+    ).scalar_one_or_none()
 
     if not organization:
         raise HTTPException(
@@ -69,16 +72,15 @@ def get_organization(
 
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)
-def create_organization(
+async def create_organization(
     org_data: OrganizationCreate,
     current_user: User = Depends(get_current_superuser),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Create a new organization (superuser only)."""
-    # Check if slug already exists
-    existing = db.query(Organization).filter(
-        Organization.slug == org_data.slug
-    ).first()
+    existing = (
+        await db.execute(select(Organization).where(Organization.slug == org_data.slug))
+    ).scalar_one_or_none()
 
     if existing:
         raise HTTPException(
@@ -94,24 +96,24 @@ def create_organization(
     )
 
     db.add(organization)
-    db.commit()
-    db.refresh(organization)
+    await db.commit()
+    await db.refresh(organization)
 
     logger.info(f"Organization created: {organization.id} - {organization.name}")
     return organization
 
 
 @router.put("/{organization_id}", response_model=OrganizationResponse)
-def update_organization(
+async def update_organization(
     organization_id: int,
     org_data: OrganizationUpdate,
     current_user: User = Depends(get_current_superuser),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Update an existing organization (superuser only)."""
-    organization = db.query(Organization).filter(
-        Organization.id == organization_id
-    ).first()
+    organization = (
+        await db.execute(select(Organization).where(Organization.id == organization_id))
+    ).scalar_one_or_none()
 
     if not organization:
         raise HTTPException(
@@ -123,23 +125,23 @@ def update_organization(
     for field, value in update_data.items():
         setattr(organization, field, value)
 
-    db.commit()
-    db.refresh(organization)
+    await db.commit()
+    await db.refresh(organization)
 
     logger.info(f"Organization updated: {organization.id} - {organization.name}")
     return organization
 
 
 @router.delete("/{organization_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_organization(
+async def delete_organization(
     organization_id: int,
     current_user: User = Depends(get_current_superuser),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Delete an organization (superuser only)."""
-    organization = db.query(Organization).filter(
-        Organization.id == organization_id
-    ).first()
+    organization = (
+        await db.execute(select(Organization).where(Organization.id == organization_id))
+    ).scalar_one_or_none()
 
     if not organization:
         raise HTTPException(
@@ -154,18 +156,18 @@ def delete_organization(
             detail="Cannot delete the platform organization",
         )
 
-    db.delete(organization)
-    db.commit()
+    await db.delete(organization)
+    await db.commit()
 
     logger.info(f"Organization deleted: {organization_id}")
     return None
 
 
 @router.patch("/me/branding", response_model=OrganizationResponse)
-def update_my_organization_branding(
+async def update_my_organization_branding(
     branding: OrganizationBrandingUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Update current organization's branding.
@@ -177,17 +179,17 @@ def update_my_organization_branding(
     - Primary brand color (hex code)
     - Secondary brand color (hex code)
     """
-
-    # Check if user is org admin
     if not current_user.is_org_admin():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only organization admins can update branding"
         )
 
-    organization = db.query(Organization).filter(
-        Organization.id == current_user.organization_id
-    ).first()
+    organization = (
+        await db.execute(
+            select(Organization).where(Organization.id == current_user.organization_id)
+        )
+    ).scalar_one_or_none()
 
     if not organization:
         raise HTTPException(
@@ -195,7 +197,6 @@ def update_my_organization_branding(
             detail="Organization not found",
         )
 
-    # Update branding fields
     if branding.logo_url is not None:
         organization.logo_url = branding.logo_url
     if branding.brand_primary_color is not None:
@@ -203,8 +204,8 @@ def update_my_organization_branding(
     if branding.brand_secondary_color is not None:
         organization.brand_secondary_color = branding.brand_secondary_color
 
-    db.commit()
-    db.refresh(organization)
+    await db.commit()
+    await db.refresh(organization)
 
     logger.info(f"Organization branding updated: {organization.id}")
     return organization
