@@ -19,10 +19,10 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, desc
-from sqlalchemy.orm import Session
+from sqlalchemy import func, desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
+from backend.async_database import get_async_db
 from backend.auth import get_current_user
 from backend.models.pipeline import (
     User,
@@ -37,9 +37,9 @@ router = APIRouter(prefix="/insights", tags=["Business Insights"])
 
 
 @router.get("/dashboard")
-def get_sme_dashboard(
+async def get_sme_dashboard(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     Get the SME business insights dashboard.
@@ -49,63 +49,82 @@ def get_sme_dashboard(
     """
     org_id = current_user.organization_id
     now = datetime.now(timezone.utc)
-    thirty_days_ago = now - timedelta(days=30)
-    sixty_days_ago = now - timedelta(days=60)
+    # Naive UTC for query bounds (asyncpg vs naive timestamp columns); keep `now`
+    # aware for the in-Python freshness math below.
+    naive_now = now.replace(tzinfo=None)
+    thirty_days_ago = naive_now - timedelta(days=30)
+    sixty_days_ago = naive_now - timedelta(days=60)
 
     # --- Pipeline health ---
-    total_runs_30d = db.query(func.count(PipelineRun.id)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-    ).scalar() or 0
+    total_runs_30d = await db.scalar(
+        select(func.count(PipelineRun.id)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+        )
+    ) or 0
 
-    successful_runs_30d = db.query(func.count(PipelineRun.id)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    successful_runs_30d = await db.scalar(
+        select(func.count(PipelineRun.id)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
-    total_rows_30d = db.query(func.sum(PipelineRun.rows_written)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    total_rows_30d = await db.scalar(
+        select(func.sum(PipelineRun.rows_written)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
     # Previous period for comparison
-    total_rows_prev = db.query(func.sum(PipelineRun.rows_written)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= sixty_days_ago,
-        PipelineRun.created_at < thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    total_rows_prev = await db.scalar(
+        select(func.sum(PipelineRun.rows_written)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= sixty_days_ago,
+            PipelineRun.created_at < thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
     rows_trend = 0
     if total_rows_prev > 0:
         rows_trend = round(((total_rows_30d - total_rows_prev) / total_rows_prev) * 100, 1)
 
     # --- Connected sources by type ---
-    sources = db.query(
-        DataSource.source_type,
-        func.count(DataSource.id).label("count"),
-    ).filter(
-        DataSource.organization_id == org_id,
-        DataSource.is_active,
-    ).group_by(DataSource.source_type).all()
+    sources = (
+        await db.execute(
+            select(DataSource.source_type, func.count(DataSource.id).label("count"))
+            .where(DataSource.organization_id == org_id, DataSource.is_active)
+            .group_by(DataSource.source_type)
+        )
+    ).all()
 
     connected_sources = {str(s.source_type.value): s.count for s in sources}
 
     # --- Data freshness (last successful sync per pipeline) ---
-    pipelines = db.query(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        Pipeline.is_active,
-    ).all()
+    pipelines = (
+        await db.execute(
+            select(Pipeline).where(Pipeline.organization_id == org_id, Pipeline.is_active)
+        )
+    ).scalars().all()
 
     stale_pipelines = []
     healthy_pipelines = []
     for p in pipelines:
-        last_run = db.query(PipelineRun).filter(
-            PipelineRun.pipeline_id == p.id,
-            PipelineRun.status == PipelineStatus.COMPLETED,
-        ).order_by(desc(PipelineRun.completed_at)).first()
+        last_run = (
+            await db.execute(
+                select(PipelineRun)
+                .where(
+                    PipelineRun.pipeline_id == p.id,
+                    PipelineRun.status == PipelineStatus.COMPLETED,
+                )
+                .order_by(desc(PipelineRun.completed_at))
+                .limit(1)
+            )
+        ).scalar_one_or_none()
 
         if not last_run or not last_run.completed_at:
             stale_pipelines.append({"name": p.name, "last_sync": None})
@@ -148,7 +167,6 @@ def get_sme_dashboard(
 def get_cash_flow_insights(
     days: int = Query(default=30, ge=7, le=90),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
     Cash flow insights from Open Banking data.
@@ -196,7 +214,6 @@ def get_cash_flow_insights(
 def get_revenue_insights(
     days: int = Query(default=30, ge=7, le=90),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
     Revenue insights from payment data (GoCardless, Stripe, Paystack).
@@ -243,7 +260,6 @@ def get_revenue_insights(
 @router.get("/invoicing")
 def get_invoicing_insights(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
     Invoicing health from Xero/FreeAgent data.
@@ -285,7 +301,6 @@ def get_invoicing_insights(
 @router.get("/tax-readiness")
 def get_tax_readiness(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
     Tax readiness insights from HMRC MTD data.
@@ -321,9 +336,9 @@ def get_tax_readiness(
 
 
 @router.get("/roi")
-def get_roi_summary(
+async def get_roi_summary(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """
     ROI summary — shows the customer how much value the platform delivers.
@@ -331,20 +346,23 @@ def get_roi_summary(
     This is critical for retention and upsell. "You saved X hours and £Y this month."
     """
     org_id = current_user.organization_id
-    now = datetime.now(timezone.utc)
-    thirty_days_ago = now - timedelta(days=30)
+    thirty_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
 
-    successful_runs = db.query(func.count(PipelineRun.id)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    successful_runs = await db.scalar(
+        select(func.count(PipelineRun.id)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
-    total_rows = db.query(func.sum(PipelineRun.rows_written)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    total_rows = await db.scalar(
+        select(func.sum(PipelineRun.rows_written)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
     # ROI assumptions (conservative)
     minutes_per_manual_sync = 15  # CSV export + clean + import
@@ -352,11 +370,13 @@ def get_roi_summary(
     time_saved_hours = round((successful_runs * minutes_per_manual_sync) / 60, 1)
     money_saved_gbp = round(time_saved_hours * hourly_rate_gbp, 2)
 
-    active_pipelines = db.query(func.count(Pipeline.id)).filter(
-        Pipeline.organization_id == org_id,
-        Pipeline.is_active,
-        Pipeline.schedule_enabled,
-    ).scalar() or 0
+    active_pipelines = await db.scalar(
+        select(func.count(Pipeline.id)).where(
+            Pipeline.organization_id == org_id,
+            Pipeline.is_active,
+            Pipeline.schedule_enabled,
+        )
+    ) or 0
 
     return {
         "period": "last_30_days",
