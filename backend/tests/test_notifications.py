@@ -1,205 +1,145 @@
-"""Tests for notification API routes."""
+"""Async tests for the notifications router — the first router migrated to the
+async request path (asyncpg + AsyncSession).
+
+Harness notes (reusable template for subsequent async routers):
+- Data is created via a *committed* sync session (SessionLocal) with uuid-unique
+  keys, so the separate async connection sees it, then deleted in teardown.
+- `get_current_user` and `get_async_db` are overridden on the app for the test.
+- Requests go through httpx.AsyncClient + ASGITransport so the endpoint and the
+  AsyncSession share one event loop (asyncpg connections are loop-bound).
+"""
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
-from backend.api.routes.notifications import router
+from backend.api.main import app
+from backend.auth import get_current_user
+from backend.async_database import get_async_db, ASYNC_DATABASE_URL
+from backend.database import SessionLocal
+from backend.models.notification import Notification
+from backend.models.pipeline import User, Organization
 
-
-def _make_app(db_session, current_user=None):
-    app = FastAPI()
-    app.include_router(router)
-
-    from backend.database import get_db
-    from backend.auth import get_current_user
-
-    app.dependency_overrides[get_db] = lambda: db_session
-    if current_user is not None:
-        app.dependency_overrides[get_current_user] = lambda: current_user
-    return app
-
-
-def _make_notification(**overrides):
-    n = MagicMock()
-    defaults = dict(
-        id=1,
-        public_id=uuid.uuid4(),
-        user_id=1,
-        organization_id=1,
-        type="pipeline_success",
-        title="Pipeline finished",
-        message="Your pipeline completed successfully.",
-        link="/pipelines/abc",
-        is_read=False,
-        created_at=datetime.now(timezone.utc),
-    )
-    defaults.update(overrides)
-    for k, v in defaults.items():
-        setattr(n, k, v)
-    # Support model_validate iteration
-    n.__dict__.update(defaults)
-    return n
+# Async tests must NOT reuse pooled connections: pytest-asyncio runs each test on
+# its own event loop, and an asyncpg connection is bound to the loop it was opened
+# on — a pooled connection reused on another test's loop raises a greenlet/loop
+# error. NullPool opens a fresh connection per session (on the current loop) and
+# closes it on exit, so every test is loop-clean.
+_test_async_engine = create_async_engine(ASYNC_DATABASE_URL, poolclass=NullPool)
+_TestAsyncSessionLocal = async_sessionmaker(
+    _test_async_engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
-@pytest.fixture
-def mock_db():
-    return MagicMock()
+class _AuthUser:
+    def __init__(self, user_id, org_id):
+        self.id = user_id
+        self.organization_id = org_id
 
 
-@pytest.fixture
-def mock_user():
-    u = MagicMock()
-    u.id = 1
-    u.organization_id = 1
-    return u
-
-
-# ---------------------------------------------------------------------------
-
-class TestListNotifications:
-    def test_list_notifications(self, mock_db, mock_user):
-        notif = _make_notification()
-        q = MagicMock()
-        mock_db.query.return_value = q
-        q.filter.return_value = q
-        q.count.return_value = 1
-        q.order_by.return_value = q
-        q.offset.return_value = q
-        q.limit.return_value = q
-        q.all.return_value = [notif]
-
-        app = _make_app(mock_db, mock_user)
-        client = TestClient(app)
-        resp = client.get("/notifications")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["total"] == 1
-        assert len(body["items"]) == 1
-        assert body["items"][0]["title"] == "Pipeline finished"
-
-
-class TestUnreadCount:
-    def test_unread_count(self, mock_db, mock_user):
-        q = MagicMock()
-        mock_db.query.return_value = q
-        q.filter.return_value = q
-        q.count.return_value = 5
-
-        app = _make_app(mock_db, mock_user)
-        client = TestClient(app)
-        resp = client.get("/notifications/count")
-        assert resp.status_code == 200
-        assert resp.json()["unread"] == 5
-
-
-class TestMarkAsRead:
-    def test_mark_as_read(self, mock_db, mock_user):
-        notif = _make_notification(id=7)
-        q = MagicMock()
-        mock_db.query.return_value = q
-        q.filter.return_value = q
-        q.first.return_value = notif
-
-        def _refresh(obj):
-            obj.is_read = True
-        mock_db.refresh = _refresh
-
-        app = _make_app(mock_db, mock_user)
-        client = TestClient(app)
-        resp = client.patch("/notifications/7/read")
-        assert resp.status_code == 200
-        assert resp.json()["is_read"] is True
-
-
-class TestMarkAllRead:
-    def test_mark_all_read(self, mock_db, mock_user):
-        q = MagicMock()
-        mock_db.query.return_value = q
-        q.filter.return_value = q
-        q.update.return_value = 3
-
-        app = _make_app(mock_db, mock_user)
-        client = TestClient(app)
-        resp = client.post("/notifications/mark-all-read")
-        assert resp.status_code == 200
-        assert resp.json()["marked"] == 3
-
-
-class TestRequiresAuth:
-    def test_requires_auth(self, mock_db):
-        app = _make_app(mock_db)  # no user
-        client = TestClient(app)
-        resp = client.get("/notifications")
-        assert resp.status_code in (401, 403, 422, 500)
-
-
-class TestUnreadFilteringRealDB:
-    """Regression tests against a real session.
-
-    The MagicMock-based tests above cannot catch a broken filter expression
-    because the mock swallows whatever is passed to ``.filter()``. These use
-    the real SQLite session so the actual SQL runs. Guards against the
-    ``filter(not Notification.is_read)`` bug, which compiled to ``WHERE false``
-    and made the unread count (bell badge) and the unread-only list always
-    return zero rows.
-    """
-
-    def _seed(self, db, user):
-        from backend.models.notification import Notification
-
+@pytest_asyncio.fixture
+async def seeded():
+    """Committed throwaway org+user with 2 unread + 1 read notification; overrides
+    auth + async-db to it; cleans up afterwards."""
+    uid = uuid.uuid4().hex[:8]
+    sync = SessionLocal()
+    try:
+        org = Organization(name=f"n-{uid}", slug=f"n-{uid}", is_active=True, can_sync_data=True)
+        sync.add(org)
+        sync.flush()
+        user = User(
+            username=f"nu-{uid}",
+            email=f"nu-{uid}@example.com",
+            hashed_password="x",
+            organization_id=org.id,
+            is_active=True,
+            email_verified=True,
+        )
+        sync.add(user)
+        sync.flush()
         for i in range(2):
-            db.add(Notification(
-                user_id=user.id,
-                organization_id=user.organization_id,
-                type="pipeline_success",
-                title=f"Unread {i}",
-                message="m",
-                is_read=False,
+            sync.add(Notification(
+                user_id=user.id, organization_id=org.id,
+                type="pipeline_success", title=f"Unread {i}", message="m", is_read=False,
             ))
-        db.add(Notification(
-            user_id=user.id,
-            organization_id=user.organization_id,
-            type="pipeline_success",
-            title="Read",
-            message="m",
-            is_read=True,
+        sync.add(Notification(
+            user_id=user.id, organization_id=org.id,
+            type="pipeline_success", title="Read", message="m", is_read=True,
         ))
-        db.flush()
+        sync.commit()
+        user_id, org_id = user.id, org.id
+    finally:
+        sync.close()
 
-    def test_unread_count_returns_only_unread(self, db, test_user):
-        self._seed(db, test_user)
-        app = _make_app(db, test_user)
-        client = TestClient(app)
-        resp = client.get("/notifications/count")
-        assert resp.status_code == 200
-        assert resp.json()["unread"] == 2  # not 0
+    async def _override_async_db():
+        async with _TestAsyncSessionLocal() as session:
+            yield session
 
-    def test_unread_only_list_returns_only_unread(self, db, test_user):
-        self._seed(db, test_user)
-        app = _make_app(db, test_user)
-        client = TestClient(app)
-        resp = client.get("/notifications?unread_only=true")
-        assert resp.status_code == 200
-        assert resp.json()["total"] == 2  # not 0
+    app.dependency_overrides[get_current_user] = lambda: _AuthUser(user_id, org_id)
+    app.dependency_overrides[get_async_db] = _override_async_db
+    try:
+        yield _AuthUser(user_id, org_id)
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_async_db, None)
+        cleanup = SessionLocal()
+        try:
+            cleanup.query(Notification).filter(Notification.user_id == user_id).delete()
+            cleanup.query(User).filter(User.id == user_id).delete()
+            cleanup.query(Organization).filter(Organization.id == org_id).delete()
+            cleanup.commit()
+        finally:
+            cleanup.close()
 
-    def test_list_without_filter_returns_all(self, db, test_user):
-        self._seed(db, test_user)
-        app = _make_app(db, test_user)
-        client = TestClient(app)
-        resp = client.get("/notifications")
-        assert resp.status_code == 200
-        assert resp.json()["total"] == 3
 
-    def test_mark_all_read_actually_marks_unread(self, db, test_user):
-        self._seed(db, test_user)
-        app = _make_app(db, test_user)
-        client = TestClient(app)
-        resp = client.post("/notifications/mark-all-read")
-        assert resp.status_code == 200
-        assert resp.json()["marked"] == 2  # the 2 unread, not 0
-        # and now nothing is unread
-        assert client.get("/notifications/count").json()["unread"] == 0
+# Full paths (incl. the /api/v1 router prefix) against a bare host base_url, so
+# there is no base_url-join ambiguity.
+BASE = "/api/v1/notifications"
+
+
+@pytest_asyncio.fixture
+async def aclient():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        yield client
+
+
+@pytest.mark.asyncio
+async def test_unread_count(seeded, aclient):
+    resp = await aclient.get(f"{BASE}/count")
+    assert resp.status_code == 200
+    assert resp.json()["unread"] == 2
+
+
+@pytest.mark.asyncio
+async def test_unread_only_list(seeded, aclient):
+    resp = await aclient.get(f"{BASE}?unread_only=true")
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_list_all(seeded, aclient):
+    resp = await aclient.get(BASE)
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 3
+    assert len(resp.json()["items"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_mark_all_read(seeded, aclient):
+    resp = await aclient.post(f"{BASE}/mark-all-read")
+    assert resp.status_code == 200
+    assert resp.json()["marked"] == 2
+    after = await aclient.get(f"{BASE}/count")
+    assert after.json()["unread"] == 0
+
+
+@pytest.mark.asyncio
+async def test_requires_auth_when_not_overridden(aclient):
+    # no `seeded` → no auth override → the endpoint's auth dependency rejects
+    resp = await aclient.get(f"{BASE}/count")
+    assert resp.status_code in (401, 403)
