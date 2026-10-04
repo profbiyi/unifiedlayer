@@ -5,11 +5,9 @@ Endpoints for testing destination connections before saving.
 """
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import logging
 
-from backend.database import get_db
 from backend.models.pipeline import User
 from backend.auth import get_current_user
 from backend.utils.connection_tester import test_destination_connection
@@ -37,12 +35,13 @@ class DestinationTestResponse(BaseModel):
 def test_connection(
     request: DestinationTestRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
     Test a destination connection.
 
     Validates credentials and connectivity without storing configuration.
+    Stays a sync `def` (threadpool): the underlying tester does blocking network
+    I/O, which must not run on the event loop.
     """
     logger.info(f"Testing destination connection for type: {request.destination_type}")
 
