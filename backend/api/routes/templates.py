@@ -5,9 +5,9 @@ Provides endpoints for browsing and deploying pre-built pipeline templates.
 """
 from typing import List
 from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
+from backend.async_database import get_async_db
 from backend.auth import get_current_user
 from backend.models.pipeline import (
     DataSource, Destination, Pipeline, User,
@@ -44,10 +44,10 @@ def get_template(template_id: str):
 
 
 @router.post("/{template_id}/deploy", response_model=TemplateDeployResponse)
-def deploy_template(
+async def deploy_template(
     template_id: str,
     request: TemplateDeployRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -80,7 +80,7 @@ def deploy_template(
             config=source_config,
         )
         db.add(source)
-        db.flush()
+        await db.flush()
 
         # Create Destination
         destination = Destination(
@@ -92,7 +92,7 @@ def deploy_template(
             config=dest_config,
         )
         db.add(destination)
-        db.flush()
+        await db.flush()
 
         # Create Pipeline
         pipeline = Pipeline(
@@ -105,10 +105,10 @@ def deploy_template(
             schedule=request.schedule,
         )
         db.add(pipeline)
-        db.commit()
-        db.refresh(pipeline)
-        db.refresh(source)
-        db.refresh(destination)
+        await db.commit()
+        await db.refresh(pipeline)
+        await db.refresh(source)
+        await db.refresh(destination)
 
         logger.info(
             f"Template '{template_id}' deployed: pipeline={pipeline.public_id}, "
@@ -123,7 +123,7 @@ def deploy_template(
         )
 
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Failed to deploy template '{template_id}': {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
