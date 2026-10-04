@@ -8,10 +8,10 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, desc
-from sqlalchemy.orm import Session
+from sqlalchemy import func, desc, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.database import get_db
+from backend.async_database import get_async_db
 from backend.auth import get_current_user
 from backend.models.pipeline import (
     User,
@@ -27,76 +27,84 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
+def _days_ago(days: int) -> datetime:
+    # Naive UTC to match the naive `timestamp` columns (asyncpg rejects aware).
+    return datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+
+
 @router.get("/overview")
-def get_overview(
+async def get_overview(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get high-level analytics overview for the organization dashboard."""
     org_id = current_user.organization_id
+    thirty_days_ago = _days_ago(30)
 
-    # Pipeline counts
-    total_pipelines = db.query(func.count(Pipeline.id)).filter(
-        Pipeline.organization_id == org_id
-    ).scalar() or 0
+    total_pipelines = await db.scalar(
+        select(func.count(Pipeline.id)).where(Pipeline.organization_id == org_id)
+    ) or 0
 
-    active_pipelines = db.query(func.count(Pipeline.id)).filter(
-        Pipeline.organization_id == org_id,
-        Pipeline.is_active,
-        Pipeline.schedule_enabled,
-    ).scalar() or 0
+    active_pipelines = await db.scalar(
+        select(func.count(Pipeline.id)).where(
+            Pipeline.organization_id == org_id,
+            Pipeline.is_active,
+            Pipeline.schedule_enabled,
+        )
+    ) or 0
 
-    # Run stats (last 30 days)
-    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    total_runs = await db.scalar(
+        select(func.count(PipelineRun.id)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+        )
+    ) or 0
 
-    total_runs = db.query(func.count(PipelineRun.id)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-    ).scalar() or 0
+    successful_runs = await db.scalar(
+        select(func.count(PipelineRun.id)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
-    successful_runs = db.query(func.count(PipelineRun.id)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    failed_runs = await db.scalar(
+        select(func.count(PipelineRun.id)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.FAILED,
+        )
+    ) or 0
 
-    failed_runs = db.query(func.count(PipelineRun.id)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.FAILED,
-    ).scalar() or 0
+    rows_synced = await db.scalar(
+        select(func.sum(PipelineRun.rows_written)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
-    # Rows synced (last 30 days)
-    rows_synced = db.query(func.sum(PipelineRun.rows_written)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    avg_duration = await db.scalar(
+        select(func.avg(PipelineRun.duration_seconds)).join(Pipeline).where(
+            Pipeline.organization_id == org_id,
+            PipelineRun.created_at >= thirty_days_ago,
+            PipelineRun.status == PipelineStatus.COMPLETED,
+        )
+    ) or 0
 
-    # Avg duration
-    avg_duration = db.query(func.avg(PipelineRun.duration_seconds)).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).scalar() or 0
+    source_count = await db.scalar(
+        select(func.count(DataSource.id)).where(DataSource.organization_id == org_id)
+    ) or 0
 
-    # Source and destination counts
-    source_count = db.query(func.count(DataSource.id)).filter(
-        DataSource.organization_id == org_id,
-    ).scalar() or 0
-
-    destination_count = db.query(func.count(Destination.id)).filter(
-        Destination.organization_id == org_id,
-    ).scalar() or 0
+    destination_count = await db.scalar(
+        select(func.count(Destination.id)).where(Destination.organization_id == org_id)
+    ) or 0
 
     success_rate = round((successful_runs / total_runs) * 100, 1) if total_runs > 0 else 0
 
     return {
         "period": "last_30_days",
-        "pipelines": {
-            "total": total_pipelines,
-            "active": active_pipelines,
-        },
+        "pipelines": {"total": total_pipelines, "active": active_pipelines},
         "runs": {
             "total": total_runs,
             "successful": successful_runs,
@@ -107,36 +115,37 @@ def get_overview(
             "rows_synced": rows_synced,
             "avg_duration_seconds": round(avg_duration, 2),
         },
-        "connectors": {
-            "sources": source_count,
-            "destinations": destination_count,
-        },
+        "connectors": {"sources": source_count, "destinations": destination_count},
     }
 
 
 @router.get("/runs/timeline")
-def get_runs_timeline(
+async def get_runs_timeline(
     days: int = Query(default=30, ge=1, le=90),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get daily pipeline run counts for charting (success vs failure over time)."""
     org_id = current_user.organization_id
-    start_date = datetime.now(timezone.utc) - timedelta(days=days)
+    start_date = _days_ago(days)
 
-    runs = db.query(
-        func.date(PipelineRun.created_at).label("date"),
-        PipelineRun.status,
-        func.count(PipelineRun.id).label("count"),
-    ).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= start_date,
-    ).group_by(
-        func.date(PipelineRun.created_at),
-        PipelineRun.status,
-    ).order_by("date").all()
+    runs = (
+        await db.execute(
+            select(
+                func.date(PipelineRun.created_at).label("date"),
+                PipelineRun.status,
+                func.count(PipelineRun.id).label("count"),
+            )
+            .join(Pipeline)
+            .where(
+                Pipeline.organization_id == org_id,
+                PipelineRun.created_at >= start_date,
+            )
+            .group_by(func.date(PipelineRun.created_at), PipelineRun.status)
+            .order_by(func.date(PipelineRun.created_at))
+        )
+    ).all()
 
-    # Group by date
     timeline = {}
     for row in runs:
         date_str = str(row.date)
@@ -152,23 +161,31 @@ def get_runs_timeline(
 
 
 @router.get("/rows/timeline")
-def get_rows_timeline(
+async def get_rows_timeline(
     days: int = Query(default=30, ge=1, le=90),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get daily rows synced for charting volume over time."""
     org_id = current_user.organization_id
-    start_date = datetime.now(timezone.utc) - timedelta(days=days)
+    start_date = _days_ago(days)
 
-    rows = db.query(
-        func.date(PipelineRun.created_at).label("date"),
-        func.sum(PipelineRun.rows_written).label("rows"),
-    ).join(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-        PipelineRun.created_at >= start_date,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).group_by(func.date(PipelineRun.created_at)).order_by("date").all()
+    rows = (
+        await db.execute(
+            select(
+                func.date(PipelineRun.created_at).label("date"),
+                func.sum(PipelineRun.rows_written).label("rows"),
+            )
+            .join(Pipeline)
+            .where(
+                Pipeline.organization_id == org_id,
+                PipelineRun.created_at >= start_date,
+                PipelineRun.status == PipelineStatus.COMPLETED,
+            )
+            .group_by(func.date(PipelineRun.created_at))
+            .order_by(func.date(PipelineRun.created_at))
+        )
+    ).all()
 
     return {
         "timeline": [
@@ -179,24 +196,28 @@ def get_rows_timeline(
 
 
 @router.get("/pipelines/performance")
-def get_pipeline_performance(
+async def get_pipeline_performance(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get performance metrics per pipeline (success rate, avg duration, rows)."""
     org_id = current_user.organization_id
-    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    thirty_days_ago = _days_ago(30)
 
-    pipelines = db.query(Pipeline).filter(
-        Pipeline.organization_id == org_id,
-    ).all()
+    pipelines = (
+        await db.execute(select(Pipeline).where(Pipeline.organization_id == org_id))
+    ).scalars().all()
 
     results = []
     for p in pipelines:
-        runs = db.query(PipelineRun).filter(
-            PipelineRun.pipeline_id == p.id,
-            PipelineRun.created_at >= thirty_days_ago,
-        ).all()
+        runs = (
+            await db.execute(
+                select(PipelineRun).where(
+                    PipelineRun.pipeline_id == p.id,
+                    PipelineRun.created_at >= thirty_days_ago,
+                )
+            )
+        ).scalars().all()
 
         total = len(runs)
         completed = sum(1 for r in runs if r.status == PipelineStatus.COMPLETED)
@@ -220,33 +241,36 @@ def get_pipeline_performance(
             "schedule": p.schedule,
         })
 
-    # Sort by total runs descending
     results.sort(key=lambda x: x["total_runs"], reverse=True)
     return {"pipelines": results}
 
 
 @router.get("/sources/breakdown")
-def get_source_breakdown(
+async def get_source_breakdown(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get breakdown of data synced by source type."""
     org_id = current_user.organization_id
-    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    thirty_days_ago = _days_ago(30)
 
-    sources = db.query(
-        DataSource.source_type,
-        func.count(Pipeline.id).label("pipeline_count"),
-        func.sum(PipelineRun.rows_written).label("total_rows"),
-    ).join(
-        Pipeline, Pipeline.source_id == DataSource.id
-    ).join(
-        PipelineRun, PipelineRun.pipeline_id == Pipeline.id
-    ).filter(
-        DataSource.organization_id == org_id,
-        PipelineRun.created_at >= thirty_days_ago,
-        PipelineRun.status == PipelineStatus.COMPLETED,
-    ).group_by(DataSource.source_type).all()
+    sources = (
+        await db.execute(
+            select(
+                DataSource.source_type,
+                func.count(Pipeline.id).label("pipeline_count"),
+                func.sum(PipelineRun.rows_written).label("total_rows"),
+            )
+            .join(Pipeline, Pipeline.source_id == DataSource.id)
+            .join(PipelineRun, PipelineRun.pipeline_id == Pipeline.id)
+            .where(
+                DataSource.organization_id == org_id,
+                PipelineRun.created_at >= thirty_days_ago,
+                PipelineRun.status == PipelineStatus.COMPLETED,
+            )
+            .group_by(DataSource.source_type)
+        )
+    ).all()
 
     return {
         "sources": [
@@ -261,20 +285,22 @@ def get_source_breakdown(
 
 
 @router.get("/usage/history")
-def get_usage_history(
+async def get_usage_history(
     months: int = Query(default=6, ge=1, le=12),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
 ):
     """Get usage history over the past N months for trending."""
     org_id = current_user.organization_id
 
-    records = db.query(UsageRecord).filter(
-        UsageRecord.organization_id == org_id,
-    ).order_by(
-        desc(UsageRecord.period_year),
-        desc(UsageRecord.period_month),
-    ).limit(months).all()
+    records = (
+        await db.execute(
+            select(UsageRecord)
+            .where(UsageRecord.organization_id == org_id)
+            .order_by(desc(UsageRecord.period_year), desc(UsageRecord.period_month))
+            .limit(months)
+        )
+    ).scalars().all()
 
     return {
         "usage_history": [
