@@ -17,7 +17,9 @@ router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
 
 def _start_time(timerange: str) -> datetime:
-    now = datetime.now(timezone.utc)
+    # Naive UTC: the created_at columns are `timestamp without time zone`, and
+    # asyncpg (unlike psycopg2) refuses to bind an aware datetime against them.
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if timerange == "24h":
         return now - timedelta(hours=24)
     if timerange == "7d":
