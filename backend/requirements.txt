@@ -38,7 +38,7 @@ prefect-dbt==0.6.1
 # Data Processing
 pandas>=2.1.4,<3.0.0
 numpy>=1.26.3,<2.0.0
-pyarrow>=16.0.0
+pyarrow>=16.0.0,<26.0.0   # pyarrow 26 requires numpy>=2.0; we pin numpy<2.0 above
 
 # Analytics & ML
 # prophet removed due to heavy dependencies and potential conflicts
