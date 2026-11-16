@@ -37,14 +37,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ArrowLeft,
+  CheckCircle2,
   Copy,
   Inbox,
+  KeyRound,
   Loader2,
+  Mail,
   RefreshCw,
+  Rocket,
   Trash2,
   UserPlus,
 } from "lucide-react";
+
+// Onboarding is only meaningful once a lead has been vetted on a call.
+const ONBOARDABLE_STATUSES = new Set(["qualified", "trial_active"]);
 
 interface OnboardResult {
   organization_id: number;
@@ -109,6 +122,8 @@ export default function AccessRequestsPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [onboardingId, setOnboardingId] = useState<number | null>(null);
   const [onboardResult, setOnboardResult] = useState<OnboardResult | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<AccessRequestItem | null>(null);
+  const [planChoice, setPlanChoice] = useState<string>("professional");
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -170,18 +185,21 @@ export default function AccessRequestsPage() {
     }
   };
 
-  const onboardRequest = async (r: AccessRequestItem) => {
-    if (
-      !confirm(
-        `Onboard "${r.company_name}"?\n\nThis creates their organization and an admin login for ${r.email}, emails them the credentials, and marks the request Trial Active.`
-      )
-    ) {
-      return;
-    }
+  const openOnboardConfirm = (r: AccessRequestItem) => {
+    setPlanChoice("professional");
+    setConfirmTarget(r);
+  };
+
+  const confirmOnboard = async () => {
+    const r = confirmTarget;
+    if (!r) return;
     setOnboardingId(r.id);
     try {
-      const response = await api.post(`/access-requests/${r.id}/onboard`, {});
+      const response = await api.post(`/access-requests/${r.id}/onboard`, {
+        subscription_plan: planChoice,
+      });
       const result: OnboardResult = response.data;
+      setConfirmTarget(null);
       setOnboardResult(result);
       // reflect the new status locally
       setRequests((prev) =>
@@ -371,33 +389,53 @@ export default function AccessRequestsPage() {
                         })}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8"
-                            onClick={() => onboardRequest(r)}
-                            disabled={onboardingId === r.id}
-                            aria-label={`Onboard ${r.company_name}`}
-                            title="Create their organization + admin login"
-                          >
-                            {onboardingId === r.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <UserPlus className="h-4 w-4" />
-                            )}
-                            <span className="ml-1 hidden sm:inline">Onboard</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => deleteRequest(r.id, r.company_name)}
-                            aria-label={`Delete request from ${r.company_name}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {(() => {
+                          const eligible = ONBOARDABLE_STATUSES.has(r.status);
+                          return (
+                            <div className="flex items-center justify-end gap-1">
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    {/* span keeps the tooltip working while the button is disabled */}
+                                    <span tabIndex={0}>
+                                      <Button
+                                        variant={eligible ? "default" : "outline"}
+                                        size="sm"
+                                        className="h-8"
+                                        onClick={() => openOnboardConfirm(r)}
+                                        disabled={!eligible || onboardingId === r.id}
+                                        aria-label={`Onboard ${r.company_name}`}
+                                      >
+                                        {onboardingId === r.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Rocket className="h-4 w-4" />
+                                        )}
+                                        <span className="ml-1.5 hidden sm:inline">
+                                          Onboard
+                                        </span>
+                                      </Button>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {eligible
+                                      ? "Create their organization + admin login"
+                                      : "Mark this request Qualified after your call to enable onboarding"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteRequest(r.id, r.company_name)}
+                                aria-label={`Delete request from ${r.company_name}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                     </TableRow>
                     {expandedId === r.id && (
@@ -466,29 +504,136 @@ export default function AccessRequestsPage() {
         </Card>
       )}
 
+      {/* Confirm onboarding */}
+      <Dialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => !open && onboardingId === null && setConfirmTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Rocket className="h-5 w-5" />
+              </span>
+              <DialogTitle className="text-lg">
+                Onboard {confirmTarget?.company_name}
+              </DialogTitle>
+            </div>
+            <DialogDescription>
+              Spin up their workspace and admin login from this request — no manual
+              re-entry.
+            </DialogDescription>
+          </DialogHeader>
+
+          {confirmTarget && (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Contact</span>
+                  <span className="font-medium">{confirmTarget.contact_name}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Admin login</span>
+                  <span className="font-mono text-xs">{confirmTarget.email}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Country · Sector</span>
+                  <span className="font-medium">
+                    {confirmTarget.country} ·{" "}
+                    {SECTOR_LABELS[confirmTarget.sector] || confirmTarget.sector}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Trial plan</label>
+                <Select value={planChoice} onValueChange={setPlanChoice}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="starter">Starter</SelectItem>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                {[
+                  "Creates their organization + an ORG_ADMIN login",
+                  "Emails them a welcome message with the temporary password",
+                  "Marks this request as Trial Active",
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmTarget(null)}
+              disabled={onboardingId !== null}
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmOnboard} disabled={onboardingId !== null}>
+              {onboardingId !== null ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <Rocket className="mr-2 h-4 w-4" />
+                  Create account
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Result: generated credentials */}
       <Dialog
         open={onboardResult !== null}
         onOpenChange={(open) => !open && setOnboardResult(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Account created</DialogTitle>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" />
+              </span>
+              <DialogTitle className="text-lg">Account created</DialogTitle>
+            </div>
             <DialogDescription>
-              {onboardResult?.message} Share these credentials if the email
-              doesn&apos;t arrive — the temporary password is shown only once.
+              {onboardResult?.message} Share these if the email doesn&apos;t arrive —
+              the temporary password is shown only once.
             </DialogDescription>
           </DialogHeader>
           {onboardResult && (
-            <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm">
-              {[
-                ["Login email", onboardResult.admin_email],
-                ["Username", onboardResult.admin_username],
-                ["Temporary password", onboardResult.temporary_password],
-                ["Organization", onboardResult.organization_slug],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="flex items-center gap-2 font-mono">
+            <div className="divide-y rounded-lg border text-sm">
+              {([
+                ["Login email", onboardResult.admin_email, Mail],
+                ["Username", onboardResult.admin_username, UserPlus],
+                ["Temporary password", onboardResult.temporary_password, KeyRound],
+                ["Organization", onboardResult.organization_slug, Rocket],
+              ] as [string, string, typeof Mail][]).map(([label, value, Icon]) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3 px-3 py-2"
+                >
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </span>
+                  <span className="flex items-center gap-2 font-mono text-xs">
                     {value}
                     <button
                       type="button"
