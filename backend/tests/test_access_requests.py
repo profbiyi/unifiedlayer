@@ -141,13 +141,21 @@ class TestDeleteAccessRequest:
 
 
 class TestOnboardAccessRequest:
-    def _submit(self, client: TestClient) -> int:
+    def _submit(self, client: TestClient, db: Session) -> int:
+        # The public submit endpoint returns only a message; the row id comes
+        # from the DB (mirrors the other tests in this file).
         resp = client.post("/access-requests", json=VALID_PAYLOAD)
         assert resp.status_code == 201
-        return resp.json()["id"]
+        req = (
+            db.query(AccessRequest)
+            .filter(AccessRequest.email == VALID_PAYLOAD["email"])
+            .order_by(AccessRequest.id.desc())
+            .first()
+        )
+        return req.id
 
     def test_onboard_provisions_org_and_admin(self, super_admin_client: TestClient, db: Session):
-        request_id = self._submit(super_admin_client)
+        request_id = self._submit(super_admin_client, db)
 
         resp = super_admin_client.post(
             f"/access-requests/{request_id}/onboard",
@@ -171,8 +179,8 @@ class TestOnboardAccessRequest:
         assert user.organization_id == body["organization_id"]
         assert "org_admin" in {ur.role.slug for ur in user.user_roles}
 
-    def test_onboard_twice_conflicts(self, super_admin_client: TestClient):
-        request_id = self._submit(super_admin_client)
+    def test_onboard_twice_conflicts(self, super_admin_client: TestClient, db: Session):
+        request_id = self._submit(super_admin_client, db)
         first = super_admin_client.post(f"/access-requests/{request_id}/onboard", json={})
         assert first.status_code == 200
         second = super_admin_client.post(f"/access-requests/{request_id}/onboard", json={})

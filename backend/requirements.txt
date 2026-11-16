@@ -58,6 +58,7 @@ httpx==0.26.0
 redis==5.0.1
 hiredis==2.3.2
 celery[redis]==5.3.6
+kombu>=5.3.4,<5.7.0   # kombu 5.7 requires redis-py>=6.1; we pin redis==5.0.1
 
 # Monitoring & Observability
 prometheus-client>=0.20.0
