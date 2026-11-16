@@ -138,3 +138,58 @@ class TestDeleteAccessRequest:
     def test_delete_missing_request_returns_404(self, super_admin_client: TestClient):
         response = super_admin_client.delete("/access-requests/999999")
         assert response.status_code == 404
+
+
+class TestOnboardAccessRequest:
+    def _submit(self, client: TestClient, db: Session) -> int:
+        # The public submit endpoint returns only a message; the row id comes
+        # from the DB (mirrors the other tests in this file).
+        resp = client.post("/access-requests", json=VALID_PAYLOAD)
+        assert resp.status_code == 201
+        req = (
+            db.query(AccessRequest)
+            .filter(AccessRequest.email == VALID_PAYLOAD["email"])
+            .order_by(AccessRequest.id.desc())
+            .first()
+        )
+        return req.id
+
+    def test_onboard_provisions_org_and_admin(self, super_admin_client: TestClient, db: Session):
+        request_id = self._submit(super_admin_client, db)
+
+        resp = super_admin_client.post(
+            f"/access-requests/{request_id}/onboard",
+            json={"subscription_plan": "professional"},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["admin_email"] == VALID_PAYLOAD["email"]
+        assert body["temporary_password"]
+        assert body["organization_slug"]
+
+        # the request advanced to trial_active
+        req = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+        db.refresh(req)
+        assert req.status == AccessRequestStatus.TRIAL_ACTIVE
+
+        # a real admin user now exists for that email, as ORG_ADMIN
+        from backend.models import User
+        user = db.query(User).filter(User.email == VALID_PAYLOAD["email"]).first()
+        assert user is not None
+        assert user.organization_id == body["organization_id"]
+        assert "org_admin" in {ur.role.slug for ur in user.user_roles}
+
+    def test_onboard_twice_conflicts(self, super_admin_client: TestClient, db: Session):
+        request_id = self._submit(super_admin_client, db)
+        first = super_admin_client.post(f"/access-requests/{request_id}/onboard", json={})
+        assert first.status_code == 200
+        second = super_admin_client.post(f"/access-requests/{request_id}/onboard", json={})
+        assert second.status_code == 409
+
+    def test_onboard_requires_super_admin(self, auth_client: TestClient):
+        resp = auth_client.post("/access-requests/1/onboard", json={})
+        assert resp.status_code == 403
+
+    def test_onboard_missing_request_404(self, super_admin_client: TestClient):
+        resp = super_admin_client.post("/access-requests/999999/onboard", json={})
+        assert resp.status_code == 404

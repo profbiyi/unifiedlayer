@@ -10,6 +10,8 @@ organizations manually (self-registration is disabled).
 """
 import html as html_lib
 import logging
+import re
+import secrets
 import threading
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -20,8 +22,8 @@ from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.database import get_db
-from backend.auth import require_super_admin
-from backend.models import User
+from backend.auth import require_super_admin, get_password_hash
+from backend.models import User, Organization
 from backend.models.access_request import AccessRequest, AccessRequestStatus
 
 logger = logging.getLogger(__name__)
@@ -263,3 +265,162 @@ def update_access_request(
     db.commit()
     db.refresh(request)
     return request
+
+
+# ---------------------------------------------------------------------------
+# One-click onboarding: turn a qualified access request into a real account
+# ---------------------------------------------------------------------------
+
+class OnboardRequest(BaseModel):
+    subscription_plan: str = Field(
+        default="professional",
+        description="starter | professional | enterprise (trial tier for the pilot)",
+    )
+
+
+class OnboardResult(BaseModel):
+    organization_id: int
+    organization_slug: str
+    admin_email: str
+    admin_username: str
+    temporary_password: str
+    message: str
+
+
+def _slugify(name: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+    return s[:90] or "org"
+
+
+def _unique_org_slug(db: Session, base: str) -> str:
+    slug, i = base, 2
+    while db.query(Organization).filter(Organization.slug == slug).first():
+        slug = f"{base}-{i}"[:100]
+        i += 1
+    return slug
+
+
+def _unique_username(db: Session, email: str, contact: Optional[str]) -> str:
+    base = re.sub(r"[^a-z0-9_]+", "", (email.split("@")[0] or (contact or "")).lower())[:40] or "user"
+    uname, i = base, 2
+    while db.query(User).filter(User.username == uname).first():
+        uname = f"{base}{i}"
+        i += 1
+    return uname
+
+
+@router.post("/{request_id}/onboard", response_model=OnboardResult)
+def onboard_access_request(
+    request_id: int,
+    payload: OnboardRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_super_admin),
+):
+    """
+    Provision a real account (organization + admin user) from a qualified access
+    request — the one-click alternative to re-keying everything into the admin
+    onboarding form.
+
+    **Super Admin Only.** Creates the org, its subscription (currency from the
+    request's country), an ORG_ADMIN user with a generated temporary password,
+    emails the welcome/login details, and flips the request to ``trial_active``.
+    The temporary password is returned so you can relay it if the email bounces.
+    """
+    if payload.subscription_plan not in ("starter", "professional", "enterprise"):
+        raise HTTPException(status_code=400, detail="Invalid subscription plan")
+
+    request = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Access request not found")
+
+    # Already has an account? Don't create a duplicate.
+    if db.query(User).filter(User.email == request.email).first():
+        raise HTTPException(
+            status_code=409,
+            detail=f"A user with email {request.email} already exists — this request looks already onboarded.",
+        )
+
+    from backend.api.routes.admin import _create_org_subscription
+    from backend.models.rbac import Role, UserRole
+
+    org_admin_role = db.query(Role).filter(Role.slug == "org_admin").first()
+    if not org_admin_role:
+        raise HTTPException(status_code=500, detail="ORG_ADMIN role not found")
+
+    slug = _unique_org_slug(db, _slugify(request.company_name))
+    temp_password = secrets.token_urlsafe(12)
+
+    organization = Organization(
+        name=request.company_name,
+        slug=slug,
+        description=f"Research/testing pilot. Sector: {request.sector}.",
+        country=request.country,
+        subscription_plan=payload.subscription_plan,
+        billing_email=request.email,
+        is_active=True,
+    )
+    db.add(organization)
+    db.flush()
+
+    _create_org_subscription(db, organization, payload.subscription_plan, request.country)
+
+    username = _unique_username(db, request.email, request.contact_name)
+    admin_user = User(
+        organization_id=organization.id,
+        email=request.email,
+        username=username,
+        full_name=request.contact_name,
+        hashed_password=get_password_hash(temp_password),
+        is_active=True,
+        is_superuser=False,
+        email_verified=True,
+    )
+    db.add(admin_user)
+    db.flush()
+
+    db.add(UserRole(
+        user_id=admin_user.id,
+        role_id=org_admin_role.id,
+        organization_id=organization.id,
+        assigned_by_id=current_user.id,
+    ))
+
+    # Advance the funnel + record what happened.
+    request.status = AccessRequestStatus.TRIAL_ACTIVE
+    note = (
+        f"Onboarded {datetime.now(timezone.utc):%Y-%m-%d} as org '{slug}' "
+        f"(admin {request.email}, plan {payload.subscription_plan})."
+    )
+    request.notes = f"{request.notes}\n{note}" if request.notes else note
+    request.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(organization)
+    db.refresh(admin_user)
+
+    logger.info("Onboarded access request %s -> org %s (%s)", request_id, slug, request.email)
+
+    # Welcome email in the background (don't block the response).
+    def _send_welcome():
+        try:
+            from backend.notifications import email_notifier
+            email_notifier.send_welcome_email(
+                to_email=admin_user.email,
+                user_name=admin_user.full_name or admin_user.username,
+                organization_name=organization.name,
+                login_url=f"{settings.FRONTEND_URL}/login",
+                temporary_password=temp_password,
+            )
+        except Exception as exc:  # noqa: BLE001 — email is best-effort
+            logger.warning("Welcome email to %s failed: %s", admin_user.email, exc)
+
+    threading.Thread(target=_send_welcome).start()
+
+    return OnboardResult(
+        organization_id=organization.id,
+        organization_slug=slug,
+        admin_email=admin_user.email,
+        admin_username=username,
+        temporary_password=temp_password,
+        message=f"Onboarded '{organization.name}'. Welcome email sent to {admin_user.email}.",
+    )
