@@ -28,7 +28,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Inbox, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft,
+  Copy,
+  Inbox,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
+
+interface OnboardResult {
+  organization_id: number;
+  organization_slug: string;
+  admin_email: string;
+  admin_username: string;
+  temporary_password: string;
+  message: string;
+}
 
 interface AccessRequestItem {
   id: number;
@@ -82,6 +107,8 @@ export default function AccessRequestsPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [onboardingId, setOnboardingId] = useState<number | null>(null);
+  const [onboardResult, setOnboardResult] = useState<OnboardResult | null>(null);
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -140,6 +167,40 @@ export default function AccessRequestsPage() {
         description: "Failed to update the request.",
         variant: "destructive",
       });
+    }
+  };
+
+  const onboardRequest = async (r: AccessRequestItem) => {
+    if (
+      !confirm(
+        `Onboard "${r.company_name}"?\n\nThis creates their organization and an admin login for ${r.email}, emails them the credentials, and marks the request Trial Active.`
+      )
+    ) {
+      return;
+    }
+    setOnboardingId(r.id);
+    try {
+      const response = await api.post(`/access-requests/${r.id}/onboard`, {});
+      const result: OnboardResult = response.data;
+      setOnboardResult(result);
+      // reflect the new status locally
+      setRequests((prev) =>
+        prev.map((x) => (x.id === r.id ? { ...x, status: "trial_active" } : x))
+      );
+      toast({
+        title: "Onboarded",
+        description: `${r.company_name} now has an account.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Could not onboard",
+        description:
+          err?.response?.data?.detail ||
+          "Failed to onboard this request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setOnboardingId(null);
     }
   };
 
@@ -310,15 +371,33 @@ export default function AccessRequestsPage() {
                         })}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteRequest(r.id, r.company_name)}
-                          aria-label={`Delete request from ${r.company_name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => onboardRequest(r)}
+                            disabled={onboardingId === r.id}
+                            aria-label={`Onboard ${r.company_name}`}
+                            title="Create their organization + admin login"
+                          >
+                            {onboardingId === r.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <UserPlus className="h-4 w-4" />
+                            )}
+                            <span className="ml-1 hidden sm:inline">Onboard</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteRequest(r.id, r.company_name)}
+                            aria-label={`Delete request from ${r.company_name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                     {expandedId === r.id && (
@@ -386,6 +465,52 @@ export default function AccessRequestsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog
+        open={onboardResult !== null}
+        onOpenChange={(open) => !open && setOnboardResult(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Account created</DialogTitle>
+            <DialogDescription>
+              {onboardResult?.message} Share these credentials if the email
+              doesn&apos;t arrive — the temporary password is shown only once.
+            </DialogDescription>
+          </DialogHeader>
+          {onboardResult && (
+            <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-sm">
+              {[
+                ["Login email", onboardResult.admin_email],
+                ["Username", onboardResult.admin_username],
+                ["Temporary password", onboardResult.temporary_password],
+                ["Organization", onboardResult.organization_slug],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="flex items-center gap-2 font-mono">
+                    {value}
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(value);
+                        toast({ title: "Copied", description: `${label} copied.` });
+                      }}
+                      aria-label={`Copy ${label}`}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setOnboardResult(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
