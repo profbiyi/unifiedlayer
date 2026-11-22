@@ -20,7 +20,7 @@ from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 from backend.database import Base
 
@@ -94,7 +94,11 @@ class GeneratedModel(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    organization = relationship("Organization", backref="generated_models")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    organization = relationship(
+        "Organization", backref=backref("generated_models", passive_deletes=True)
+    )
     pipeline = relationship("Pipeline", backref="generated_models")
     materialized_by = relationship("User", backref="materialized_models")
 
@@ -151,7 +155,11 @@ class ModelGeneration(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    organization = relationship("Organization", backref="model_generations")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    organization = relationship(
+        "Organization", backref=backref("model_generations", passive_deletes=True)
+    )
     pipeline = relationship("Pipeline", backref="model_generations")
     pipeline_run = relationship("PipelineRun", backref="model_generations")
 

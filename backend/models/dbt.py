@@ -19,7 +19,7 @@ from sqlalchemy import (
     Float,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 
 from backend.database import Base
@@ -75,7 +75,11 @@ class DbtProject(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    organization = relationship("Organization", backref="dbt_projects")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    organization = relationship(
+        "Organization", backref=backref("dbt_projects", passive_deletes=True)
+    )
     pipeline_configs = relationship("PipelineDbtConfig", back_populates="dbt_project", cascade="all, delete-orphan")
     runs = relationship("DbtRun", back_populates="project", cascade="all, delete-orphan")
 
