@@ -78,7 +78,11 @@ class OnboardingProgress(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    user = relationship("User", backref="onboarding_progress")
+    # passive_deletes=True: deleting a user (e.g. via org cascade) lets the DB's
+    # ON DELETE CASCADE remove this row instead of the ORM nulling user_id.
+    user = relationship(
+        "User", backref=backref("onboarding_progress", passive_deletes=True)
+    )
     # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
     # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
     organization = relationship(

@@ -59,7 +59,11 @@ class AIConversation(Base):
 
     # Relationships
     messages = relationship("AIMessage", back_populates="conversation", cascade="all, delete-orphan", order_by="AIMessage.created_at")
-    user = relationship("User", backref="ai_conversations")
+    # passive_deletes=True: deleting a user (e.g. via org cascade) lets the DB's
+    # ON DELETE CASCADE remove this row instead of the ORM nulling user_id.
+    user = relationship(
+        "User", backref=backref("ai_conversations", passive_deletes=True)
+    )
     # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
     # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
     organization = relationship(
