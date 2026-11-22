@@ -181,8 +181,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Raises:
             HTTPException: If rate limit exceeded
         """
-        # Skip rate limiting if disabled
-        if not settings.RATE_LIMIT_ENABLED:
+        # Skip rate limiting if disabled, or under tests (the whole suite shares
+        # one client IP and would otherwise trip the shared counter).
+        if not settings.RATE_LIMIT_ENABLED or settings.ENVIRONMENT == "test":
             return await call_next(request)
 
         # Skip rate limiting for health checks
@@ -333,6 +334,10 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         """Process request with auth-specific rate limiting."""
+        # Off under tests (shared client IP would trip the shared counter).
+        if settings.ENVIRONMENT == "test":
+            return await call_next(request)
+
         # Only apply to POST requests on auth endpoints
         if request.method != "POST":
             return await call_next(request)

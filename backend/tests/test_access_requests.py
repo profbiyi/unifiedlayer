@@ -195,3 +195,33 @@ class TestOnboardAccessRequest:
     def test_onboard_missing_request_404(self, super_admin_client: TestClient):
         resp = super_admin_client.post("/access-requests/999999/onboard", json={})
         assert resp.status_code == 404
+
+    def test_force_delete_org_reenables_onboarding(
+        self, super_admin_client: TestClient, db: Session
+    ):
+        # onboard -> request is marked onboarded into the new org
+        request_id = self._submit(super_admin_client, db)
+        onboard = super_admin_client.post(
+            f"/access-requests/{request_id}/onboard", json={}
+        )
+        assert onboard.status_code == 200
+        org_id = onboard.json()["organization_id"]
+
+        # force-delete the org (cascades users; clears the request's onboarded marker)
+        force = super_admin_client.request(
+            "DELETE",
+            f"/admin/organizations/{org_id}/force",
+            json={"reason": "test cleanup"},
+        )
+        assert force.status_code == 200, force.text
+
+        req = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
+        db.refresh(req)
+        assert req.onboarded_at is None
+        assert req.onboarded_organization_id is None
+
+        # and the email is free, so they can be onboarded again
+        again = super_admin_client.post(
+            f"/access-requests/{request_id}/onboard", json={}
+        )
+        assert again.status_code == 200
