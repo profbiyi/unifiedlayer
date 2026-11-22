@@ -989,6 +989,15 @@ def force_delete_organization(
         ip_address=request_info["ip_address"],
     )
 
+    # Re-enable onboarding for any access request that was onboarded into this org.
+    from backend.models.access_request import AccessRequest
+    db.query(AccessRequest).filter(
+        AccessRequest.onboarded_organization_id == org_id
+    ).update(
+        {"onboarded_at": None, "onboarded_organization_id": None},
+        synchronize_session=False,
+    )
+
     db.delete(org)
     db.commit()
 
@@ -1041,6 +1050,15 @@ def force_delete_organization_by_slug(
         organization_id=org.id,
         details={"organization_name": org.name, "slug": slug},
         ip_address=request_info["ip_address"],
+    )
+
+    # Re-enable onboarding for any access request that was onboarded into this org.
+    from backend.models.access_request import AccessRequest
+    db.query(AccessRequest).filter(
+        AccessRequest.onboarded_organization_id == org_id
+    ).update(
+        {"onboarded_at": None, "onboarded_organization_id": None},
+        synchronize_session=False,
     )
 
     db.delete(org)
