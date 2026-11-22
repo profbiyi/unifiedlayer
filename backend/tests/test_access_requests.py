@@ -167,10 +167,12 @@ class TestOnboardAccessRequest:
         assert body["temporary_password"]
         assert body["organization_slug"]
 
-        # the request advanced to trial_active
+        # the request advanced to trial_active and is marked onboarded
         req = db.query(AccessRequest).filter(AccessRequest.id == request_id).first()
         db.refresh(req)
         assert req.status == AccessRequestStatus.TRIAL_ACTIVE
+        assert req.onboarded_at is not None
+        assert req.onboarded_organization_id == body["organization_id"]
 
         # a real admin user now exists for that email, as ORG_ADMIN
         from backend.models import User

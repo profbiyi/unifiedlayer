@@ -81,6 +81,8 @@ interface AccessRequestItem {
   research_consent: boolean;
   status: string;
   notes: string | null;
+  onboarded_at: string | null;
+  onboarded_organization_id: number | null;
   created_at: string;
 }
 
@@ -201,9 +203,18 @@ export default function AccessRequestsPage() {
       const result: OnboardResult = response.data;
       setConfirmTarget(null);
       setOnboardResult(result);
-      // reflect the new status locally
+      // reflect the new status + onboarded marker locally
       setRequests((prev) =>
-        prev.map((x) => (x.id === r.id ? { ...x, status: "trial_active" } : x))
+        prev.map((x) =>
+          x.id === r.id
+            ? {
+                ...x,
+                status: "trial_active",
+                onboarded_at: new Date().toISOString(),
+                onboarded_organization_id: result.organization_id,
+              }
+            : x
+        )
       );
       toast({
         title: "Onboarded",
@@ -391,39 +402,56 @@ export default function AccessRequestsPage() {
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         {(() => {
                           const eligible = ONBOARDABLE_STATUSES.has(r.status);
+                          const isOnboarded = Boolean(r.onboarded_at);
                           return (
                             <div className="flex items-center justify-end gap-1">
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    {/* span keeps the tooltip working while the button is disabled */}
-                                    <span tabIndex={0}>
-                                      <Button
-                                        variant={eligible ? "default" : "outline"}
-                                        size="sm"
-                                        className="h-8"
-                                        onClick={() => openOnboardConfirm(r)}
-                                        disabled={!eligible || onboardingId === r.id}
-                                        aria-label={`Onboard ${r.company_name}`}
-                                      >
-                                        {onboardingId === r.id ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <Rocket className="h-4 w-4" />
-                                        )}
-                                        <span className="ml-1.5 hidden sm:inline">
-                                          Onboard
-                                        </span>
-                                      </Button>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    {eligible
-                                      ? "Create their organization + admin login"
-                                      : "Mark this request Qualified after your call to enable onboarding"}
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              {isOnboarded ? (
+                                <Badge
+                                  variant="outline"
+                                  className="h-8 gap-1.5 border-emerald-500/40 bg-emerald-500/10 px-2.5 text-emerald-700 dark:text-emerald-400"
+                                  title={`Account created ${new Date(
+                                    r.onboarded_at as string
+                                  ).toLocaleDateString("en-GB", {
+                                    day: "numeric",
+                                    month: "short",
+                                  })}`}
+                                >
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  Onboarded
+                                </Badge>
+                              ) : (
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      {/* span keeps the tooltip working while the button is disabled */}
+                                      <span tabIndex={0}>
+                                        <Button
+                                          variant={eligible ? "default" : "outline"}
+                                          size="sm"
+                                          className="h-8"
+                                          onClick={() => openOnboardConfirm(r)}
+                                          disabled={!eligible || onboardingId === r.id}
+                                          aria-label={`Onboard ${r.company_name}`}
+                                        >
+                                          {onboardingId === r.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Rocket className="h-4 w-4" />
+                                          )}
+                                          <span className="ml-1.5 hidden sm:inline">
+                                            Onboard
+                                          </span>
+                                        </Button>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {eligible
+                                        ? "Create their organization + admin login"
+                                        : "Mark this request Qualified after your call to enable onboarding"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"

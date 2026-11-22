@@ -69,6 +69,11 @@ class AccessRequest(Base):
     )
     notes = Column(Text, nullable=True)  # internal notes (discovery call outcome etc.)
 
+    # Set when the request is turned into a real account via one-click onboarding.
+    # Distinct from status (which can be trial_active without an account existing).
+    onboarded_at = Column(DateTime(timezone=True), nullable=True)
+    onboarded_organization_id = Column(Integer, nullable=True)
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

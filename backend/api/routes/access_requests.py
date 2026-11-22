@@ -143,6 +143,8 @@ class AccessRequestResponse(BaseModel):
     research_consent: bool
     status: AccessRequestStatus
     notes: Optional[str]
+    onboarded_at: Optional[datetime] = None
+    onboarded_organization_id: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -387,6 +389,8 @@ def onboard_access_request(
 
     # Advance the funnel + record what happened.
     request.status = AccessRequestStatus.TRIAL_ACTIVE
+    request.onboarded_at = datetime.now(timezone.utc)
+    request.onboarded_organization_id = organization.id
     note = (
         f"Onboarded {datetime.now(timezone.utc):%Y-%m-%d} as org '{slug}' "
         f"(admin {request.email}, plan {payload.subscription_plan})."
