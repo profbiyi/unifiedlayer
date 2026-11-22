@@ -22,7 +22,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 from backend.database import Base
 
@@ -194,8 +194,13 @@ class Subscription(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
-    # Relationships
-    organization = relationship("Organization", backref="subscription", uselist=False)
+    # Relationships. passive_deletes=True so deleting an organization lets the DB's
+    # ON DELETE CASCADE (on subscriptions.organization_id) remove this row, instead
+    # of the ORM trying to NULL the FK (which violates the NOT NULL constraint).
+    organization = relationship(
+        "Organization",
+        backref=backref("subscription", uselist=False, passive_deletes=True),
+    )
     invoices = relationship("Invoice", back_populates="subscription", cascade="all, delete-orphan")
 
 
