@@ -15,7 +15,7 @@ from sqlalchemy import (
     JSON,
     Enum as SQLEnum,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 
 from backend.database import Base
@@ -79,7 +79,11 @@ class OnboardingProgress(Base):
 
     # Relationships
     user = relationship("User", backref="onboarding_progress")
-    organization = relationship("Organization", backref="onboarding_progress")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    organization = relationship(
+        "Organization", backref=backref("onboarding_progress", passive_deletes=True)
+    )
 
     @property
     def completion_percentage(self) -> int:

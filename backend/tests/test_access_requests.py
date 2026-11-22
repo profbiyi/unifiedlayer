@@ -225,3 +225,56 @@ class TestOnboardAccessRequest:
             f"/access-requests/{request_id}/onboard", json={}
         )
         assert again.status_code == 200
+
+    def test_force_delete_org_with_related_rows(
+        self, super_admin_client: TestClient, db: Session
+    ):
+        """Force-delete must succeed even when the org has child rows whose
+        organization_id is NOT NULL (onboarding_progress, ai_conversations).
+
+        Regression: these back-referenced relationships lacked passive_deletes,
+        so deleting the org made the ORM try to NULL a NOT-NULL FK -> 500.
+        """
+        from backend.models import User
+        from backend.models.onboarding import OnboardingProgress
+        from backend.models.ai import AIConversation
+
+        request_id = self._submit(super_admin_client, db)
+        onboard = super_admin_client.post(
+            f"/access-requests/{request_id}/onboard", json={}
+        )
+        assert onboard.status_code == 200
+        org_id = onboard.json()["organization_id"]
+
+        user = db.query(User).filter(User.email == VALID_PAYLOAD["email"]).first()
+        assert user is not None
+
+        # Seed the NOT-NULL-FK child rows that used to break the delete.
+        db.add(OnboardingProgress(user_id=user.id, organization_id=org_id))
+        db.add(
+            AIConversation(
+                organization_id=org_id, user_id=user.id, title="Regression seed"
+            )
+        )
+        db.commit()
+
+        force = super_admin_client.request(
+            "DELETE",
+            f"/admin/organizations/{org_id}/force",
+            json={"reason": "regression: related rows"},
+        )
+        assert force.status_code == 200, force.text
+
+        # The org and its child rows are gone (DB ON DELETE CASCADE).
+        assert (
+            db.query(OnboardingProgress)
+            .filter(OnboardingProgress.organization_id == org_id)
+            .count()
+            == 0
+        )
+        assert (
+            db.query(AIConversation)
+            .filter(AIConversation.organization_id == org_id)
+            .count()
+            == 0
+        )

@@ -16,7 +16,7 @@ from sqlalchemy import (
     Enum as SQLEnum,
     Index,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 
 from backend.database import Base
@@ -60,7 +60,11 @@ class AIConversation(Base):
     # Relationships
     messages = relationship("AIMessage", back_populates="conversation", cascade="all, delete-orphan", order_by="AIMessage.created_at")
     user = relationship("User", backref="ai_conversations")
-    organization = relationship("Organization", backref="ai_conversations")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    organization = relationship(
+        "Organization", backref=backref("ai_conversations", passive_deletes=True)
+    )
 
     __table_args__ = (
         Index("ix_ai_conversations_org_user", "organization_id", "user_id"),
