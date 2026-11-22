@@ -348,32 +348,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeletePendingOrg = async (orgId: number, orgName: string) => {
-    if (!confirm(
-      `Delete pending organization "${orgName}"?\n\n` +
-      `This action cannot be undone. The organization and its admin user will be permanently deleted.\n\n` +
-      `Note: You can only delete organizations that haven't onboarded yet.`
-    )) {
-      return;
-    }
-
-    try {
-      await api.delete(`/admin/organizations/${orgId}`);
-
-      toast({
-        title: "Success",
-        description: `Pending organization "${orgName}" has been deleted`,
-      });
-
-      fetchOrganizations();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.detail || "Failed to delete organization",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleForceDeleteOrg = async () => {
     if (!deleteDialogOrg) return;
@@ -988,17 +962,10 @@ export default function AdminDashboard() {
                               </DropdownMenuItem>
                             )}
 
-                            {/* Delete Organization */}
+                            {/* Delete Organization — one styled dialog for all orgs
+                                (no native browser confirm) */}
                             <DropdownMenuSeparator />
-                            {!org.admin_onboarded ? (
-                              <DropdownMenuItem
-                                onClick={() => handleDeletePendingOrg(org.id, org.name)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Pending Organization
-                              </DropdownMenuItem>
-                            ) : (
+                            {(
                               <DropdownMenuItem
                                 onClick={() => {
                                   setDeleteDialogOrg(org);
@@ -1008,7 +975,7 @@ export default function AdminDashboard() {
                                 className="text-destructive"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Permanently Delete
+                                Delete Organization
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
