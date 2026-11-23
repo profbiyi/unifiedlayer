@@ -21,7 +21,7 @@ from sqlalchemy import (
     Index,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 from backend.database import Base
 
@@ -149,9 +149,11 @@ class ColumnLineage(Base):
         backref="column_lineages",
         foreign_keys=[dbt_run_id]
     )
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # org is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
     organization = relationship(
         "Organization",
-        backref="column_lineages",
+        backref=backref("column_lineages", passive_deletes=True),
         foreign_keys=[organization_id]
     )
 

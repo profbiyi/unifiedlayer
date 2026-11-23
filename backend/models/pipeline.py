@@ -267,7 +267,13 @@ class DataSource(Base):
 
     # Relationships
     organization = relationship("Organization", back_populates="data_sources")
-    pipelines = relationship("Pipeline", back_populates="source", foreign_keys="Pipeline.source_id")
+    # passive_deletes=True: deleting a source lets the DB's ON DELETE CASCADE on
+    # pipelines.source_id handle its pipelines, instead of the ORM trying to NULL
+    # that NOT-NULL FK (which breaks org force-delete).
+    pipelines = relationship(
+        "Pipeline", back_populates="source",
+        foreign_keys="Pipeline.source_id", passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<DataSource(id={self.id}, name='{self.name}', type='{self.source_type}')>"
@@ -298,7 +304,13 @@ class Destination(Base):
 
     # Relationships
     organization = relationship("Organization", back_populates="destinations")
-    pipelines = relationship("Pipeline", back_populates="destination", foreign_keys="Pipeline.destination_id")
+    # passive_deletes=True: deleting a destination lets the DB's ON DELETE CASCADE
+    # on pipelines.destination_id handle its pipelines, instead of the ORM trying
+    # to NULL that NOT-NULL FK (which breaks org force-delete).
+    pipelines = relationship(
+        "Pipeline", back_populates="destination",
+        foreign_keys="Pipeline.destination_id", passive_deletes=True,
+    )
 
     def __repr__(self):
         return f"<Destination(id={self.id}, name='{self.name}', type='{self.destination_type}')>"

@@ -229,15 +229,25 @@ class TestOnboardAccessRequest:
     def test_force_delete_org_with_related_rows(
         self, super_admin_client: TestClient, db: Session
     ):
-        """Force-delete must succeed even when the org has child rows whose
-        organization_id is NOT NULL (onboarding_progress, ai_conversations).
+        """Force-delete must succeed for a fully-populated org.
 
-        Regression: these back-referenced relationships lacked passive_deletes,
-        so deleting the org made the ORM try to NULL a NOT-NULL FK -> 500.
+        Regression: many models back-reference Organization/User/Pipeline with a
+        NOT-NULL FK and no passive_deletes, so deleting the org made the ORM try
+        to NULL those NOT-NULL FKs -> 500. This seeds the whole graph
+        (onboarding, AI, source, destination, pipeline, column lineage) and
+        asserts the force-delete cascades cleanly.
         """
         from backend.models import User
+        from backend.models.pipeline import (
+            DataSource,
+            Destination,
+            Pipeline,
+            SourceType,
+            DestinationType,
+        )
         from backend.models.onboarding import OnboardingProgress
         from backend.models.ai import AIConversation
+        from backend.models.column_lineage import ColumnLineage
 
         request_id = self._submit(super_admin_client, db)
         onboard = super_admin_client.post(
@@ -249,11 +259,43 @@ class TestOnboardAccessRequest:
         user = db.query(User).filter(User.email == VALID_PAYLOAD["email"]).first()
         assert user is not None
 
-        # Seed the NOT-NULL-FK child rows that used to break the delete.
+        # user/org-scoped children with NOT-NULL FKs
         db.add(OnboardingProgress(user_id=user.id, organization_id=org_id))
         db.add(
             AIConversation(
                 organization_id=org_id, user_id=user.id, title="Regression seed"
+            )
+        )
+
+        # a full source -> destination -> pipeline chain (the common real case)
+        src = DataSource(
+            organization_id=org_id,
+            name="Seed source",
+            source_type=SourceType.POSTGRES,
+            config={},
+        )
+        dst = Destination(
+            organization_id=org_id,
+            name="Seed dest",
+            destination_type=DestinationType.POSTGRES,
+            config={},
+        )
+        db.add_all([src, dst])
+        db.flush()
+        pipe = Pipeline(
+            organization_id=org_id,
+            source_id=src.id,
+            destination_id=dst.id,
+            name="Seed pipeline",
+        )
+        db.add(pipe)
+        db.add(
+            ColumnLineage(
+                organization_id=org_id,
+                source_table="a",
+                source_column="b",
+                target_table="c",
+                target_column="d",
             )
         )
         db.commit()
@@ -261,11 +303,11 @@ class TestOnboardAccessRequest:
         force = super_admin_client.request(
             "DELETE",
             f"/admin/organizations/{org_id}/force",
-            json={"reason": "regression: related rows"},
+            json={"reason": "regression: full graph"},
         )
         assert force.status_code == 200, force.text
 
-        # The org and its child rows are gone (DB ON DELETE CASCADE).
+        # org and every seeded child are gone (DB ON DELETE CASCADE).
         assert (
             db.query(OnboardingProgress)
             .filter(OnboardingProgress.organization_id == org_id)
@@ -275,6 +317,14 @@ class TestOnboardAccessRequest:
         assert (
             db.query(AIConversation)
             .filter(AIConversation.organization_id == org_id)
+            .count()
+            == 0
+        )
+        assert db.query(Pipeline).filter(Pipeline.organization_id == org_id).count() == 0
+        assert db.query(DataSource).filter(DataSource.organization_id == org_id).count() == 0
+        assert (
+            db.query(ColumnLineage)
+            .filter(ColumnLineage.organization_id == org_id)
             .count()
             == 0
         )

@@ -99,7 +99,11 @@ class GeneratedModel(Base):
     organization = relationship(
         "Organization", backref=backref("generated_models", passive_deletes=True)
     )
-    pipeline = relationship("Pipeline", backref="generated_models")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # pipeline is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    pipeline = relationship(
+        "Pipeline", backref=backref("generated_models", passive_deletes=True)
+    )
     materialized_by = relationship("User", backref="materialized_models")
 
     def __repr__(self):
@@ -160,7 +164,11 @@ class ModelGeneration(Base):
     organization = relationship(
         "Organization", backref=backref("model_generations", passive_deletes=True)
     )
-    pipeline = relationship("Pipeline", backref="model_generations")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove these when the
+    # pipeline is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    pipeline = relationship(
+        "Pipeline", backref=backref("model_generations", passive_deletes=True)
+    )
     pipeline_run = relationship("PipelineRun", backref="model_generations")
 
     def __repr__(self):

@@ -114,7 +114,11 @@ class PipelineDbtConfig(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
-    pipeline = relationship("Pipeline", backref="dbt_config")
+    # passive_deletes=True: let the DB's ON DELETE CASCADE remove this when the
+    # pipeline is deleted, instead of the ORM trying to NULL the NOT-NULL FK.
+    pipeline = relationship(
+        "Pipeline", backref=backref("dbt_config", passive_deletes=True)
+    )
     dbt_project = relationship("DbtProject", back_populates="pipeline_configs")
 
     def __repr__(self):
