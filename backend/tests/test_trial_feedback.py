@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from backend.models.trial_feedback import (
     TrialFeedback,
-    TestimonialAttribution,
     TestimonialStatus,
 )
 
