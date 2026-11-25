@@ -76,6 +76,11 @@ from backend.models.access_request import (
     AccessRequest,
     AccessRequestStatus,
 )
+from backend.models.trial_feedback import (
+    TrialFeedback,
+    TestimonialAttribution,
+    TestimonialStatus,
+)
 
 
 __all__ = [
@@ -134,4 +139,7 @@ __all__ = [
     "ReportFrequency",
     "AccessRequest",
     "AccessRequestStatus",
+    "TrialFeedback",
+    "TestimonialAttribution",
+    "TestimonialStatus",
 ]

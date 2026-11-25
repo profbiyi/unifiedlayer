@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Testimonials } from "@/components/marketing/testimonials";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -299,6 +300,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <Testimonials />
 
       {/* Data Sovereignty Section */}
       <section className="border-t bg-primary/5 py-20 md:py-28">
