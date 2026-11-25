@@ -477,6 +477,9 @@ export default function AdminDashboard() {
         <Link href="/admin/access-requests">
           <Button variant="outline">Access Requests</Button>
         </Link>
+        <Link href="/admin/trial-feedback">
+          <Button variant="outline">Trial Feedback</Button>
+        </Link>
         <Dialog open={onboardDialogOpen} onOpenChange={(open) => { setOnboardDialogOpen(open); if (!open) { setOnboardFormData(initialFormState); setOnboardResult(null); } }}>
           <DialogTrigger asChild>
             <Button variant="default">
