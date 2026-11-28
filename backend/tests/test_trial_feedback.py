@@ -15,17 +15,17 @@ VALID = {
     "respondent_name": "Ada Obi",
     "role": "Head of Finance",
     "company_name": "Acme Payments Ltd",
-    "ease_of_use": 4,
-    "setup_experience": 3,
-    "data_trust": 4,
-    "value_rating": 5,
-    "adoption_likelihood": 4,
+    "problem_relevance": 5,
+    "hardest_systems": "Paystack and our Excel ledgers.",
+    "biggest_concern": "Data security sign-off.",
+    "continue_likelihood": 4,
+    "top_feature": "local_connectors",
+    "top_feature_reason": "We live on Paystack and MoMo.",
+    "local_storage_importance": 5,
+    "price_band": "ngn_25k_75k",
     "nps": 9,
-    "time_saved": "1-3 hours",
-    "willingness_to_pay": "$50-150 / month",
-    "features_used": ["Connecting data sources", "Dashboards"],
-    "problem_solved": "Monthly reconciliation across Paystack and spreadsheets.",
     "research_consent": True,
+    "quote_consent": True,
 }
 
 
@@ -40,11 +40,24 @@ class TestSubmit:
         fb = db.query(TrialFeedback).one()
         assert fb.email == "ada@acmepayments.com"
         assert fb.nps == 9
+        assert fb.problem_relevance == 5
+        assert fb.top_feature == "local_connectors"
+        assert fb.price_band == "ngn_25k_75k"
+        assert fb.quote_consent is True
         assert fb.testimonial_status == TestimonialStatus.NONE
+
+    def test_price_other_kept_only_with_other_band(self, client: TestClient, db: Session):
+        _submit(client, price_band="other", price_other="KES 5,000")
+        assert db.query(TrialFeedback).one().price_other == "KES 5,000"
+
+    def test_unknown_options_rejected(self, client: TestClient):
+        assert _submit(client, top_feature="teleport").status_code == 422
+        assert _submit(client, price_band="free_forever").status_code == 422
 
     def test_rating_bounds(self, client: TestClient):
         assert _submit(client, nps=11).status_code == 422
-        assert _submit(client, ease_of_use=0).status_code == 422
+        assert _submit(client, problem_relevance=0).status_code == 422
+        assert _submit(client, local_storage_importance=6).status_code == 422
 
     def test_testimonial_without_consent_is_never_publishable(self, client: TestClient, db: Session):
         _submit(client, testimonial="Great product", testimonial_consent=False)
@@ -105,11 +118,15 @@ class TestModerationAndPublicFeed:
     def test_export_is_anonymised(self, client: TestClient, super_admin_client: TestClient, db: Session):
         _submit(client)
         fb = db.query(TrialFeedback).one()
-        super_admin_client.patch(f"/trial-feedback/{fb.id}", json={"participant_label": "P1"})
+        super_admin_client.patch(
+            f"/trial-feedback/{fb.id}",
+            json={"participant_label": "P1", "sector_label": "Digital payments", "size_label": "11-50"},
+        )
         r = super_admin_client.get("/trial-feedback/export.csv")
         assert r.status_code == 200
         body = r.text
         assert "P1" in body
+        assert "Digital payments" in body
         assert "ada@acmepayments.com" not in body
         assert "Acme Payments" not in body
         assert "Ada Obi" not in body

@@ -37,6 +37,22 @@ router = APIRouter(prefix="/trial-feedback", tags=["Trial Feedback"])
 Likert = Field(..., ge=1, le=5)
 OpenText = Field(None, max_length=5000)
 
+# Q5: tick the single most important feature
+TOP_FEATURES = {
+    "connecting_sources",   # Connecting my data sources
+    "data_location",        # Controlling where my data is stored
+    "dashboards",           # Dashboards and reporting
+    "ai_insights",          # AI insights
+    "local_connectors",     # Local connectors (M-Pesa, MTN, Paystack, etc.)
+}
+
+# Q7: fixed monthly price bands in naira and euro, or "other"
+PRICE_BANDS = {
+    "ngn_under_25k", "ngn_25k_75k", "ngn_75k_150k", "ngn_150k_300k", "ngn_over_300k",
+    "eur_under_25", "eur_25_75", "eur_75_150", "eur_150_300", "eur_over_300",
+    "would_not_pay", "other",
+}
+
 
 class TrialFeedbackCreate(BaseModel):
     email: EmailStr
@@ -44,28 +60,95 @@ class TrialFeedbackCreate(BaseModel):
     role: Optional[str] = Field(None, max_length=200)
     company_name: Optional[str] = Field(None, max_length=200)
 
-    ease_of_use: int = Likert
-    setup_experience: int = Likert
-    data_trust: int = Likert
-    value_rating: int = Likert
-    adoption_likelihood: int = Likert
+    # Section A: the problem and the fit
+    problem_relevance: int = Likert
+    hardest_systems: Optional[str] = OpenText
+    biggest_concern: Optional[str] = OpenText
+    # Section B: value and priorities
+    continue_likelihood: int = Likert
+    top_feature: Optional[str] = Field(None, max_length=100)
+    top_feature_reason: Optional[str] = OpenText
+    local_storage_importance: int = Likert
+    # Section C: pricing and recommendation
+    price_band: Optional[str] = Field(None, max_length=50)
+    price_other: Optional[str] = Field(None, max_length=200)
     nps: int = Field(..., ge=0, le=10)
-    time_saved: Optional[str] = Field(None, max_length=50)
-    willingness_to_pay: Optional[str] = Field(None, max_length=50)
-    features_used: List[str] = Field(default_factory=list, max_length=30)
-
-    problem_solved: Optional[str] = OpenText
-    most_valuable: Optional[str] = OpenText
-    biggest_frustration: Optional[str] = OpenText
-    missing_for_adoption: Optional[str] = OpenText
-    compared_to_before: Optional[str] = OpenText
     other_comments: Optional[str] = OpenText
 
     research_consent: bool = False
+    quote_consent: bool = False
 
     testimonial: Optional[str] = Field(None, max_length=600)
     testimonial_consent: bool = False
     testimonial_attribution: TestimonialAttribution = TestimonialAttribution.ANONYMOUS
+
+
+class TrialFeedbackResponse(BaseModel):
+    id: int
+    email: str
+    respondent_name: Optional[str]
+    role: Optional[str]
+    company_name: Optional[str]
+    participant_label: Optional[str]
+    sector_label: Optional[str] = None
+    size_label: Optional[str] = None
+    problem_relevance: Optional[int] = None
+    hardest_systems: Optional[str] = None
+    biggest_concern: Optional[str] = None
+    continue_likelihood: Optional[int] = None
+    top_feature: Optional[str] = None
+    top_feature_reason: Optional[str] = None
+    local_storage_importance: Optional[int] = None
+    price_band: Optional[str] = None
+    price_other: Optional[str] = None
+    nps: int
+    other_comments: Optional[str]
+    # Earlier draft questions (responses collected before 28 Nov 2026)
+    ease_of_use: Optional[int] = None
+    setup_experience: Optional[int] = None
+    data_trust: Optional[int] = None
+    value_rating: Optional[int] = None
+    adoption_likelihood: Optional[int] = None
+    time_saved: Optional[str] = None
+    willingness_to_pay: Optional[str] = None
+    features_used: Optional[List[str]] = None
+    problem_solved: Optional[str] = None
+    most_valuable: Optional[str] = None
+    biggest_frustration: Optional[str] = None
+    missing_for_adoption: Optional[str] = None
+    compared_to_before: Optional[str] = None
+    research_consent: bool
+    quote_consent: bool = False
+    testimonial: Optional[str]
+    testimonial_consent: bool
+    testimonial_attribution: TestimonialAttribution
+    testimonial_status: TestimonialStatus
+    testimonial_display_text: Optional[str]
+    notes: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TrialFeedbackUpdate(BaseModel):
+    participant_label: Optional[str] = Field(None, max_length=20)
+    sector_label: Optional[str] = Field(None, max_length=100)
+    size_label: Optional[str] = Field(None, max_length=50)
+    testimonial_status: Optional[TestimonialStatus] = None
+    testimonial_display_text: Optional[str] = Field(None, max_length=600)
+    notes: Optional[str] = Field(None, max_length=10000)
+
+
+class PublicTestimonial(BaseModel):
+    id: int
+    quote: str
+    attribution: str
+
+
+def _clean(v: Optional[str]) -> Optional[str]:
+    v = (v or "").strip()
+    return v or None
 
 
 def _attribution_error(p: "TrialFeedbackCreate") -> Optional[str]:
@@ -83,59 +166,6 @@ def _attribution_error(p: "TrialFeedbackCreate") -> Optional[str]:
     if a == TestimonialAttribution.ROLE_COMPANY_TYPE and not has(p.role):
         return "Role is needed for the chosen attribution."
     return None
-
-
-class TrialFeedbackResponse(BaseModel):
-    id: int
-    email: str
-    respondent_name: Optional[str]
-    role: Optional[str]
-    company_name: Optional[str]
-    participant_label: Optional[str]
-    ease_of_use: int
-    setup_experience: int
-    data_trust: int
-    value_rating: int
-    adoption_likelihood: int
-    nps: int
-    time_saved: Optional[str]
-    willingness_to_pay: Optional[str]
-    features_used: List[str]
-    problem_solved: Optional[str]
-    most_valuable: Optional[str]
-    biggest_frustration: Optional[str]
-    missing_for_adoption: Optional[str]
-    compared_to_before: Optional[str]
-    other_comments: Optional[str]
-    research_consent: bool
-    testimonial: Optional[str]
-    testimonial_consent: bool
-    testimonial_attribution: TestimonialAttribution
-    testimonial_status: TestimonialStatus
-    testimonial_display_text: Optional[str]
-    notes: Optional[str]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class TrialFeedbackUpdate(BaseModel):
-    participant_label: Optional[str] = Field(None, max_length=20)
-    testimonial_status: Optional[TestimonialStatus] = None
-    testimonial_display_text: Optional[str] = Field(None, max_length=600)
-    notes: Optional[str] = Field(None, max_length=10000)
-
-
-class PublicTestimonial(BaseModel):
-    id: int
-    quote: str
-    attribution: str
-
-
-def _clean(v: Optional[str]) -> Optional[str]:
-    v = (v or "").strip()
-    return v or None
 
 
 def attribution_line(fb: TrialFeedback) -> str:
@@ -172,6 +202,10 @@ def _notify(admin_emails: List[str], fb_id: int, nps: int, has_testimonial: bool
 @router.post("", status_code=status.HTTP_201_CREATED)
 def submit_trial_feedback(payload: TrialFeedbackCreate, db: Session = Depends(get_db)):
     """Submit post-trial feedback (public, no auth)."""
+    if payload.top_feature and payload.top_feature not in TOP_FEATURES:
+        raise HTTPException(status_code=422, detail="Unknown feature option.")
+    if payload.price_band and payload.price_band not in PRICE_BANDS:
+        raise HTTPException(status_code=422, detail="Unknown price option.")
     err = _attribution_error(payload)
     if err:
         raise HTTPException(status_code=422, detail=err)
@@ -183,22 +217,19 @@ def submit_trial_feedback(payload: TrialFeedbackCreate, db: Session = Depends(ge
         respondent_name=_clean(payload.respondent_name),
         role=_clean(payload.role),
         company_name=_clean(payload.company_name),
-        ease_of_use=payload.ease_of_use,
-        setup_experience=payload.setup_experience,
-        data_trust=payload.data_trust,
-        value_rating=payload.value_rating,
-        adoption_likelihood=payload.adoption_likelihood,
+        problem_relevance=payload.problem_relevance,
+        hardest_systems=_clean(payload.hardest_systems),
+        biggest_concern=_clean(payload.biggest_concern),
+        continue_likelihood=payload.continue_likelihood,
+        top_feature=payload.top_feature,
+        top_feature_reason=_clean(payload.top_feature_reason),
+        local_storage_importance=payload.local_storage_importance,
+        price_band=payload.price_band,
+        price_other=_clean(payload.price_other) if payload.price_band == "other" else None,
         nps=payload.nps,
-        time_saved=payload.time_saved,
-        willingness_to_pay=payload.willingness_to_pay,
-        features_used=payload.features_used,
-        problem_solved=_clean(payload.problem_solved),
-        most_valuable=_clean(payload.most_valuable),
-        biggest_frustration=_clean(payload.biggest_frustration),
-        missing_for_adoption=_clean(payload.missing_for_adoption),
-        compared_to_before=_clean(payload.compared_to_before),
         other_comments=_clean(payload.other_comments),
         research_consent=payload.research_consent,
+        quote_consent=payload.quote_consent,
         testimonial=testimonial,
         testimonial_consent=publishable,
         testimonial_attribution=payload.testimonial_attribution,
@@ -258,11 +289,12 @@ def list_trial_feedback(
 
 
 EXPORT_COLUMNS = [
-    "id", "participant_label", "created_at", "ease_of_use", "setup_experience",
-    "data_trust", "value_rating", "adoption_likelihood", "nps", "time_saved",
-    "willingness_to_pay", "features_used", "problem_solved", "most_valuable",
-    "biggest_frustration", "missing_for_adoption", "compared_to_before",
-    "other_comments", "research_consent", "testimonial_consent", "testimonial_status",
+    "id", "participant_label", "sector_label", "size_label", "created_at",
+    "problem_relevance", "hardest_systems", "biggest_concern",
+    "continue_likelihood", "top_feature", "top_feature_reason",
+    "local_storage_importance", "price_band", "price_other", "nps",
+    "other_comments", "research_consent", "quote_consent",
+    "testimonial_consent", "testimonial_status",
 ]
 
 
@@ -284,9 +316,7 @@ def export_trial_feedback_csv(
         out = []
         for col in EXPORT_COLUMNS:
             v = getattr(r, col)
-            if col == "features_used":
-                v = "; ".join(v or [])
-            elif hasattr(v, "value"):
+            if hasattr(v, "value"):
                 v = v.value
             elif isinstance(v, datetime):
                 v = v.isoformat()
@@ -323,6 +353,10 @@ def update_trial_feedback(
         fb.testimonial_status = payload.testimonial_status
     if payload.participant_label is not None:
         fb.participant_label = _clean(payload.participant_label)
+    if payload.sector_label is not None:
+        fb.sector_label = _clean(payload.sector_label)
+    if payload.size_label is not None:
+        fb.size_label = _clean(payload.size_label)
     if payload.testimonial_display_text is not None:
         fb.testimonial_display_text = _clean(payload.testimonial_display_text)
     if payload.notes is not None:

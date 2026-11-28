@@ -16,33 +16,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Database, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
 
-const FEATURES = [
-  "Connecting data sources",
-  "Scheduled syncs / pipelines",
-  "Dashboards and reports",
-  "Data quality checks",
-  "SQL transformations",
-  "AI assistant / insights",
-  "Exports to a warehouse or spreadsheet",
-  "Alerts and notifications",
+// Q5: tick the single most important feature
+const TOP_FEATURES = [
+  { value: "connecting_sources", label: "Connecting my data sources" },
+  { value: "data_location", label: "Controlling where my data is stored" },
+  { value: "dashboards", label: "Dashboards and reporting" },
+  { value: "ai_insights", label: "AI insights" },
+  { value: "local_connectors", label: "Local connectors (M-Pesa, MTN, Paystack, etc.)" },
 ];
 
-const TIME_SAVED = [
-  "None yet",
-  "Under 1 hour",
-  "1-3 hours",
-  "3-8 hours",
-  "More than 8 hours",
-  "Not sure",
+// Q7: fixed monthly price bands, in naira or euro
+const PRICE_BANDS_NGN = [
+  { value: "ngn_under_25k", label: "Under ₦25,000" },
+  { value: "ngn_25k_75k", label: "₦25,000 – ₦75,000" },
+  { value: "ngn_75k_150k", label: "₦75,000 – ₦150,000" },
+  { value: "ngn_150k_300k", label: "₦150,000 – ₦300,000" },
+  { value: "ngn_over_300k", label: "Over ₦300,000" },
 ];
-
-const WTP = [
-  "Would not pay",
-  "Under $50 / month",
-  "$50-150 / month",
-  "$150-300 / month",
-  "Over $300 / month",
-  "Not sure",
+const PRICE_BANDS_EUR = [
+  { value: "eur_under_25", label: "Under €25" },
+  { value: "eur_25_75", label: "€25 – €75" },
+  { value: "eur_75_150", label: "€75 – €150" },
+  { value: "eur_150_300", label: "€150 – €300" },
+  { value: "eur_over_300", label: "Over €300" },
+];
+const PRICE_OTHER = [
+  { value: "would_not_pay", label: "I would not pay for it" },
+  { value: "other", label: "Other amount or currency" },
 ];
 
 const ATTRIBUTION = [
@@ -110,37 +110,34 @@ function Scale({
   );
 }
 
-function Choice({
-  label,
+function Pills({
   options,
   value,
   onChange,
 }: {
-  label: string;
-  options: string[];
+  options: { value: string; label: string }[];
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">{label}</legend>
-      <div className="flex flex-wrap gap-2">
-        {options.map((o) => (
-          <button
-            key={o}
-            type="button"
-            onClick={() => onChange(o)}
-            className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-              value === o
-                ? "border-primary bg-primary/10 font-medium text-primary"
-                : "hover:border-primary/50"
-            }`}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
-    </fieldset>
+    <div className="flex flex-wrap gap-2" role="radiogroup">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+            value === o.value
+              ? "border-primary bg-primary/10 font-medium text-primary"
+              : "hover:border-primary/50"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -178,25 +175,23 @@ export default function TrialFeedbackPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [company, setCompany] = useState("");
-  // Ratings
-  const [easeOfUse, setEaseOfUse] = useState<number | null>(null);
-  const [setup, setSetup] = useState<number | null>(null);
-  const [dataTrust, setDataTrust] = useState<number | null>(null);
-  const [value, setValue] = useState<number | null>(null);
-  const [adoption, setAdoption] = useState<number | null>(null);
+  // Section A
+  const [relevance, setRelevance] = useState<number | null>(null);
+  const [hardestSystems, setHardestSystems] = useState("");
+  const [concern, setConcern] = useState("");
+  // Section B
+  const [continueLikelihood, setContinueLikelihood] = useState<number | null>(null);
+  const [topFeature, setTopFeature] = useState("");
+  const [topFeatureReason, setTopFeatureReason] = useState("");
+  const [localStorageImportance, setLocalStorageImportance] = useState<number | null>(null);
+  // Section C
+  const [priceBand, setPriceBand] = useState("");
+  const [priceOther, setPriceOther] = useState("");
   const [nps, setNps] = useState<number | null>(null);
-  const [timeSaved, setTimeSaved] = useState("");
-  const [wtp, setWtp] = useState("");
-  const [features, setFeatures] = useState<string[]>([]);
-  // Open questions
-  const [problemSolved, setProblemSolved] = useState("");
-  const [mostValuable, setMostValuable] = useState("");
-  const [frustration, setFrustration] = useState("");
-  const [missing, setMissing] = useState("");
-  const [compared, setCompared] = useState("");
   const [other, setOther] = useState("");
   // Consent + testimonial
   const [researchConsent, setResearchConsent] = useState(false);
+  const [quoteConsent, setQuoteConsent] = useState(false);
   const [testimonial, setTestimonial] = useState("");
   const [testimonialConsent, setTestimonialConsent] = useState(false);
   const [attribution, setAttribution] = useState("anonymous");
@@ -205,16 +200,13 @@ export default function TrialFeedbackPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const toggleFeature = (f: string) =>
-    setFeatures((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]));
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const ratings = [easeOfUse, setup, dataTrust, value, adoption, nps];
+    const ratings = [relevance, continueLikelihood, localStorageImportance, nps];
     if (ratings.some((r) => r === null)) {
-      setError("Please answer all the rating questions in section 2.");
+      setError("Please answer the four rating questions (1, 4, 6 and 8).");
       return;
     }
     const wantsPublish = testimonialConsent && testimonial.trim().length > 0;
@@ -243,22 +235,19 @@ export default function TrialFeedbackPage() {
           respondent_name: name || null,
           role: role || null,
           company_name: company || null,
-          ease_of_use: easeOfUse,
-          setup_experience: setup,
-          data_trust: dataTrust,
-          value_rating: value,
-          adoption_likelihood: adoption,
+          problem_relevance: relevance,
+          hardest_systems: hardestSystems,
+          biggest_concern: concern,
+          continue_likelihood: continueLikelihood,
+          top_feature: topFeature || null,
+          top_feature_reason: topFeatureReason,
+          local_storage_importance: localStorageImportance,
+          price_band: priceBand || null,
+          price_other: priceBand === "other" ? priceOther : null,
           nps,
-          time_saved: timeSaved || null,
-          willingness_to_pay: wtp || null,
-          features_used: features,
-          problem_solved: problemSolved,
-          most_valuable: mostValuable,
-          biggest_frustration: frustration,
-          missing_for_adoption: missing,
-          compared_to_before: compared,
           other_comments: other,
           research_consent: researchConsent,
+          quote_consent: quoteConsent,
           testimonial: testimonial || null,
           testimonial_consent: testimonialConsent,
           testimonial_attribution: attribution,
@@ -324,10 +313,17 @@ export default function TrialFeedbackPage() {
             <Card className="border shadow-xl shadow-primary/5">
               <CardHeader>
                 <CardTitle className="font-display text-3xl">How was your trial?</CardTitle>
-                <CardDescription className="text-base">
-                  Thanks for testing UnifiedLayer. This takes about 8 minutes. Honest
-                  answers help most, including what didn&apos;t work. Only your email
-                  and the rating questions are required.
+                <CardDescription className="space-y-2 text-base">
+                  <span className="block">
+                    Thank you for taking part in the UnifiedLayer trial. Your responses form part of
+                    doctoral research at MASH International School of Business. All answers are
+                    treated in strict confidence and are fully anonymised: your organisation will
+                    never be named, and only a sector-and-size label is used in any analysis.
+                  </span>
+                  <span className="block">
+                    Please answer as honestly as possible. Critical feedback is just as valuable to
+                    this research as positive feedback. It takes about 5 minutes.
+                  </span>
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -362,15 +358,108 @@ export default function TrialFeedbackPage() {
                     </div>
                   </div>
 
-                  <SectionTitle step={2}>Your ratings</SectionTitle>
+                  <SectionTitle step={2}>A. The problem and the fit</SectionTitle>
                   <div className="space-y-6">
-                    <Scale label="How easy was UnifiedLayer to use?" value={easeOfUse} onChange={setEaseOfUse} low="Very difficult" high="Very easy" />
-                    <Scale label="How smooth was connecting your data sources and getting set up?" value={setup} onChange={setSetup} low="Very difficult" high="Very smooth" />
-                    <Scale label="How much do you trust the data and numbers it produced?" value={dataTrust} onChange={setDataTrust} low="Not at all" high="Completely" />
-                    <Scale label="How valuable would UnifiedLayer be to your business?" value={value} onChange={setValue} low="Not valuable" high="Extremely valuable" />
-                    <Scale label="How likely is your team to keep using it or adopt it after the trial?" value={adoption} onChange={setAdoption} low="Very unlikely" high="Very likely" />
                     <Scale
-                      label="How likely are you to recommend UnifiedLayer to a colleague or another business?"
+                      label="1. How relevant is the data integration problem that UnifiedLayer addresses to your business?"
+                      value={relevance}
+                      onChange={setRelevance}
+                      low="1 = Not relevant"
+                      high="5 = Highly relevant"
+                    />
+                    <OpenQuestion
+                      id="hardestSystems"
+                      label="2. Which of your systems generate data that is currently hardest to bring together?"
+                      value={hardestSystems}
+                      onChange={setHardestSystems}
+                      placeholder="e.g. Paystack, our core banking database and Excel"
+                    />
+                    <OpenQuestion
+                      id="concern"
+                      label="3. What is your biggest concern about adopting a platform like this?"
+                      value={concern}
+                      onChange={setConcern}
+                    />
+                  </div>
+
+                  <SectionTitle step={3}>B. Value and priorities</SectionTitle>
+                  <div className="space-y-6">
+                    <Scale
+                      label="4. After this trial, how likely are you to continue using UnifiedLayer?"
+                      value={continueLikelihood}
+                      onChange={setContinueLikelihood}
+                      low="1 = Very unlikely"
+                      high="5 = Very likely"
+                    />
+                    <fieldset className="space-y-2">
+                      <legend className="text-sm font-medium">
+                        5. Which feature mattered most to you during the trial? (Pick one)
+                      </legend>
+                      <div className="space-y-2">
+                        {TOP_FEATURES.map((f) => (
+                          <label
+                            key={f.value}
+                            className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm transition-colors ${
+                              topFeature === f.value ? "border-primary bg-primary/5 font-medium" : "hover:border-primary/50"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="topFeature"
+                              value={f.value}
+                              checked={topFeature === f.value}
+                              onChange={() => setTopFeature(f.value)}
+                              className="accent-[hsl(var(--primary))]"
+                            />
+                            <span>{f.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <Textarea
+                        aria-label="Why did that feature matter most? (optional)"
+                        value={topFeatureReason}
+                        onChange={(e) => setTopFeatureReason(e.target.value)}
+                        rows={2}
+                        maxLength={5000}
+                        placeholder="Why? (optional)"
+                      />
+                    </fieldset>
+                    <Scale
+                      label="6. How important is it that your data is stored locally, in a location you control?"
+                      value={localStorageImportance}
+                      onChange={setLocalStorageImportance}
+                      low="1 = Not important"
+                      high="5 = Essential"
+                    />
+                  </div>
+
+                  <SectionTitle step={4}>C. Pricing and recommendation</SectionTitle>
+                  <div className="space-y-6">
+                    <fieldset className="space-y-3">
+                      <legend className="text-sm font-medium">
+                        7. What would be an acceptable monthly price for your business to use this platform?
+                      </legend>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium uppercase text-muted-foreground">Naira (₦)</p>
+                        <Pills options={PRICE_BANDS_NGN} value={priceBand} onChange={setPriceBand} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium uppercase text-muted-foreground">Euro (€)</p>
+                        <Pills options={PRICE_BANDS_EUR} value={priceBand} onChange={setPriceBand} />
+                      </div>
+                      <Pills options={PRICE_OTHER} value={priceBand} onChange={setPriceBand} />
+                      {priceBand === "other" && (
+                        <Input
+                          aria-label="Acceptable monthly price, with currency"
+                          value={priceOther}
+                          onChange={(e) => setPriceOther(e.target.value)}
+                          maxLength={200}
+                          placeholder="Amount and currency, e.g. KES 5,000 or GHS 400"
+                        />
+                      )}
+                    </fieldset>
+                    <Scale
+                      label="8. How likely are you to recommend UnifiedLayer to another organisation?"
                       value={nps}
                       onChange={setNps}
                       min={0}
@@ -378,40 +467,15 @@ export default function TrialFeedbackPage() {
                       low="0 = Not at all likely"
                       high="10 = Extremely likely"
                     />
-                    <Choice label="Roughly how much time per week could it save your team on data work?" options={TIME_SAVED} value={timeSaved} onChange={setTimeSaved} />
-                    <Choice label="What would you realistically pay for it per month?" options={WTP} value={wtp} onChange={setWtp} />
-                    <fieldset className="space-y-2">
-                      <legend className="text-sm font-medium">Which parts did you use during the trial?</legend>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {FEATURES.map((f) => {
-                          const selected = features.includes(f);
-                          return (
-                            <label
-                              key={f}
-                              className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition-colors ${
-                                selected ? "border-primary bg-primary/5 font-medium" : "hover:border-primary/50"
-                              }`}
-                            >
-                              <Checkbox checked={selected} onCheckedChange={() => toggleFeature(f)} />
-                              <span>{f}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </fieldset>
+                    <OpenQuestion
+                      id="other"
+                      label="Is there anything else you would like to add about your experience with the platform? (Optional)"
+                      value={other}
+                      onChange={setOther}
+                    />
                   </div>
 
-                  <SectionTitle step={3}>In your own words</SectionTitle>
-                  <div className="space-y-5">
-                    <OpenQuestion id="problemSolved" label="What problem did you hope UnifiedLayer would solve, and did it?" value={problemSolved} onChange={setProblemSolved} />
-                    <OpenQuestion id="mostValuable" label="What was the most useful thing it did for you?" value={mostValuable} onChange={setMostValuable} />
-                    <OpenQuestion id="frustration" label="What frustrated you or got in the way?" value={frustration} onChange={setFrustration} />
-                    <OpenQuestion id="missing" label="What would need to change, or be added, before you'd adopt it?" value={missing} onChange={setMissing} placeholder="e.g. a connector we use, pricing in naira, on-site support, security sign-off" />
-                    <OpenQuestion id="compared" label="How does it compare with how you handled this data before the trial?" value={compared} onChange={setCompared} />
-                    <OpenQuestion id="other" label="Anything else you'd like to tell us?" value={other} onChange={setOther} />
-                  </div>
-
-                  <SectionTitle step={4}>Testimonial (optional)</SectionTitle>
+                  <SectionTitle step={5}>Testimonial (optional)</SectionTitle>
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="testimonial">
@@ -474,23 +538,39 @@ export default function TrialFeedbackPage() {
                     )}
                   </div>
 
-                  <SectionTitle step={5}>Research consent</SectionTitle>
-                  <label className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/30 p-4 text-sm">
-                    <Checkbox
-                      checked={researchConsent}
-                      onCheckedChange={(v) => setResearchConsent(v === true)}
-                      className="mt-0.5"
-                    />
-                    <span className="text-muted-foreground">
-                      I agree that my answers may be used, anonymised, in the fintech SME
-                      research study described in the{" "}
-                      <Link href="/research-pilot" target="_blank" className="text-primary hover:underline">
-                        participant information notice
-                      </Link>
-                      . Neither I nor my company will be named in it.{" "}
-                      <span className="text-xs">(Optional: your feedback still counts without this.)</span>
-                    </span>
-                  </label>
+                  <SectionTitle step={6}>Research consent</SectionTitle>
+                  <div className="space-y-3">
+                    <label className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/30 p-4 text-sm">
+                      <Checkbox
+                        checked={researchConsent}
+                        onCheckedChange={(v) => setResearchConsent(v === true)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-muted-foreground">
+                        I agree that my answers may be used, anonymised, in the doctoral research
+                        described in the{" "}
+                        <Link href="/research-pilot" target="_blank" className="text-primary hover:underline">
+                          participant information notice
+                        </Link>
+                        . Neither I nor my organisation will be named.
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-md border bg-muted/30 p-4 text-sm">
+                      <Checkbox
+                        checked={quoteConsent}
+                        onCheckedChange={(v) => setQuoteConsent(v === true)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-muted-foreground">
+                        I agree that short, anonymised quotes from my written answers may appear in
+                        the research, attributed only to a participant reference (e.g. &ldquo;P2,
+                        digital payments, 11–50 staff&rdquo;).
+                      </span>
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Both are optional. Your feedback still counts without them.
+                    </p>
+                  </div>
 
                   {error && (
                     <p className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">

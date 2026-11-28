@@ -53,27 +53,45 @@ class TrialFeedback(Base):
     # Research label (P1, P2, ...) assigned by the admin, used in analysis
     participant_label = Column(String(20), nullable=True)
 
-    # Ratings: 1-5 Likert unless noted
-    ease_of_use = Column(Integer, nullable=False)
-    setup_experience = Column(Integer, nullable=False)
-    data_trust = Column(Integer, nullable=False)
-    value_rating = Column(Integer, nullable=False)
-    adoption_likelihood = Column(Integer, nullable=False)
-    nps = Column(Integer, nullable=False)  # 0-10
+    # Researcher-assigned labels (never shown to the participant)
+    sector_label = Column(String(100), nullable=True)
+    size_label = Column(String(50), nullable=True)
+
+    # --- Final questionnaire (Nov 2026) ---
+    # Section A: the problem and the fit
+    problem_relevance = Column(Integer, nullable=True)        # Q1, 1-5
+    hardest_systems = Column(Text, nullable=True)             # Q2
+    biggest_concern = Column(Text, nullable=True)             # Q3
+    # Section B: value and priorities
+    continue_likelihood = Column(Integer, nullable=True)      # Q4, 1-5
+    top_feature = Column(String(100), nullable=True)          # Q5, single choice
+    top_feature_reason = Column(Text, nullable=True)          # Q5, optional why
+    local_storage_importance = Column(Integer, nullable=True) # Q6, 1-5
+    # Section C: pricing and recommendation
+    price_band = Column(String(50), nullable=True)            # Q7, fixed band or "other"
+    price_other = Column(String(200), nullable=True)          # Q7, free text when "other"
+    nps = Column(Integer, nullable=False)                     # Q8, 0-10
+    other_comments = Column(Text, nullable=True)              # closing open question
+
+    # --- Earlier draft questions (kept nullable so early responses survive) ---
+    ease_of_use = Column(Integer, nullable=True)
+    setup_experience = Column(Integer, nullable=True)
+    data_trust = Column(Integer, nullable=True)
+    value_rating = Column(Integer, nullable=True)
+    adoption_likelihood = Column(Integer, nullable=True)
     time_saved = Column(String(50), nullable=True)
     willingness_to_pay = Column(String(50), nullable=True)
     features_used = Column(JSON, default=list)
-
-    # Open questions
     problem_solved = Column(Text, nullable=True)
     most_valuable = Column(Text, nullable=True)
     biggest_frustration = Column(Text, nullable=True)
     missing_for_adoption = Column(Text, nullable=True)
     compared_to_before = Column(Text, nullable=True)
-    other_comments = Column(Text, nullable=True)
 
     # Consent
     research_consent = Column(Boolean, default=False, nullable=False)
+    # Agreed that anonymised quotes from their open answers may appear in the research
+    quote_consent = Column(Boolean, default=False, nullable=False)
 
     # Testimonial (publish only with consent + approval)
     testimonial = Column(Text, nullable=True)
